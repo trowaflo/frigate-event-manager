@@ -1,0 +1,3 @@
+title = "My gitleaks"
+[extend]
+useDefault = true
