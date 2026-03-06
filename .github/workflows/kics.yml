@@ -1,0 +1,33 @@
+name: KICS Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  kics:
+    name: Kics Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: run kics Scan
+        uses: checkmarx/kics-github-action@05aa5eb70eede1355220f4ca5238d96b397e30a6 # v2.1.20
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: "."
+          ignore_on_exit: results
+          enable_annotations: true
+          enable_comments: true
+          enable_jobs_summary: true
+          comments_with_queries: true
+          output_path: ./results
+          output_formats: json
+      - name: Display results
+        run: |
+          cat ./results/results.json
