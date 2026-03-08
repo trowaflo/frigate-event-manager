@@ -34,7 +34,6 @@ func main() {
 		"broker", cfg.MQTTBrokerURL,
 		"topic", cfg.MQTTTopic,
 		"mqtt_user", cfg.MQTTUsername,
-		"ha_url", cfg.HABaseURL,
 		"notify_service", cfg.NotifyService,
 	)
 

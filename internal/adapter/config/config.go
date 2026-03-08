@@ -8,7 +8,6 @@ import (
 
 // Config contient toute la configuration de l'addon.
 // En production, elle est lue depuis /data/options.json (fichier HA).
-// Les champs avec une valeur par défaut sont optionnels.
 type Config struct {
 	// MQTT
 	MQTTBrokerURL string `json:"mqtt_broker_url"`
@@ -17,13 +16,13 @@ type Config struct {
 	MQTTUsername  string `json:"mqtt_username"`
 	MQTTPassword  string `json:"mqtt_password"`
 
-	// Dans config.go, ajouter :
+	// Anti-spam
 	Cooldown int `json:"cooldown"` // secondes, défaut 30
 	Debounce int `json:"debounce"` // secondes, défaut 5
 
-	// Home Assistant (optionnel — si absent, les événements sont juste loggés)
-	HABaseURL     string `json:"ha_base_url"`
-	HAToken       string `json:"ha_token"`
+	// Home Assistant — résolu automatiquement via l'environnement Supervisor
+	HABaseURL     string `json:"-"` // jamais dans le fichier config, défaut http://supervisor/core
+	HAToken       string `json:"-"` // jamais dans le fichier config, vient de SUPERVISOR_TOKEN
 	NotifyService string `json:"notify_service"`
 
 	// Filtres
@@ -31,9 +30,10 @@ type Config struct {
 	Cameras        []string `json:"cameras"`
 }
 
-// HasNotifier retourne true si la config contient de quoi envoyer des notifications.
+// HasNotifier retourne true si le token Supervisor est disponible
+// et qu'un service de notification est configuré.
 func (c *Config) HasNotifier() bool {
-	return c.HABaseURL != "" && c.HAToken != "" && c.NotifyService != ""
+	return c.HAToken != "" && c.NotifyService != ""
 }
 
 func Load(path string) (*Config, error) {
@@ -64,11 +64,8 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("MQTT_PASSWORD"); v != "" {
 		c.MQTTPassword = v
 	}
-	if v := os.Getenv("HA_TOKEN"); v != "" {
+	if v := os.Getenv("SUPERVISOR_TOKEN"); v != "" {
 		c.HAToken = v
-	}
-	if v := os.Getenv("HA_BASE_URL"); v != "" {
-		c.HABaseURL = v
 	}
 }
 
@@ -85,6 +82,7 @@ func (c *Config) applyDefaults() {
 	if c.Debounce == 0 {
 		c.Debounce = 5
 	}
+	c.HABaseURL = "http://supervisor/core"
 }
 
 func (c *Config) validate() error {

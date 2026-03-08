@@ -7,17 +7,14 @@ tasks:
       - go test -v ./...
 
   dev:
-    desc: Lance l'addon en local (credentials depuis le Keychain macOS)
+    desc: Lance l'addon (SUPERVISOR_TOKEN fourni par le devcontainer HA)
     cmds:
       - cmd: |
           export CONFIG_PATH=dev/config.json
-          export MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w 2>/dev/null)
-          export MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w 2>/dev/null)
-          export HA_TOKEN=$(security find-generic-password -a frigate-event-manager -s ha-token -w 2>/dev/null)
           exec go run ./cmd/addon
 
   dev:init:
-    desc: Stocke les credentials MQTT dans le Keychain macOS (chiffré)
+    desc: Stocke les credentials MQTT dans le Keychain macOS (hors devcontainer)
     cmds:
       - cmd: |
           echo "--- Stockage des credentials MQTT dans le Keychain ---"
@@ -25,17 +22,14 @@ tasks:
           security add-generic-password -a frigate-event-manager -s mqtt-username -w "$USERNAME" -U
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
           security add-generic-password -a frigate-event-manager -s mqtt-password -w "$PASSWORD" -U
-          printf "HA_TOKEN: " && read -s TOKEN && echo
-          security add-generic-password -a frigate-event-manager -s ha-token -w "$TOKEN" -U
-          echo "✅ Credentials stockés dans le Keychain macOS"
+          echo "✅ Credentials MQTT stockés dans le Keychain macOS"
     silent: true
 
   dev:clean:
-    desc: Supprime les credentials du Keychain
+    desc: Supprime les credentials MQTT du Keychain
     cmds:
       - security delete-generic-password -a frigate-event-manager -s mqtt-username 2>/dev/null || true
       - security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
-      - security delete-generic-password -a frigate-event-manager -s ha-token 2>/dev/null || true
       - echo "✅ Credentials supprimés du Keychain"
     silent: true
 
