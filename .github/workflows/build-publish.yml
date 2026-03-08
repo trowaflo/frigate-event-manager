@@ -1,9 +1,9 @@
 name: build-publish
 
 on:
-  workflow_dispatch:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,28 +33,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine tags
-        id: tags
+      - name: Determine bake target
+        id: target
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
-            if [[ "${{ github.event.release.prerelease }}" == "false" ]]; then
-              TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+              echo "name=prerelease" >> "$GITHUB_OUTPUT"
+            else
+              echo "name=release" >> "$GITHUB_OUTPUT"
             fi
           else
-            # Sanitize branch name: feat/zone-filter → feat-zone-filter
-            BRANCH="${GITHUB_REF_NAME//\//-}"
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH}"
+            echo "name=frigate-event-manager" >> "$GITHUB_OUTPUT"
           fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        uses: docker/bake-action@82490499d2e5613fcead7e128237ef0b0ea210f7 # v7.0.0
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
         with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          source: .
+          files: ./docker/docker-bake.hcl
+          targets: ${{ steps.target.outputs.name }}
+          push: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
