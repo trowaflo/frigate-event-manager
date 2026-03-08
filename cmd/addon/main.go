@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"frigate-event-manager/internal/adapter/config"
 	"frigate-event-manager/internal/adapter/debughandler"
@@ -14,6 +15,7 @@ import (
 	"frigate-event-manager/internal/core/filter"
 	"frigate-event-manager/internal/core/ports"
 	"frigate-event-manager/internal/core/processor"
+	"frigate-event-manager/internal/core/throttle"
 )
 
 func main() {
@@ -41,7 +43,12 @@ func main() {
 
 	if cfg.HasNotifier() {
 		log.Info("notifications HA actives", "ha_url", cfg.HABaseURL, "service", cfg.NotifyService)
-		eventHandler = homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService)
+		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService)
+		eventHandler = throttle.New(notifier,
+			time.Duration(cfg.Cooldown)*time.Second,
+			time.Duration(cfg.Debounce)*time.Second,
+		)
+		log.Info("throttle activé", "cooldown", cfg.Cooldown, "debounce", cfg.Debounce)
 	} else {
 		log.Info("pas de config HA — événements loggés uniquement")
 		eventHandler = debughandler.NewHandler(log)

@@ -69,6 +69,12 @@ func TestLoad_DefaultValues(t *testing.T) {
     if cfg.MQTTClientID != "frigate-event-manager" {
         t.Errorf("client_id par défaut attendu 'frigate-event-manager', reçu '%s'", cfg.MQTTClientID)
     }
+    if cfg.Cooldown != 30 {
+        t.Errorf("cooldown par défaut attendu 30, reçu %d", cfg.Cooldown)
+    }
+    if cfg.Debounce != 5 {
+        t.Errorf("debounce par défaut attendu 5, reçu %d", cfg.Debounce)
+    }
 }
 
 func TestLoad_MissingBrokerURL_ReturnsError(t *testing.T) {

@@ -17,6 +17,10 @@ type Config struct {
 	MQTTUsername  string `json:"mqtt_username"`
 	MQTTPassword  string `json:"mqtt_password"`
 
+	// Dans config.go, ajouter :
+	Cooldown int `json:"cooldown"` // secondes, défaut 30
+	Debounce int `json:"debounce"` // secondes, défaut 5
+
 	// Home Assistant (optionnel — si absent, les événements sont juste loggés)
 	HABaseURL     string `json:"ha_base_url"`
 	HAToken       string `json:"ha_token"`
@@ -74,6 +78,12 @@ func (c *Config) applyDefaults() {
 	}
 	if c.MQTTClientID == "" {
 		c.MQTTClientID = "frigate-event-manager"
+	}
+	if c.Cooldown == 0 {
+		c.Cooldown = 30
+	}
+	if c.Debounce == 0 {
+		c.Debounce = 5
 	}
 }
 
