@@ -26,7 +26,7 @@ func NewProcessor(filters *filter.FilterChain, handler ports.EventHandler) *Proc
 // Pour l'instant, seuls les événements "new" sont traités.
 // Les "update" et "end" seront gérés quand on implémentera la boucle.
 func (p *Processor) ProcessEvent(payload domain.FrigatePayload) error {
-    if payload.Type != "new" {
+    if payload.Type != "new" && payload.Type != "update" {
         return nil
     }
 

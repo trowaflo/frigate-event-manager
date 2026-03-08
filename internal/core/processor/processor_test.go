@@ -107,27 +107,54 @@ func TestProcessor_NewEvent_FailsFilter_HandlerNotCalled(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TEST 3 : Les événements "update" sont ignorés (pour l'instant)
+// TEST 3 : Événement "update" + filtre OK → le handler est appelé
 // ---------------------------------------------------------------------------
-// La boucle d'update (étape future) gérera les "update" et "end".
-// Pour l'instant, le processor ne traite que les "new".
-func TestProcessor_IgnoresUpdateEvents(t *testing.T) {
+// Frigate envoie un update quand l'événement évolue (ex: severity passe
+// de detection → alert, zones/sub_labels ajoutés). On doit le traiter
+// exactement comme un "new" : filtre sur After, handler si ça passe.
+// Le tag dans la notification garantit que c'est une mise à jour, pas un doublon.
+func TestProcessor_UpdateEvent_PassesFilter_CallsHandler(t *testing.T) {
     handler := &mockHandler{}
-    chain := filter.NewFilterChain() // aucun filtre, tout passerait
+    chain := filter.NewFilterChain(
+        filter.NewSeverityFilter([]string{"alert"}),
+    )
     proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("update", "alert", []string{"person"}))
+    payload := newTestPayload("update", "alert", []string{"person"})
+    err := proc.ProcessEvent(payload)
+
+    if err != nil {
+        t.Fatalf("erreur inattendue: %v", err)
+    }
+    if !handler.called {
+        t.Fatal("le handler aurait dû être appelé pour un update qui passe le filtre")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TEST 4 : Événement "update" + filtre KO → le handler n'est PAS appelé
+// ---------------------------------------------------------------------------
+// L'update est à severity "detection" mais le filtre n'accepte que "alert".
+// Pas de notification. Quand un prochain update arrivera avec "alert", ça passera.
+func TestProcessor_UpdateEvent_FailsFilter_HandlerNotCalled(t *testing.T) {
+    handler := &mockHandler{}
+    chain := filter.NewFilterChain(
+        filter.NewSeverityFilter([]string{"alert"}),
+    )
+    proc := processor.NewProcessor(chain, handler)
+
+    err := proc.ProcessEvent(newTestPayload("update", "detection", []string{"person"}))
 
     if err != nil {
         t.Fatalf("erreur inattendue: %v", err)
     }
     if handler.called {
-        t.Error("les événements 'update' doivent être ignorés")
+        t.Error("le handler ne devrait PAS être appelé quand le filtre bloque un update")
     }
 }
 
 // ---------------------------------------------------------------------------
-// TEST 4 : Les événements "end" sont ignorés (pour l'instant)
+// TEST 5 : Les événements "end" sont ignorés (pour l'instant)
 // ---------------------------------------------------------------------------
 func TestProcessor_IgnoresEndEvents(t *testing.T) {
     handler := &mockHandler{}
@@ -145,7 +172,7 @@ func TestProcessor_IgnoresEndEvents(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TEST 5 : Si le handler retourne une erreur, le processor la remonte
+// TEST 6 : Si le handler retourne une erreur, le processor la remonte
 // ---------------------------------------------------------------------------
 // Exemple : la notification iOS échoue. Le processor ne doit pas avaler
 // l'erreur silencieusement — il la remonte pour que l'appelant puisse réagir.
@@ -165,7 +192,7 @@ func TestProcessor_HandlerError_IsReturned(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TEST 6 : Sans filtre, tout passe
+// TEST 7 : Sans filtre, tout passe
 // ---------------------------------------------------------------------------
 // Cas où l'utilisateur n'a configuré aucun filtre → pas de blocage.
 func TestProcessor_NoFilters_AcceptsAll(t *testing.T) {
