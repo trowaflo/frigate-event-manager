@@ -1,13 +1,13 @@
 package processor_test
 
 import (
-    "errors"
-    "testing"
+	"errors"
+	"testing"
 
-    "frigate-event-manager/internal/core/filter"
-    "frigate-event-manager/internal/core/ports"
-    "frigate-event-manager/internal/core/processor"
-    "frigate-event-manager/internal/domain"
+	"frigate-event-manager/internal/core/filter"
+	"frigate-event-manager/internal/core/ports"
+	"frigate-event-manager/internal/core/processor"
+	"frigate-event-manager/internal/domain"
 )
 
 // ---------------------------------------------------------------------------
@@ -24,15 +24,15 @@ var _ ports.EventProcessor = (*processor.Processor)(nil)
 // En test, on ne veut pas envoyer de vraies notifications.
 // Ce mock enregistre tout : "on m'a appelé ?", "avec quoi ?", "je simule une erreur ?"
 type mockHandler struct {
-    called  bool                   // est-ce que HandleEvent a été appelé ?
-    payload domain.FrigatePayload  // avec quel payload ?
-    err     error                  // erreur à retourner (nil = succès)
+	called  bool                  // est-ce que HandleEvent a été appelé ?
+	payload domain.FrigatePayload // avec quel payload ?
+	err     error                 // erreur à retourner (nil = succès)
 }
 
 func (m *mockHandler) HandleEvent(payload domain.FrigatePayload) error {
-    m.called = true
-    m.payload = payload
-    return m.err
+	m.called = true
+	m.payload = payload
+	return m.err
 }
 
 // ---------------------------------------------------------------------------
@@ -40,18 +40,18 @@ func (m *mockHandler) HandleEvent(payload domain.FrigatePayload) error {
 // ---------------------------------------------------------------------------
 // On simule un vrai flux Frigate : caméra, ID, severity, objets...
 func newTestPayload(eventType, severity string, objects []string) domain.FrigatePayload {
-    return domain.FrigatePayload{
-        Type: eventType,
-        After: domain.EventState{
-            ID:       "1718987129.308396-fqk5ka",
-            Camera:   "front_cam",
-            Severity: severity,
-            Data: domain.EventData{
-                Objects: objects,
-                Zones:   []string{"front_yard"},
-            },
-        },
-    }
+	return domain.FrigatePayload{
+		Type: eventType,
+		After: domain.EventState{
+			ID:       "1718987129.308396-fqk5ka",
+			Camera:   "front_cam",
+			Severity: severity,
+			Data: domain.EventData{
+				Objects: objects,
+				Zones:   []string{"front_yard"},
+			},
+		},
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -60,28 +60,28 @@ func newTestPayload(eventType, severity string, objects []string) domain.Frigate
 // C'est le cas nominal : Frigate détecte une personne, severity = alert,
 // notre filtre accepte les alerts → on doit notifier.
 func TestProcessor_NewEvent_PassesFilter_CallsHandler(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain(
-        filter.NewSeverityFilter([]string{"alert"}),
-    )
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain(
+		filter.NewSeverityFilter([]string{"alert"}),
+	)
+	proc := processor.NewProcessor(chain, handler)
 
-    payload := newTestPayload("new", "alert", []string{"person"})
-    err := proc.ProcessEvent(payload)
+	payload := newTestPayload("new", "alert", []string{"person"})
+	err := proc.ProcessEvent(payload)
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if !handler.called {
-        t.Fatal("le handler aurait dû être appelé")
-    }
-    // On vérifie que le handler a reçu EXACTEMENT le bon payload
-    if handler.payload.After.ID != "1718987129.308396-fqk5ka" {
-        t.Errorf("ID attendu '1718987129.308396-fqk5ka', reçu '%s'", handler.payload.After.ID)
-    }
-    if handler.payload.After.Camera != "front_cam" {
-        t.Errorf("camera attendue 'front_cam', reçue '%s'", handler.payload.After.Camera)
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !handler.called {
+		t.Fatal("le handler aurait dû être appelé")
+	}
+	// On vérifie que le handler a reçu EXACTEMENT le bon payload
+	if handler.payload.After.ID != "1718987129.308396-fqk5ka" {
+		t.Errorf("ID attendu '1718987129.308396-fqk5ka', reçu '%s'", handler.payload.After.ID)
+	}
+	if handler.payload.After.Camera != "front_cam" {
+		t.Errorf("camera attendue 'front_cam', reçue '%s'", handler.payload.After.Camera)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -90,20 +90,20 @@ func TestProcessor_NewEvent_PassesFilter_CallsHandler(t *testing.T) {
 // L'utilisateur ne veut que les "alert", mais Frigate envoie une "detection".
 // Le processor doit bloquer l'événement SILENCIEUSEMENT (pas d'erreur).
 func TestProcessor_NewEvent_FailsFilter_HandlerNotCalled(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain(
-        filter.NewSeverityFilter([]string{"alert"}),
-    )
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain(
+		filter.NewSeverityFilter([]string{"alert"}),
+	)
+	proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("new", "detection", []string{"person"}))
+	err := proc.ProcessEvent(newTestPayload("new", "detection", []string{"person"}))
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if handler.called {
-        t.Error("le handler ne devrait PAS être appelé quand le filtre bloque")
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if handler.called {
+		t.Error("le handler ne devrait PAS être appelé quand le filtre bloque")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -114,21 +114,21 @@ func TestProcessor_NewEvent_FailsFilter_HandlerNotCalled(t *testing.T) {
 // exactement comme un "new" : filtre sur After, handler si ça passe.
 // Le tag dans la notification garantit que c'est une mise à jour, pas un doublon.
 func TestProcessor_UpdateEvent_PassesFilter_CallsHandler(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain(
-        filter.NewSeverityFilter([]string{"alert"}),
-    )
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain(
+		filter.NewSeverityFilter([]string{"alert"}),
+	)
+	proc := processor.NewProcessor(chain, handler)
 
-    payload := newTestPayload("update", "alert", []string{"person"})
-    err := proc.ProcessEvent(payload)
+	payload := newTestPayload("update", "alert", []string{"person"})
+	err := proc.ProcessEvent(payload)
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if !handler.called {
-        t.Fatal("le handler aurait dû être appelé pour un update qui passe le filtre")
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !handler.called {
+		t.Fatal("le handler aurait dû être appelé pour un update qui passe le filtre")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -137,38 +137,39 @@ func TestProcessor_UpdateEvent_PassesFilter_CallsHandler(t *testing.T) {
 // L'update est à severity "detection" mais le filtre n'accepte que "alert".
 // Pas de notification. Quand un prochain update arrivera avec "alert", ça passera.
 func TestProcessor_UpdateEvent_FailsFilter_HandlerNotCalled(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain(
-        filter.NewSeverityFilter([]string{"alert"}),
-    )
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain(
+		filter.NewSeverityFilter([]string{"alert"}),
+	)
+	proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("update", "detection", []string{"person"}))
+	err := proc.ProcessEvent(newTestPayload("update", "detection", []string{"person"}))
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if handler.called {
-        t.Error("le handler ne devrait PAS être appelé quand le filtre bloque un update")
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if handler.called {
+		t.Error("le handler ne devrait PAS être appelé quand le filtre bloque un update")
+	}
 }
 
 // ---------------------------------------------------------------------------
-// TEST 5 : Les événements "end" sont ignorés (pour l'instant)
+// TEST 5 : Événement "end" + filtre OK → le handler est appelé (flux uniforme)
 // ---------------------------------------------------------------------------
-func TestProcessor_IgnoresEndEvents(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain()
-    proc := processor.NewProcessor(chain, handler)
+func TestProcessor_EndEvent_PassesFilter_CallsHandler(t *testing.T) {
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain()
+	proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("end", "alert", []string{"person"}))
+	payload := newTestPayload("end", "alert", []string{"person"})
+	err := proc.ProcessEvent(payload)
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if handler.called {
-        t.Error("les événements 'end' doivent être ignorés")
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !handler.called {
+		t.Fatal("le handler aurait dû être appelé pour un event end")
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -177,18 +178,18 @@ func TestProcessor_IgnoresEndEvents(t *testing.T) {
 // Exemple : la notification iOS échoue. Le processor ne doit pas avaler
 // l'erreur silencieusement — il la remonte pour que l'appelant puisse réagir.
 func TestProcessor_HandlerError_IsReturned(t *testing.T) {
-    handler := &mockHandler{err: errors.New("notification failed")}
-    chain := filter.NewFilterChain()
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{err: errors.New("notification failed")}
+	chain := filter.NewFilterChain()
+	proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("new", "alert", []string{"person"}))
+	err := proc.ProcessEvent(newTestPayload("new", "alert", []string{"person"}))
 
-    if err == nil {
-        t.Fatal("une erreur était attendue")
-    }
-    if err.Error() != "notification failed" {
-        t.Errorf("erreur attendue 'notification failed', reçue '%v'", err)
-    }
+	if err == nil {
+		t.Fatal("une erreur était attendue")
+	}
+	if err.Error() != "notification failed" {
+		t.Errorf("erreur attendue 'notification failed', reçue '%v'", err)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -196,16 +197,16 @@ func TestProcessor_HandlerError_IsReturned(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Cas où l'utilisateur n'a configuré aucun filtre → pas de blocage.
 func TestProcessor_NoFilters_AcceptsAll(t *testing.T) {
-    handler := &mockHandler{}
-    chain := filter.NewFilterChain() // chaîne vide = tout passe
-    proc := processor.NewProcessor(chain, handler)
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain() // chaîne vide = tout passe
+	proc := processor.NewProcessor(chain, handler)
 
-    err := proc.ProcessEvent(newTestPayload("new", "detection", []string{"car"}))
+	err := proc.ProcessEvent(newTestPayload("new", "detection", []string{"car"}))
 
-    if err != nil {
-        t.Fatalf("erreur inattendue: %v", err)
-    }
-    if !handler.called {
-        t.Error("sans filtre, tout événement 'new' devrait passer")
-    }
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !handler.called {
+		t.Error("sans filtre, tout événement 'new' devrait passer")
+	}
 }

@@ -8,12 +8,12 @@ import "frigate-event-manager/internal/domain"
 // Le Core ne sait pas d'où viennent les événements — il reçoit
 // des objets domain propres, jamais du JSON brut.
 type EventProcessor interface {
-    ProcessEvent(payload domain.FrigatePayload) error
+	ProcessEvent(payload domain.FrigatePayload) error
 }
 
 // EventHandler est le port de sortie du Core.
 // Quand un événement passe tous les filtres, le Core appelle
 // cette interface pour déclencher une action (notification, log...).
 type EventHandler interface {
-    HandleEvent(payload domain.FrigatePayload) error
+	HandleEvent(payload domain.FrigatePayload) error
 }
