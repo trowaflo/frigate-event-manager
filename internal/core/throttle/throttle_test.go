@@ -85,7 +85,7 @@ func TestThrottler_SameEvent_BeforeDebounce_Blocked(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 30*time.Second, 1*time.Second)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	err := th.HandleEvent(newPayload("event-1", "front_cam", "update"))
 
 	if err != nil {
@@ -103,7 +103,7 @@ func TestThrottler_DifferentEvent_SameCamera_BeforeCooldown_Blocked(t *testing.T
 	handler := &mockHandler{}
 	th := throttle.New(handler, 1*time.Second, 10*time.Millisecond)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	err := th.HandleEvent(newPayload("event-2", "front_cam", "new"))
 
 	if err != nil {

@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"frigate-event-manager/internal/domain"
 )
 
@@ -59,11 +62,11 @@ func (n *Notifier) HandleEvent(payload domain.FrigatePayload) error {
 	if err != nil {
 		return fmt.Errorf("impossible de contacter Home Assistant: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Home Assistant a retourné %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("home assistant a retourné %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	return nil
@@ -85,7 +88,7 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 
 	// Camera en titre lisible (front_cam → Front Cam)
 	cameraTitle := strings.ReplaceAll(after.Camera, "_", " ")
-	cameraTitle = strings.Title(cameraTitle)
+	cameraTitle = cases.Title(language.English).String(cameraTitle)
 
 	return notificationPayload{
 		Title:   fmt.Sprintf("%s — %s", cameraTitle, after.Severity),

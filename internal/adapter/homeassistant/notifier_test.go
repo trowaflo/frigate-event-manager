@@ -80,8 +80,10 @@ func TestNotifier_IncludesImageAndTag(t *testing.T) {
     server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         body, _ := io.ReadAll(r.Body)
         var payload map[string]interface{}
-        json.Unmarshal(body, &payload)
-
+		if err := json.Unmarshal(body, &payload); err != nil {
+			http.Error(w, "invalid json", 400)
+			return
+		}
         data, ok := payload["data"].(map[string]interface{})
         if !ok {
             http.Error(w, "missing data", 400)
