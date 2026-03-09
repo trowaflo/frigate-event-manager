@@ -47,7 +47,7 @@ The project will be structured to separate the What (Business) from the How (Tec
 - [ ] **Renovate Bot**: Configuration for automatic updates of Docker base images, GitHub Actions, and Go modules.
 - [ ] **Release Please**: Automation of tags, GitHub releases, and `CHANGELOG.md` generation.
 - [ ] **Validation Pipeline**: PR workflow including tests, lints (Go/Docker), and security scans.
-- [ ] **Multi-Arch Build**: Compilation via `docker/build-push-action` for amd64, aarch64, and armv7.
+- [ ] **Multi-Arch Build**: Compilation via `docker/build-push-action` for amd64, aarch64
 - [ ] **Addon Linter**: Validation of the addon's `config.yaml` via `ha-addon-linter`.
 
 ## Development Strategy

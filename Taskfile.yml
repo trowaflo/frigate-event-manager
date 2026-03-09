@@ -41,4 +41,4 @@ tasks:
   build:multi:
     desc: Build multi-arch (nécessite docker buildx)
     cmds:
-      - docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 -t frigate-event-manager:dev .
+      - docker buildx build --platform linux/amd64,linux/arm64 -t frigate-event-manager:dev .

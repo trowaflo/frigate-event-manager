@@ -6,9 +6,6 @@ url: https://github.com/trowaflo/frigate-event-manager
 arch:
   - amd64
   - aarch64
-  - armv7
-startup: application
-boot: auto
 init: false
 map:
   - config:ro

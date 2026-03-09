@@ -50,7 +50,7 @@ variable "IMAGE" {
 target "frigate-event-manager" {
   context    = "."
   dockerfile = "docker/Dockerfile"
-  platforms  = ["linux/amd64", "linux/arm64", "linux/arm/v7"]
+  platforms  = ["linux/amd64", "linux/arm64"]
   tags       = ["${IMAGE}:${sanitize(GITHUB_REF_NAME)}"]
   cache-from = ["type=gha"]
   cache-to   = ["type=gha,mode=max"]
