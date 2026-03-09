@@ -105,23 +105,28 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 // Ex: ["person"] + ["Bob"] → "Person (Bob)"
 // Ex: ["person", "car"] + [] → "Person, Car"
 func formatLabel(objects, subLabels []string) string {
-	if len(objects) == 0 {
-		return "Détection"
-	}
+    // Filtrer les objets vides
+    var filtered []string
+    for _, o := range objects {
+        if o != "" {
+            filtered = append(filtered, o)
+        }
+    }
 
-	// Mettre en majuscule le premier caractère de chaque objet
-	titles := make([]string, len(objects))
-	for i, o := range objects {
-		if len(o) > 0 {
-			titles[i] = strings.ToUpper(o[:1]) + o[1:]
-		}
-	}
+    if len(filtered) == 0 {
+        return "Détection"
+    }
 
-	label := strings.Join(titles, ", ")
+    titles := make([]string, len(filtered))
+    for i, o := range filtered {
+        titles[i] = strings.ToUpper(o[:1]) + o[1:]
+    }
 
-	if len(subLabels) > 0 {
-		label = fmt.Sprintf("%s (%s)", label, strings.Join(subLabels, ", "))
-	}
+    label := strings.Join(titles, ", ")
 
-	return label
+    if len(subLabels) > 0 {
+        label = fmt.Sprintf("%s (%s)", label, strings.Join(subLabels, ", "))
+    }
+
+    return label
 }

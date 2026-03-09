@@ -210,3 +210,21 @@ func TestProcessor_NoFilters_AcceptsAll(t *testing.T) {
 		t.Error("sans filtre, tout événement 'new' devrait passer")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// TEST 8 : Type inconnu → ignoré silencieusement
+// ---------------------------------------------------------------------------
+func TestProcessor_UnknownType_Ignored(t *testing.T) {
+	handler := &mockHandler{}
+	chain := filter.NewFilterChain()
+	proc := processor.NewProcessor(chain, handler)
+
+	err := proc.ProcessEvent(newTestPayload("unknown", "alert", []string{"person"}))
+
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if handler.called {
+		t.Error("le handler ne devrait PAS être appelé pour un type inconnu")
+	}
+}
