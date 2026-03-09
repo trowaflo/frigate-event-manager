@@ -155,7 +155,7 @@ graph TD
 ## 📊 Résumé des 9 Briques Principales
 
 | # | Brique | Rôle | Complexité | Lignes YAML |
-|---|--------|------|-----------|------------|
+| --- | -------- | ------ | ----------- | ------------ |
 | **1** | **Métadonnées** | Info blueprint (version, HA min, auteur, source_url) | ⭐ Trivial | ~10 |
 | **2** | **Configuration Input** | 7 groupes d'inputs collapse (Caméras, Targets, Attachements, etc.) | ⭐⭐⭐⭐⭐ **ÉNORME** | ~1000 |
 | **3** | **Triggers** | 3 déclencheurs (MQTT Frigate, Silence user, Custom action) | ⭐⭐ Simple | ~20 |
@@ -172,6 +172,7 @@ graph TD
 ## 🎯 Détail des Briques pour Refonte Go
 
 ### 1️⃣ Métadonnées
+
 ```yaml
 blueprint:
   name: "Frigate Notifications (0.14.0.2w)"
@@ -192,15 +193,18 @@ blueprint:
 **7 groupes collapse :**
 
 #### A. Sélection Caméras
+
 - `camera`: entités Frigate (multiple)
 - `notify_device`: device mobile (single)
 
 #### B. Notification Targets
+
 - `notify_group`: groupe notif ou Android/Fire TV
 - `base_url`: URL HA externe (http/https)
 - `mqtt_topic`: topic MQTT Frigate
 
 #### C. Customisation Notif
+
 - `title`, `message`, `subtitle`
 - `critical`: boolean ou template Jinja2
 - `attachment`, `attachment_2`: URL images/GIF
@@ -211,6 +215,7 @@ blueprint:
 - `tts`, `tts_helper`: TTS config
 
 #### D. Filtres
+
 - `review_severity`: alert | detection
 - `zone_filter`, `zones` (list)
 - `zone_multi`, `zone_order_enforced`: multi-zone logic
@@ -221,19 +226,23 @@ blueprint:
 - `custom_filter`: Jinja2 template
 
 #### E. Timers
+
 - `cooldown`, `timeout`, `silence_timer`
 - `loiter_timer`, `initial_delay`, `final_delay`
 
 #### F. Actions & URLs
+
 - `tap_action`, `url_1/2/3`: URLs buttons
 - `button_1/2/3`: textes buttons
 - `custom_action_manual`, `custom_action_auto`, `custom_action_auto_multi`
 
 #### G. TV & Telegram
+
 - `tv`, `tv_position`, `tv_size`, `tv_duration`, `tv_transparency`, `tv_interrupt`
 - `telegram_base_url`, `notify_telegram_chat_id`
 
 #### H. Debug
+
 - `debug`, `redacted`
 
 **En Go :** Monstres structs imbriquées + YAML unmarshalling. Peut être amélioré avec une *DSL déclarative* simple. ⚠️
@@ -262,6 +271,7 @@ triggers:
 ```
 
 **3 déclencheurs :**
+
 1. **MQTT** : nouveau message MQTT Frigate → ID `frigate-event`
 2. **Silence** : user clique bouton "Silence" → ID `silence`
 3. **Custom** : user clique bouton "Custom Action" → ID `custom`
@@ -274,7 +284,7 @@ triggers:
 
 **Calculées une fois au boot de l'automation :**
 
-```
+```text
 input_camera → camera_name
 input_severity → severity (from MQTT)
 base_url → strip trailing /
@@ -289,6 +299,7 @@ zone_multi_filter: {{zone_only and zone_multi and after_zones|length and zones a
 ```
 
 **Jinja2 Hell 🔥** : D'énormes templates Jinja2 pour :
+
 - Filtrer severités
 - Fusionner objects/sub_labels
 - Logic zones (mono vs multi vs ordered)
@@ -296,7 +307,8 @@ zone_multi_filter: {{zone_only and zone_multi and after_zones|length and zones a
 - Formatter messages
 
 **En Go :**
-- Créer un **Jinja2 interpreter** ou wrapper (https://github.com/uber/h2)
+
+- Créer un **Jinja2 interpreter** ou wrapper (<https://github.com/uber/h2>)
 - OU créer un **mini-DSL d'expression** custom (Go templates ?)
 - OU appeler Jinja2 en tant que service externe
 
@@ -309,6 +321,7 @@ zone_multi_filter: {{zone_only and zone_multi and after_zones|length and zones a
 Structure `condition: or > conditions: [ ... ]`
 
 **Soit :**
+
 1. `trigger.id == silence`, **OU**
 2. `trigger.id == custom`, **OU**
 3. `trigger.id == frigate-event` **ET** combinaisons de :
@@ -326,6 +339,7 @@ Structure `condition: or > conditions: [ ... ]`
 **3 branches :**
 
 #### A. Silence Action
+
 ```yaml
 - alias: Silence New Object Notifications
   conditions: [trigger.id == silence]
@@ -336,6 +350,7 @@ Structure `condition: or > conditions: [ ... ]`
 ```
 
 #### B. Custom Manual Action
+
 ```yaml
 - alias: Custom Action Manual
   conditions: [trigger.id == custom]
@@ -343,6 +358,7 @@ Structure `condition: or > conditions: [ ... ]`
 ```
 
 #### C. Frigate Event (MAIN) ⚡
+
 ```yaml
 - alias: Frigate Event
   conditions: [trigger.id == frigate-event]
@@ -358,6 +374,7 @@ Structure `condition: or > conditions: [ ... ]`
 **3 phases :**
 
 #### Phase A : Setup Event Variables
+
 ```yaml
 - variables:
     event: '{{ trigger.payload_json }}'
@@ -372,6 +389,7 @@ Structure `condition: or > conditions: [ ... ]`
 **Jinja2 Hell:** Label builder qui merge objects + sub_labels avec dedup et sort.
 
 #### Phase B : Computed Filters
+
 ```yaml
 any_zones_entered: '{{ zones | length == 0 or ((zones | select(''in'', after_zones) | list | length) > 0) }}'
 zone_single_satisfied: ...
@@ -382,6 +400,7 @@ zones_satisfied: ...
 ```
 
 #### Phase C : Debug Log
+
 ```yaml
 - choose:
   - conditions: ['{{debug}}']
@@ -393,6 +412,7 @@ zones_satisfied: ...
 ```
 
 #### Phase D : Master All-Filters Check
+
 ```yaml
 - choose:
   - conditions:
@@ -474,6 +494,7 @@ zones_satisfied: ...
 ```
 
 **La boucle :**
+
 1. Attend un nouvel event MQTT avec même `review_id`
 2. Recalcule TOUTES les variables
 3. Re-teste TOUS les filtres
@@ -481,6 +502,7 @@ zones_satisfied: ...
 5. Boucle indéfiniment jusqu'à timeout
 
 **En Go :**
+
 - EventStore avec debounce + timeout
 - Mutable state machine
 - Repeat executor
@@ -547,7 +569,7 @@ flowchart TD
 Chaque expression Jinja2 du blueprint avec son type Go cible :
 
 | # | Variable | Expression Jinja2 | Type Go | Complexité |
-|---|----------|------------------|---------|------------|
+| --- | ---------- | ------------------ | --------- | ------------ |
 | 1 | `input_camera_name` | `input_camera\|expand\|map(attribute='attributes.camera_name')\|list` | `[]string` | ⭐⭐ HA API call |
 | 2 | `camera` | `trigger.payload_json['after']['camera']` | `string` | ⭐ JSON path |
 | 3 | `camera_name` | `camera \| replace('_', ' ') \| title` | `string` | ⭐ `strings.ReplaceAll` + `cases.Title` |
@@ -589,7 +611,7 @@ Chaque expression Jinja2 du blueprint avec son type Go cible :
 
 Calculé dans la boucle update pour décider si le son est coupé :
 
-```
+```text
 silent_update = alert_once
                 OR (NOT presence_changed
                     AND NOT zone_updated
@@ -604,6 +626,7 @@ silent_update = alert_once
 #### `loitering` (dead code / futur)
 
 Défini dans les variables globales :
+
 ```yaml
 loitering: false
 loiter_timer: !input loiter_timer
@@ -620,7 +643,7 @@ loiter_timer: !input loiter_timer
 4 branches de dispatch, chacune avec des champs distincts :
 
 | Champ | 📡 Telegram | 📱 Device (mobile) | 📺 TV | 📱 Group (default) |
-|-------|:-----------:|:-------------------:|:-----:|:-------------------:|
+| ------- | :-----------: | :-------------------: | :-----: | :-------------------: |
 | **Service** | `telegram_bot.send_photo/video` | `device notify (mobile_app)` | `notify.{group}` | `notify.{group}` |
 | `title` | — | ✅ | ✅ | ✅ |
 | `message` | `caption` | ✅ | ✅ | ✅ |
@@ -650,6 +673,7 @@ loiter_timer: !input loiter_timer
 | `alert_once` | — | — (initial) / ✅ (loop) | — (initial) / ✅ (loop) | — (initial) / ✅ (loop) |
 
 **Points d'attention pour Go :**
+
 - Telegram a un format complètement différent (pas de `data:`, `caption` au lieu de `message`, `inline_keyboard` au lieu de `actions`)
 - TV force le snapshot même si un GIF est sélectionné : `attachment | replace('review_preview.gif','snapshot.jpg') | replace('event_preview.gif','snapshot.jpg')`
 - Group (default) inclut les champs TV (`fontsize`, `position`...) pour supporter les groupes mixtes mobile+TV
@@ -661,7 +685,7 @@ loiter_timer: !input loiter_timer
 ### ⚠️ Chemins d'erreur et cas limites
 
 | Scénario | Comportement blueprint | Impact Go |
-|----------|----------------------|----------|
+| ---------- | ---------------------- | ---------- |
 | **MQTT timeout** (boucle) | `continue_on_timeout: false` → la boucle s'arrête immédiatement | `select` avec `time.After()` → `break` de la boucle |
 | **Pas de match caméra** | Condition `Camera Match` bloque → automation ne s'exécute pas | Retour anticipé dans le handler |
 | **Payload MQTT malformé** | Jinja2 retourne vide → variables sont `''` ou `[]` → filtres échouent silencieusement | En Go : parsing JSON strict → retourner une erreur explicite |
@@ -679,7 +703,7 @@ loiter_timer: !input loiter_timer
 ### Défis Majeurs
 
 | Challenge | Severity | Solution Go |
-|-----------|----------|------------|
+| ----------- | ---------- | ------------ |
 | **Jinja2 Templating** | 🔴 CRITQUE | Implémenter parser Jinja2 ou wrapper (cgo ?) ou mini-DSL |
 | **Multi-branch Notify** | 🟡 Moyen | Notification Router avec factory pattern |
 | **State Mutations in Loop** | 🟡 Moyen | Immutable value objects + fold over events |
@@ -689,7 +713,7 @@ loiter_timer: !input loiter_timer
 
 ### Architecture Suggérée Go
 
-```
+```text
 frigate-blueprint/
 ├── config.go          # YAML unmarshaling
 ├── variables.go       # Variable computation
@@ -714,8 +738,8 @@ frigate-blueprint/
 ## 📚 Références
 
 - **Blueprint source:** `blueprints/automation/SgtBatten/Stable.yaml`
-- **Documentation Frigate:** https://frigate.video/
-- **HA Automations:** https://www.home-assistant.io/docs/automation/
+- **Documentation Frigate:** <https://frigate.video/>
+- **HA Automations:** <https://www.home-assistant.io/docs/automation/>
 
 ---
 
