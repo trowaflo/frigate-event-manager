@@ -6,7 +6,7 @@ tasks:
     cmds:
       - go test -v -race -coverprofile=coverage.out -coverpkg=./internal/... ./...
       - go tool cover -func=coverage.out
-
+      - golangci-lint run ./...
   test:html:
     desc: Ouvre le rapport de coverage dans le navigateur
     deps: [test]

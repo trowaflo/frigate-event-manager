@@ -116,7 +116,7 @@ func TestNotifier_HAReturnsError_ReturnsError(t *testing.T) {
 	// GIVEN : HA retourne une erreur 500
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message": "internal error"}`))
+		_, _ = w.Write([]byte(`{"message": "internal error"}`))
 	}))
 	defer server.Close()
 

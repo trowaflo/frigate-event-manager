@@ -66,7 +66,7 @@ func TestThrottler_SameEvent_AfterDebounce_Passes(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 30*time.Second, 10*time.Millisecond, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	time.Sleep(15 * time.Millisecond)
 	err := th.HandleEvent(newPayload("event-1", "front_cam", "update"))
 
@@ -121,7 +121,7 @@ func TestThrottler_DifferentEvent_SameCamera_AfterCooldown_Passes(t *testing.T) 
 	handler := &mockHandler{}
 	th := throttle.New(handler, 10*time.Millisecond, 5*time.Millisecond, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	time.Sleep(15 * time.Millisecond)
 	err := th.HandleEvent(newPayload("event-2", "front_cam", "new"))
 
@@ -140,7 +140,7 @@ func TestThrottler_DifferentCameras_NoCrossBlock(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 1*time.Second, 1*time.Second, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	err := th.HandleEvent(newPayload("event-2", "back_cam", "new"))
 
 	if err != nil {
@@ -160,7 +160,7 @@ func TestThrottler_UpdateSameEvent_BypassesCooldown(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 1*time.Second, 10*time.Millisecond, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	time.Sleep(15 * time.Millisecond)
 	err := th.HandleEvent(newPayload("event-1", "front_cam", "update"))
 
@@ -179,9 +179,9 @@ func TestThrottler_ZeroValues_EverythingPasses(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 0, 0, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
-	th.HandleEvent(newPayload("event-1", "front_cam", "update"))
-	th.HandleEvent(newPayload("event-2", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "update"))
+	_ = th.HandleEvent(newPayload("event-2", "front_cam", "new"))
 
 	if handler.callCount != 3 {
 		t.Fatalf("handler appelé %d fois, attendu 3 (tout doit passer)", handler.callCount)
@@ -200,7 +200,7 @@ func TestThrottler_EndEvent_CleansUpEventEntry(t *testing.T) {
 	th := throttle.New(handler, 30*time.Second, 10*time.Millisecond, 30*time.Minute)
 
 	// new event
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
 	if handler.callCount != 1 {
 		t.Fatalf("callCount=%d, attendu 1", handler.callCount)
 	}
@@ -208,14 +208,15 @@ func TestThrottler_EndEvent_CleansUpEventEntry(t *testing.T) {
 	// update du même event-1 APRÈS end → le throttler ne le connaît plus
 	// → traité comme nouvel event → cooldown caméra s'applique → bloqué
 	time.Sleep(15 * time.Millisecond)
-	th.HandleEvent(newPayload("event-1", "front_cam", "update"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "update"))
 
 	if handler.callCount != 2 {
 		t.Fatalf("callCount=%d, attendu 2 (cooldown caméra bloque)", handler.callCount)
 	}
 
 	// end → cleanup interne
-	th.HandleEvent(newPayload("event-1", "front_cam", "end"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "end"))
+
 	if handler.callCount != 3 {
 		t.Fatalf("callCount=%d, attendu 3 (end doit passer au handler)", handler.callCount)
 	}
@@ -229,7 +230,7 @@ func TestThrottler_EndEvent_UnknownID_NoPanic(t *testing.T) {
 	th := throttle.New(handler, 30*time.Second, 5*time.Second, 30*time.Minute)
 
 	// Ne doit pas panic
-	th.HandleEvent(newPayload("inexistant", "front_cam", "end"))
+	_ = th.HandleEvent(newPayload("inexistant", "front_cam", "end"))
 
 	if handler.callCount != 1 {
 		t.Fatalf("callCount=%d, attendu 1 (end passe toujours au handler)", handler.callCount)
@@ -243,9 +244,9 @@ func TestThrottler_EndEvent_DoesNotAffectOtherCameras(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 30*time.Second, 5*time.Second, 30*time.Minute)
 
-	th.HandleEvent(newPayload("event-1", "front_cam", "new"))
-	th.HandleEvent(newPayload("event-1", "front_cam", "end"))
-	th.HandleEvent(newPayload("event-2", "back_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-1", "front_cam", "end"))
+	_ = th.HandleEvent(newPayload("event-2", "back_cam", "new"))
 
 	if handler.callCount != 3 {
 		t.Fatalf("callCount=%d, attendu 3", handler.callCount)
@@ -259,9 +260,9 @@ func TestThrottler_PurgeExpired_RemovesStaleEntries(t *testing.T) {
 	handler := &mockHandler{}
 	th := throttle.New(handler, 0, 0, 10*time.Millisecond)
 
-	th.HandleEvent(newPayload("event-old", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-old", "front_cam", "new"))
 	time.Sleep(15 * time.Millisecond)
-	th.HandleEvent(newPayload("event-new", "front_cam", "new"))
+	_ = th.HandleEvent(newPayload("event-new", "front_cam", "new"))
 
 	if handler.callCount != 2 {
 		t.Fatalf("callCount=%d, attendu 2 (event-old purgé par TTL)", handler.callCount)
