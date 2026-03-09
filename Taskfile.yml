@@ -4,7 +4,14 @@ tasks:
   test:
     desc: Lance tous les tests
     cmds:
-      - go test -v ./...
+      - go test -v -race -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  test:html:
+    desc: Ouvre le rapport de coverage dans le navigateur
+    deps: [test]
+    cmds:
+      - go tool cover -html=coverage.out
 
   dev:
     desc: Lance l'addon (SUPERVISOR_TOKEN fourni par le devcontainer HA)
