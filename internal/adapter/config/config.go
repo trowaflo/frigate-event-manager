@@ -19,6 +19,7 @@ type Config struct {
 	// Anti-spam
 	Cooldown int `json:"cooldown"` // secondes, défaut 30
 	Debounce int `json:"debounce"` // secondes, défaut 5
+	TTL      int `json:"ttl"`      // minutes, défaut 30
 
 	// Home Assistant — résolu automatiquement via l'environnement Supervisor
 	HABaseURL     string `json:"-"` // jamais dans le fichier config, défaut http://supervisor/core
@@ -81,6 +82,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Debounce == 0 {
 		c.Debounce = 5
+	}
+	if c.TTL == 0 {
+		c.TTL = 30
 	}
 	c.HABaseURL = "http://supervisor/core"
 }

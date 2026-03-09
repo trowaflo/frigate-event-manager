@@ -17,6 +17,7 @@ options:
     - alert
   cooldown: 30
   debounce: 5
+  ttl: 30
   notify_service: ""
 schema:
   mqtt_broker_url: str
@@ -31,3 +32,4 @@ schema:
     - str?
   cooldown: int?
   debounce: int?
+  ttl: int?

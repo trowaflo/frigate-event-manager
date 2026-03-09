@@ -46,6 +46,7 @@ func main() {
 		eventHandler = throttle.New(notifier,
 			time.Duration(cfg.Cooldown)*time.Second,
 			time.Duration(cfg.Debounce)*time.Second,
+			time.Duration(cfg.TTL)*time.Minute,
 		)
 		log.Info("throttle activé", "cooldown", cfg.Cooldown, "debounce", cfg.Debounce)
 	} else {

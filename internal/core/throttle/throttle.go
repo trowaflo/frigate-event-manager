@@ -8,10 +8,6 @@ import (
 	"frigate-event-manager/internal/domain"
 )
 
-// defaultTTL est le délai de sécurité au-delà duquel une entrée est purgée
-// si le "end" n'est jamais arrivé (ceinture-bretelles).
-const defaultTTL = 30 * time.Minute
-
 // Throttler est un décorateur d'EventHandler qui limite le rythme
 // des notifications pour éviter le spam.
 //
@@ -26,38 +22,40 @@ type Throttler struct {
 	next     ports.EventHandler
 	cooldown time.Duration
 	debounce time.Duration
+	ttl      time.Duration
 
 	mu      sync.Mutex
 	events  map[string]time.Time // review ID → dernière notif envoyée
 	cameras map[string]time.Time // caméra → dernière notif d'un *nouvel* event
 }
 
-func New(next ports.EventHandler, cooldown, debounce time.Duration) *Throttler {
+func New(next ports.EventHandler, cooldown, debounce time.Duration, ttl time.Duration) *Throttler {
 	return &Throttler{
 		next:     next,
 		cooldown: cooldown,
 		debounce: debounce,
+		ttl:      ttl,
 		events:   make(map[string]time.Time),
 		cameras:  make(map[string]time.Time),
 	}
 }
 
 func (t *Throttler) HandleEvent(payload domain.FrigatePayload) error {
-    if payload.Type == "end" {
-        t.release(payload.After.ID)         // ← minuscule
-        return t.next.HandleEvent(payload)
-    }
-    if !t.tryAcquire(payload) {
-        return nil
-    }
-    return t.next.HandleEvent(payload)
+	if payload.Type == "end" {
+		t.release(payload.After.ID) // ← minuscule
+		return t.next.HandleEvent(payload)
+	}
+	if !t.tryAcquire(payload) {
+		return nil
+	}
+	return t.next.HandleEvent(payload)
 }
 
 // release supprime un event terminé de la map interne.
 func (t *Throttler) release(id string) {
-    t.mu.Lock()
-    defer t.mu.Unlock()
-    delete(t.events, id)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.events, id)
 }
 
 // tryAcquire vérifie ET enregistre en une seule prise de lock.
@@ -105,7 +103,7 @@ func (t *Throttler) tryAcquire(payload domain.FrigatePayload) bool {
 // (seulement les reviews actives), donc l'itération est négligeable.
 func (t *Throttler) purgeExpired(now time.Time) {
 	for id, last := range t.events {
-		if now.Sub(last) > defaultTTL {
+		if now.Sub(last) > t.ttl {
 			delete(t.events, id)
 		}
 	}
