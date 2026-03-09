@@ -15,10 +15,11 @@ options:
   mqtt_client_id: frigate-event-manager
   severity_filter:
     - alert
+    - detection
   cooldown: 30
   debounce: 5
   ttl: 30
-  notify_service: ""
+  notify_service: persistent_notification
 schema:
   mqtt_broker_url: str
   mqtt_topic: str?
