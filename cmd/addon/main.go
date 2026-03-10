@@ -51,16 +51,12 @@ func main() {
 	multi := handler.NewMulti(log)
 
 	// Debug handler : toujours actif (log + URLs media)
-	apiBaseURL := ""
-	if cfg.HasFrigate() {
-		apiBaseURL = fmt.Sprintf("http://localhost:%d", cfg.APIPort)
-	}
-	multi.Add("debug", debughandler.NewHandler(log, apiBaseURL))
+	multi.Add("debug", debughandler.NewHandler(log, cfg.MediaBaseURL))
 
 	// Notifier HA : ajouté si configuré
 	if cfg.HasNotifier() {
 		log.Info("notifications HA actives", "ha_url", cfg.HABaseURL, "service", cfg.NotifyService)
-		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService)
+		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService, cfg.MediaBaseURL)
 		multi.Add("notifier", throttle.New(notifier,
 			time.Duration(cfg.Cooldown)*time.Second,
 			time.Duration(cfg.Debounce)*time.Second,

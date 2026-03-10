@@ -20,15 +20,18 @@ type Notifier struct {
 	baseURL       string // ex: "http://homeassistant.local:8123"
 	token         string // Supervisor token (SUPERVISOR_TOKEN)
 	notifyService string // ex: "mobile_app_iphone"
+	mediaBaseURL  string // ex: "http://localhost:5555" ou chemin ingress HA
 	client        *http.Client
 }
 
 // NewNotifier crée un notifier HA.
-func NewNotifier(baseURL, token, notifyService string) *Notifier {
+// mediaBaseURL est l'URL de base du proxy media (vide = pas d'image dans les notifs).
+func NewNotifier(baseURL, token, notifyService, mediaBaseURL string) *Notifier {
 	return &Notifier{
 		baseURL:       strings.TrimRight(baseURL, "/"),
 		token:         token,
 		notifyService: notifyService,
+		mediaBaseURL:  strings.TrimRight(mediaBaseURL, "/"),
 		client:        &http.Client{},
 	}
 }
@@ -90,14 +93,22 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 	cameraTitle := strings.ReplaceAll(after.Camera, "_", " ")
 	cameraTitle = cases.Title(language.English).String(cameraTitle)
 
+	data := map[string]interface{}{
+		"tag":   "frigate-" + after.ID,
+		"group": "frigate-" + after.Camera,
+	}
+
+	// Media URLs via notre proxy (snapshot de la première detection)
+	if n.mediaBaseURL != "" && len(after.Data.Detections) > 0 {
+		detID := after.Data.Detections[0]
+		data["image"] = fmt.Sprintf("%s/api/events/%s/snapshot.jpg", n.mediaBaseURL, detID)
+		data["clickAction"] = fmt.Sprintf("%s/api/events/%s/clip.mp4", n.mediaBaseURL, detID)
+	}
+
 	return notificationPayload{
 		Title:   fmt.Sprintf("%s — %s", cameraTitle, after.Severity),
 		Message: message,
-		Data: map[string]interface{}{
-			"tag":   "frigate-" + after.ID,
-			"group": "frigate-" + after.Camera,
-			"image": fmt.Sprintf("/api/frigate/notifications/%s/thumbnail.jpg", after.ID),
-		},
+		Data:    data,
 	}
 }
 

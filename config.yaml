@@ -7,6 +7,8 @@ arch:
   - amd64
   - aarch64
 init: false
+ingress: true
+ingress_port: 5555
 map:
   - config:ro
 options:
@@ -20,6 +22,8 @@ options:
   debounce: 5
   ttl: 30
   notify_service: persistent_notification
+  frigate_url: ""
+  api_port: 5555
 schema:
   mqtt_broker_url: str
   mqtt_topic: str?
@@ -34,3 +38,7 @@ schema:
   cooldown: int?
   debounce: int?
   ttl: int?
+  frigate_url: url?
+  frigate_user: str?
+  frigate_password: password?
+  api_port: "int(1,65535)?"

@@ -32,6 +32,10 @@ type Config struct {
 	FrigatePassword string `json:"frigate_password"`
 	APIPort         int    `json:"api_port"`
 
+	// Media — URL de base pour les liens media dans les notifications
+	// Résolu automatiquement : ingress HA en prod, localhost en dev
+	MediaBaseURL string `json:"-"`
+
 	// Filtres
 	SeverityFilter []string `json:"severity_filter"`
 	Cameras        []string `json:"cameras"`
@@ -56,6 +60,7 @@ func Load(path string) (*Config, error) {
 
 	cfg.applyDefaults()
 	cfg.applyEnvOverrides()
+	cfg.resolveMediaBaseURL()
 
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("config invalide: %w", err)
@@ -107,6 +112,22 @@ func (c *Config) applyDefaults() {
 		c.APIPort = 5555
 	}
 	c.HABaseURL = "http://supervisor/core"
+}
+
+// resolveMediaBaseURL détermine l'URL de base pour les liens media.
+// En prod HA : utilise le chemin ingress (INGRESS_PATH fourni par le Supervisor).
+// En dev : utilise localhost:APIPort.
+func (c *Config) resolveMediaBaseURL() {
+	if !c.HasFrigate() {
+		return
+	}
+	if ingressPath := os.Getenv("INGRESS_PATH"); ingressPath != "" {
+		// Prod HA : l'addon est derrière l'ingress du Supervisor
+		c.MediaBaseURL = ingressPath
+	} else {
+		// Dev local
+		c.MediaBaseURL = fmt.Sprintf("http://localhost:%d", c.APIPort)
+	}
 }
 
 func (c *Config) validate() error {

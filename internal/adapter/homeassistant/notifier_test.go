@@ -19,9 +19,10 @@ func newTestPayload() domain.FrigatePayload {
 			Camera:   "front_cam",
 			Severity: "alert",
 			Data: domain.EventData{
-				Objects:   []string{"person"},
-				SubLabels: []string{"Bob"},
-				Zones:     []string{"front_yard"},
+				Objects:    []string{"person"},
+				SubLabels:  []string{"Bob"},
+				Zones:      []string{"front_yard"},
+				Detections: []string{"1718987127.123456-abc123"},
 			},
 		},
 	}
@@ -41,7 +42,7 @@ func TestNotifier_SendsCorrectHTTPRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "my-secret-token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier(server.URL, "my-secret-token", "mobile_app_iphone", "http://localhost:5555")
 
 	// WHEN : on envoie une notification
 	err := notifier.HandleEvent(newTestPayload())
@@ -101,7 +102,7 @@ func TestNotifier_IncludesImageAndTag(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
 
 	// WHEN
 	err := notifier.HandleEvent(newTestPayload())
@@ -120,7 +121,7 @@ func TestNotifier_HAReturnsError_ReturnsError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
 
 	// WHEN
 	err := notifier.HandleEvent(newTestPayload())
@@ -133,7 +134,7 @@ func TestNotifier_HAReturnsError_ReturnsError(t *testing.T) {
 
 func TestNotifier_HAUnreachable_ReturnsError(t *testing.T) {
 	// GIVEN : HA est injoignable (URL bidon)
-	notifier := homeassistant.NewNotifier("http://localhost:1", "token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier("http://localhost:1", "token", "mobile_app_iphone", "http://localhost:5555")
 
 	// WHEN
 	err := notifier.HandleEvent(newTestPayload())
@@ -151,7 +152,7 @@ func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
 
 	payload := domain.FrigatePayload{
 		Type: "new",
@@ -179,7 +180,7 @@ func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 	}
 }
 func TestNotifier_InvalidURL_ReturnsError(t *testing.T) {
-	notifier := homeassistant.NewNotifier("://invalid", "token", "mobile_app_iphone")
+	notifier := homeassistant.NewNotifier("://invalid", "token", "mobile_app_iphone", "http://localhost:5555")
 
 	err := notifier.HandleEvent(newTestPayload())
 
