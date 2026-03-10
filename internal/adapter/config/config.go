@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 )
 
 // Config contient toute la configuration de l'addon.
@@ -63,13 +62,28 @@ func Load(path string) (*Config, error) {
 
 	cfg.applyDefaults()
 	cfg.applyEnvOverrides()
-	cfg.resolveMediaBaseURL()
 
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("config invalide: %w", err)
 	}
 
 	return &cfg, nil
+}
+
+// SetMediaBaseURL définit l'URL de base pour les presigned URLs.
+// Priorité : config explicite > ingressURL (Supervisor) > localhost (dev).
+func (c *Config) SetMediaBaseURL(ingressURL string) {
+	if !c.HasFrigate() {
+		return
+	}
+	if c.MediaBaseURL != "" {
+		return // configuré explicitement par l'utilisateur
+	}
+	if ingressURL != "" {
+		c.MediaBaseURL = ingressURL
+		return
+	}
+	c.MediaBaseURL = fmt.Sprintf("http://localhost:%d", c.APIPort)
 }
 
 // HasFrigate retourne true si l'URL Frigate et les credentials sont configurés.
@@ -120,27 +134,6 @@ func (c *Config) applyDefaults() {
 	c.HABaseURL = "http://supervisor/core"
 }
 
-// resolveMediaBaseURL détermine l'URL de base pour les presigned URLs.
-// Priorité : config explicite > auto-détection HA ingress > localhost (dev).
-func (c *Config) resolveMediaBaseURL() {
-	if !c.HasFrigate() {
-		return
-	}
-	// Déjà configuré explicitement
-	if c.MediaBaseURL != "" {
-		return
-	}
-	// En prod HA : l'external URL HA + ingress path
-	// INGRESS_PATH est fourni par le Supervisor (ex: /api/hassio_ingress/xxxxx)
-	haExternal := os.Getenv("HA_EXTERNAL_URL")
-	ingressPath := os.Getenv("INGRESS_PATH")
-	if haExternal != "" && ingressPath != "" {
-		c.MediaBaseURL = strings.TrimRight(haExternal, "/") + ingressPath
-		return
-	}
-	// Dev local
-	c.MediaBaseURL = fmt.Sprintf("http://localhost:%d", c.APIPort)
-}
 
 func (c *Config) validate() error {
 	if c.MQTTBrokerURL == "" {

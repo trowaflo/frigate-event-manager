@@ -15,6 +15,7 @@ import (
 	"frigate-event-manager/internal/adapter/frigate"
 	"frigate-event-manager/internal/adapter/homeassistant"
 	mqttadapter "frigate-event-manager/internal/adapter/mqtt"
+	"frigate-event-manager/internal/adapter/supervisor"
 	"frigate-event-manager/internal/core/filter"
 	"frigate-event-manager/internal/core/handler"
 	"frigate-event-manager/internal/core/ports"
@@ -40,6 +41,13 @@ func main() {
 		"mqtt_user", cfg.MQTTUsername,
 		"notify_service", cfg.NotifyService,
 	)
+
+	// --- Résolution de l'URL ingress via le Supervisor HA ---
+	ingressInfo, err := supervisor.FetchIngressInfo(cfg.HAToken)
+	if err != nil {
+		log.Warn("impossible de contacter le Supervisor HA", "error", err)
+	}
+	cfg.SetMediaBaseURL(ingressInfo.MediaBaseURL)
 
 	// --- Frigate client + Signer (optionnel) ---
 	var frigateClient *frigate.Client
