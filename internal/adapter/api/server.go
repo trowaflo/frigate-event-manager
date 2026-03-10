@@ -11,18 +11,19 @@ import (
 )
 
 // Server expose un serveur HTTP qui proxy les requêtes media vers Frigate.
-// En dev, il est accessible sans auth.
-// En prod (addon HA), il sera derrière l'ingress HA.
+// Toutes les routes /api/* sont protégées par presigned URL.
 type Server struct {
 	client *frigate.Client
+	signer *Signer
 	logger *slog.Logger
 	mux    *http.ServeMux
 }
 
-// NewServer crée le serveur API avec le proxy Frigate.
-func NewServer(client *frigate.Client, logger *slog.Logger) *Server {
+// NewServer crée le serveur API avec le proxy Frigate et la validation presigned URL.
+func NewServer(client *frigate.Client, signer *Signer, logger *slog.Logger) *Server {
 	s := &Server{
 		client: client,
+		signer: signer,
 		logger: logger,
 		mux:    http.NewServeMux(),
 	}
@@ -31,13 +32,28 @@ func NewServer(client *frigate.Client, logger *slog.Logger) *Server {
 }
 
 func (s *Server) routes() {
-	// Proxy media Frigate
-	s.mux.HandleFunc("/api/events/", s.proxyFrigate)
-	s.mux.HandleFunc("/api/review/", s.proxyFrigate)
-	s.mux.HandleFunc("/api/review", s.proxyFrigate)
+	// Proxy media Frigate (protégé par presigned URL)
+	s.mux.HandleFunc("/api/events/", s.requirePresign(s.proxyFrigate))
+	s.mux.HandleFunc("/api/review/", s.requirePresign(s.proxyFrigate))
+	s.mux.HandleFunc("/api/review", s.requirePresign(s.proxyFrigate))
 
-	// Health check
+	// Health check (pas de presign)
 	s.mux.HandleFunc("/health", s.health)
+}
+
+// requirePresign est un middleware qui valide la presigned URL.
+func (s *Server) requirePresign(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.signer.Verify(r) {
+			s.logger.Warn("presigned URL invalide ou expirée",
+				"path", r.URL.Path,
+				"remote", r.RemoteAddr,
+			)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // Handler retourne le http.Handler du serveur.
@@ -48,11 +64,8 @@ func (s *Server) Handler() http.Handler {
 // proxyFrigate transmet la requête à Frigate avec authentification
 // et renvoie la réponse telle quelle au client.
 func (s *Server) proxyFrigate(w http.ResponseWriter, r *http.Request) {
-	// Construire le path Frigate (on garde le path tel quel)
+	// Ne pas forwarder les query params de presign vers Frigate
 	frigatePath := r.URL.Path
-	if r.URL.RawQuery != "" {
-		frigatePath += "?" + r.URL.RawQuery
-	}
 
 	s.logger.Debug("proxy vers Frigate", "method", r.Method, "path", frigatePath)
 
@@ -71,9 +84,6 @@ func (s *Server) proxyFrigate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// CORS pour le dev
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	w.WriteHeader(resp.StatusCode)
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		s.logger.Error("erreur copie réponse", "path", frigatePath, "error", err)
@@ -89,13 +99,11 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) ListenAndServe(addr string) error {
 	s.logger.Info("serveur API démarré", "addr", addr)
 
-	// Log des routes enregistrées
 	routes := []string{
-		"GET /api/events/{id}/clip.mp4",
-		"GET /api/events/{id}/snapshot.jpg",
-		"GET /api/events/{id}/thumbnail.jpg",
-		"GET /api/review/{id}/preview",
-		"GET /api/review?limit=N",
+		"GET /api/events/{id}/clip.mp4?exp=X&sig=Y",
+		"GET /api/events/{id}/snapshot.jpg?exp=X&sig=Y",
+		"GET /api/events/{id}/thumbnail.jpg?exp=X&sig=Y",
+		"GET /api/review/{id}/preview?exp=X&sig=Y",
 		"GET /health",
 	}
 	s.logger.Info("routes disponibles", "routes", strings.Join(routes, ", "))

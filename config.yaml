@@ -24,6 +24,7 @@ options:
   notify_service: persistent_notification
   frigate_url: ""
   api_port: 5555
+  presign_ttl: 60
 schema:
   mqtt_broker_url: str
   mqtt_topic: str?
@@ -41,4 +42,6 @@ schema:
   frigate_url: url?
   frigate_user: str?
   frigate_password: password?
+  media_base_url: url?
   api_port: "int(1,65535)?"
+  presign_ttl: "int(1,1440)?"

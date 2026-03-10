@@ -17,6 +17,7 @@ import (
 	mqttadapter "frigate-event-manager/internal/adapter/mqtt"
 	"frigate-event-manager/internal/core/filter"
 	"frigate-event-manager/internal/core/handler"
+	"frigate-event-manager/internal/core/ports"
 	"frigate-event-manager/internal/core/processor"
 	"frigate-event-manager/internal/core/throttle"
 )
@@ -40,23 +41,31 @@ func main() {
 		"notify_service", cfg.NotifyService,
 	)
 
-	// --- Frigate client (optionnel) ---
+	// --- Frigate client + Signer (optionnel) ---
 	var frigateClient *frigate.Client
+	var signer *api.Signer
+	var mediaSigner ports.MediaSigner
+
 	if cfg.HasFrigate() {
 		frigateClient = frigate.NewClient(cfg.FrigateURL, cfg.FrigateUser, cfg.FrigatePassword, log)
 		log.Info("client Frigate configuré", "url", cfg.FrigateURL)
+
+		presignTTL := time.Duration(cfg.PresignTTL) * time.Minute
+		signer = api.NewSigner(cfg.MediaBaseURL, presignTTL, presignTTL, 3)
+		mediaSigner = signer
+		log.Info("presigned URLs activées", "ttl", presignTTL, "base_url", cfg.MediaBaseURL)
 	}
 
 	// --- Event Handlers (indépendants, un échec ne bloque pas les autres) ---
 	multi := handler.NewMulti(log)
 
-	// Debug handler : toujours actif (log + URLs media)
-	multi.Add("debug", debughandler.NewHandler(log, cfg.MediaBaseURL))
+	// Debug handler : toujours actif (log + presigned URLs media)
+	multi.Add("debug", debughandler.NewHandler(log, mediaSigner))
 
 	// Notifier HA : ajouté si configuré
 	if cfg.HasNotifier() {
 		log.Info("notifications HA actives", "ha_url", cfg.HABaseURL, "service", cfg.NotifyService)
-		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService, cfg.MediaBaseURL)
+		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService, mediaSigner)
 		multi.Add("notifier", throttle.New(notifier,
 			time.Duration(cfg.Cooldown)*time.Second,
 			time.Duration(cfg.Debounce)*time.Second,
@@ -76,9 +85,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// --- Serveur API (proxy Frigate) ---
+	// --- Serveur API (proxy Frigate avec presigned URLs) ---
 	if frigateClient != nil {
-		srv := api.NewServer(frigateClient, log)
+		srv := api.NewServer(frigateClient, signer, log)
 		addr := fmt.Sprintf(":%d", cfg.APIPort)
 		go func() {
 			if err := srv.ListenAndServe(addr); err != nil {
@@ -91,6 +100,10 @@ func main() {
 	if err := subscriber.Start(ctx); err != nil {
 		log.Error("erreur fatale", "error", err)
 		os.Exit(1)
+	}
+
+	if signer != nil {
+		signer.Stop()
 	}
 
 	log.Info("arrêt propre terminé")

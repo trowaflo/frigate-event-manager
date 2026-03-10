@@ -11,8 +11,14 @@ import (
 
 var _ ports.EventHandler = (*debughandler.Handler)(nil)
 
-func TestHandler_HandleEvent_NoError(t *testing.T) {
-    handler := debughandler.NewHandler(slog.Default(), "http://localhost:5555")
+type fakeSigner struct{}
+
+func (f *fakeSigner) SignURL(path string) string {
+    return "http://localhost:5555" + path + "?exp=9999999999&sig=fakesig"
+}
+
+func TestHandler_HandleEvent_WithSigner(t *testing.T) {
+    handler := debughandler.NewHandler(slog.Default(), &fakeSigner{})
 
     err := handler.HandleEvent(domain.FrigatePayload{
         Type: "new",
@@ -33,8 +39,8 @@ func TestHandler_HandleEvent_NoError(t *testing.T) {
     }
 }
 
-func TestHandler_HandleEvent_NoBaseURL(t *testing.T) {
-    handler := debughandler.NewHandler(slog.Default(), "")
+func TestHandler_HandleEvent_NilSigner(t *testing.T) {
+    handler := debughandler.NewHandler(slog.Default(), nil)
 
     err := handler.HandleEvent(domain.FrigatePayload{
         Type: "new",

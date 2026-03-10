@@ -11,6 +11,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"frigate-event-manager/internal/core/ports"
 	"frigate-event-manager/internal/domain"
 )
 
@@ -20,27 +21,27 @@ type Notifier struct {
 	baseURL       string // ex: "http://homeassistant.local:8123"
 	token         string // Supervisor token (SUPERVISOR_TOKEN)
 	notifyService string // ex: "mobile_app_iphone"
-	mediaBaseURL  string // ex: "http://localhost:5555" ou chemin ingress HA
+	signer        ports.MediaSigner
 	client        *http.Client
 }
 
 // NewNotifier crée un notifier HA.
-// mediaBaseURL est l'URL de base du proxy media (vide = pas d'image dans les notifs).
-func NewNotifier(baseURL, token, notifyService, mediaBaseURL string) *Notifier {
+// signer peut être nil si le proxy media n'est pas configuré.
+func NewNotifier(baseURL, token, notifyService string, signer ports.MediaSigner) *Notifier {
 	return &Notifier{
 		baseURL:       strings.TrimRight(baseURL, "/"),
 		token:         token,
 		notifyService: notifyService,
-		mediaBaseURL:  strings.TrimRight(mediaBaseURL, "/"),
+		signer:        signer,
 		client:        &http.Client{},
 	}
 }
 
 // notificationPayload est le format attendu par l'API notify de HA.
 type notificationPayload struct {
-	Title   string                 `json:"title"`
-	Message string                 `json:"message"`
-	Data    map[string]interface{} `json:"data,omitempty"`
+	Title   string         `json:"title"`
+	Message string         `json:"message"`
+	Data    map[string]any `json:"data,omitempty"`
 }
 
 // HandleEvent construit et envoie une notification pour un événement Frigate.
@@ -79,30 +80,27 @@ func (n *Notifier) HandleEvent(payload domain.FrigatePayload) error {
 func (n *Notifier) buildNotification(payload domain.FrigatePayload) notificationPayload {
 	after := payload.After
 
-	// Construire le label (ex: "Person" ou "Person (Bob)")
 	label := formatLabel(after.Data.Objects, after.Data.SubLabels)
 
-	// Construire le message (ex: "Person dans front_yard")
 	zones := strings.Join(after.Data.Zones, ", ")
 	message := label
 	if zones != "" {
 		message = fmt.Sprintf("%s dans %s", label, zones)
 	}
 
-	// Camera en titre lisible (front_cam → Front Cam)
 	cameraTitle := strings.ReplaceAll(after.Camera, "_", " ")
 	cameraTitle = cases.Title(language.English).String(cameraTitle)
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"tag":   "frigate-" + after.ID,
 		"group": "frigate-" + after.Camera,
 	}
 
-	// Media URLs via notre proxy (snapshot de la première detection)
-	if n.mediaBaseURL != "" && len(after.Data.Detections) > 0 {
+	// Media URLs presignées (snapshot de la première detection)
+	if n.signer != nil && len(after.Data.Detections) > 0 {
 		detID := after.Data.Detections[0]
-		data["image"] = fmt.Sprintf("%s/api/events/%s/snapshot.jpg", n.mediaBaseURL, detID)
-		data["clickAction"] = fmt.Sprintf("%s/api/events/%s/clip.mp4", n.mediaBaseURL, detID)
+		data["image"] = n.signer.SignURL("/api/events/" + detID + "/snapshot.jpg")
+		data["clickAction"] = n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
 	}
 
 	return notificationPayload{
@@ -113,31 +111,28 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 }
 
 // formatLabel construit un label lisible à partir des objets et sub_labels.
-// Ex: ["person"] + ["Bob"] → "Person (Bob)"
-// Ex: ["person", "car"] + [] → "Person, Car"
 func formatLabel(objects, subLabels []string) string {
-    // Filtrer les objets vides
-    var filtered []string
-    for _, o := range objects {
-        if o != "" {
-            filtered = append(filtered, o)
-        }
-    }
+	var filtered []string
+	for _, o := range objects {
+		if o != "" {
+			filtered = append(filtered, o)
+		}
+	}
 
-    if len(filtered) == 0 {
-        return "Détection"
-    }
+	if len(filtered) == 0 {
+		return "Détection"
+	}
 
-    titles := make([]string, len(filtered))
-    for i, o := range filtered {
-        titles[i] = strings.ToUpper(o[:1]) + o[1:]
-    }
+	titles := make([]string, len(filtered))
+	for i, o := range filtered {
+		titles[i] = strings.ToUpper(o[:1]) + o[1:]
+	}
 
-    label := strings.Join(titles, ", ")
+	label := strings.Join(titles, ", ")
 
-    if len(subLabels) > 0 {
-        label = fmt.Sprintf("%s (%s)", label, strings.Join(subLabels, ", "))
-    }
+	if len(subLabels) > 0 {
+		label = fmt.Sprintf("%s (%s)", label, strings.Join(subLabels, ", "))
+	}
 
-    return label
+	return label
 }

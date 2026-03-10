@@ -17,3 +17,9 @@ type EventProcessor interface {
 type EventHandler interface {
 	HandleEvent(payload domain.FrigatePayload) error
 }
+
+// MediaSigner génère des presigned URLs pour accéder aux media Frigate.
+// Nil signifie que le proxy media n'est pas configuré.
+type MediaSigner interface {
+	SignURL(path string) string
+}

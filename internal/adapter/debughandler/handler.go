@@ -1,25 +1,22 @@
 package debughandler
 
 import (
-    "fmt"
     "log/slog"
-    "strings"
 
+    "frigate-event-manager/internal/core/ports"
     "frigate-event-manager/internal/domain"
 )
 
 // Handler est un EventHandler qui affiche les événements dans les logs.
-// C'est un handler temporaire pour tester la chaîne complète
-// avant d'implémenter les vraies notifications.
 type Handler struct {
-    logger  *slog.Logger
-    baseURL string // ex: "http://localhost:5555"
+    logger *slog.Logger
+    signer ports.MediaSigner
 }
 
 // NewHandler crée un handler de log.
-// baseURL est l'URL du proxy API (vide = pas de liens media).
-func NewHandler(logger *slog.Logger, baseURL string) *Handler {
-    return &Handler{logger: logger, baseURL: strings.TrimRight(baseURL, "/")}
+// signer peut être nil si le proxy media n'est pas configuré.
+func NewHandler(logger *slog.Logger, signer ports.MediaSigner) *Handler {
+    return &Handler{logger: logger, signer: signer}
 }
 
 // HandleEvent affiche l'événement Frigate dans les logs.
@@ -36,19 +33,19 @@ func (h *Handler) HandleEvent(payload domain.FrigatePayload) error {
         "detections", after.Data.Detections,
     )
 
-    if h.baseURL != "" {
+    if h.signer != nil {
         // Review preview (gif animé du review complet)
         h.logger.Info("review media",
-            "preview", fmt.Sprintf("%s/api/review/%s/preview", h.baseURL, after.ID),
+            "preview", h.signer.SignURL("/api/review/"+after.ID+"/preview"),
         )
 
-        // URLs par detection (clip/snapshot)
+        // URLs par detection (clip/snapshot/thumbnail)
         for _, detID := range after.Data.Detections {
             h.logger.Info("detection media",
                 "detection_id", detID,
-                "clip", fmt.Sprintf("%s/api/events/%s/clip.mp4", h.baseURL, detID),
-                "snapshot", fmt.Sprintf("%s/api/events/%s/snapshot.jpg", h.baseURL, detID),
-                "thumbnail", fmt.Sprintf("%s/api/events/%s/thumbnail.jpg", h.baseURL, detID),
+                "clip", h.signer.SignURL("/api/events/"+detID+"/clip.mp4"),
+                "snapshot", h.signer.SignURL("/api/events/"+detID+"/snapshot.jpg"),
+                "thumbnail", h.signer.SignURL("/api/events/"+detID+"/thumbnail.jpg"),
             )
         }
     }

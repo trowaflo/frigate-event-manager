@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Config contient toute la configuration de l'addon.
@@ -31,10 +32,12 @@ type Config struct {
 	FrigateUser     string `json:"frigate_user"`
 	FrigatePassword string `json:"frigate_password"`
 	APIPort         int    `json:"api_port"`
+	PresignTTL      int    `json:"presign_ttl"` // minutes, défaut 60
 
-	// Media — URL de base pour les liens media dans les notifications
-	// Résolu automatiquement : ingress HA en prod, localhost en dev
-	MediaBaseURL string `json:"-"`
+	// Media — URL de base pour les presigned URLs dans les notifications.
+	// En prod HA, résolu automatiquement via l'external URL HA + ingress path.
+	// En dev, fallback sur localhost:APIPort.
+	MediaBaseURL string `json:"media_base_url"`
 
 	// Filtres
 	SeverityFilter []string `json:"severity_filter"`
@@ -111,23 +114,32 @@ func (c *Config) applyDefaults() {
 	if c.APIPort == 0 {
 		c.APIPort = 5555
 	}
+	if c.PresignTTL == 0 {
+		c.PresignTTL = 60
+	}
 	c.HABaseURL = "http://supervisor/core"
 }
 
-// resolveMediaBaseURL détermine l'URL de base pour les liens media.
-// En prod HA : utilise le chemin ingress (INGRESS_PATH fourni par le Supervisor).
-// En dev : utilise localhost:APIPort.
+// resolveMediaBaseURL détermine l'URL de base pour les presigned URLs.
+// Priorité : config explicite > auto-détection HA ingress > localhost (dev).
 func (c *Config) resolveMediaBaseURL() {
 	if !c.HasFrigate() {
 		return
 	}
-	if ingressPath := os.Getenv("INGRESS_PATH"); ingressPath != "" {
-		// Prod HA : l'addon est derrière l'ingress du Supervisor
-		c.MediaBaseURL = ingressPath
-	} else {
-		// Dev local
-		c.MediaBaseURL = fmt.Sprintf("http://localhost:%d", c.APIPort)
+	// Déjà configuré explicitement
+	if c.MediaBaseURL != "" {
+		return
 	}
+	// En prod HA : l'external URL HA + ingress path
+	// INGRESS_PATH est fourni par le Supervisor (ex: /api/hassio_ingress/xxxxx)
+	haExternal := os.Getenv("HA_EXTERNAL_URL")
+	ingressPath := os.Getenv("INGRESS_PATH")
+	if haExternal != "" && ingressPath != "" {
+		c.MediaBaseURL = strings.TrimRight(haExternal, "/") + ingressPath
+		return
+	}
+	// Dev local
+	c.MediaBaseURL = fmt.Sprintf("http://localhost:%d", c.APIPort)
 }
 
 func (c *Config) validate() error {

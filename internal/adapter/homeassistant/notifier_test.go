@@ -8,8 +8,17 @@ import (
 	"testing"
 
 	"frigate-event-manager/internal/adapter/homeassistant"
+	"frigate-event-manager/internal/core/ports"
 	"frigate-event-manager/internal/domain"
 )
+
+type fakeSigner struct{}
+
+func (f *fakeSigner) SignURL(path string) string {
+	return "http://localhost:5555" + path + "?exp=9999999999&sig=fakesig"
+}
+
+var _ ports.MediaSigner = (*fakeSigner)(nil)
 
 func newTestPayload() domain.FrigatePayload {
 	return domain.FrigatePayload{
@@ -29,7 +38,6 @@ func newTestPayload() domain.FrigatePayload {
 }
 
 func TestNotifier_SendsCorrectHTTPRequest(t *testing.T) {
-	// GIVEN : un faux serveur HA qui enregistre la requête reçue
 	var receivedBody []byte
 	var receivedAuth string
 	var receivedPath string
@@ -42,29 +50,22 @@ func TestNotifier_SendsCorrectHTTPRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "my-secret-token", "mobile_app_iphone", "http://localhost:5555")
+	notifier := homeassistant.NewNotifier(server.URL, "my-secret-token", "mobile_app_iphone", &fakeSigner{})
 
-	// WHEN : on envoie une notification
 	err := notifier.HandleEvent(newTestPayload())
-
-	// THEN : la requête est correcte
 	if err != nil {
 		t.Fatalf("erreur inattendue: %v", err)
 	}
 
-	// Vérifier le path
 	expected := "/api/services/notify/mobile_app_iphone"
 	if receivedPath != expected {
 		t.Errorf("path attendu %q, reçu %q", expected, receivedPath)
 	}
-
-	// Vérifier l'authentification Bearer
 	if receivedAuth != "Bearer my-secret-token" {
 		t.Errorf("auth attendue 'Bearer my-secret-token', reçue %q", receivedAuth)
 	}
 
-	// Vérifier le body JSON
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(receivedBody, &body); err != nil {
 		t.Fatalf("body n'est pas du JSON valide: %v", err)
 	}
@@ -74,76 +75,72 @@ func TestNotifier_SendsCorrectHTTPRequest(t *testing.T) {
 	if body["message"] == nil || body["message"] == "" {
 		t.Error("message ne devrait pas être vide")
 	}
+
+	// Vérifier que les presigned URLs sont dans le payload
+	data, _ := body["data"].(map[string]any)
+	image, _ := data["image"].(string)
+	if image == "" {
+		t.Error("image devrait contenir une presigned URL")
+	}
 }
 
-func TestNotifier_IncludesImageAndTag(t *testing.T) {
-	// GIVEN
+func TestNotifier_IncludesPresignedURLs(t *testing.T) {
+	var receivedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		var payload map[string]interface{}
-		if err := json.Unmarshal(body, &payload); err != nil {
-			http.Error(w, "invalid json", 400)
-			return
-		}
-		data, ok := payload["data"].(map[string]interface{})
-		if !ok {
-			http.Error(w, "missing data", 400)
-			return
-		}
-
-		// Le tag doit contenir le review_id pour permettre les updates
-		tag, _ := data["tag"].(string)
-		if tag == "" {
-			http.Error(w, "missing tag", 400)
-			return
-		}
-
+		receivedBody, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", &fakeSigner{})
 
-	// WHEN
 	err := notifier.HandleEvent(newTestPayload())
-
-	// THEN
 	if err != nil {
 		t.Fatalf("erreur inattendue: %v", err)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(receivedBody, &body); err != nil {
+		t.Fatalf("body invalide: %v", err)
+	}
+
+	data, _ := body["data"].(map[string]any)
+	tag, _ := data["tag"].(string)
+	if tag == "" {
+		t.Error("tag ne devrait pas être vide")
+	}
+	image, _ := data["image"].(string)
+	if image == "" {
+		t.Error("image presigned URL manquante")
+	}
+	clickAction, _ := data["clickAction"].(string)
+	if clickAction == "" {
+		t.Error("clickAction presigned URL manquante")
 	}
 }
 
 func TestNotifier_HAReturnsError_ReturnsError(t *testing.T) {
-	// GIVEN : HA retourne une erreur 500
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte(`{"message": "internal error"}`))
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
-
-	// WHEN
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", &fakeSigner{})
 	err := notifier.HandleEvent(newTestPayload())
-
-	// THEN : l'erreur remonte
 	if err == nil {
 		t.Fatal("une erreur était attendue quand HA retourne 500")
 	}
 }
 
 func TestNotifier_HAUnreachable_ReturnsError(t *testing.T) {
-	// GIVEN : HA est injoignable (URL bidon)
-	notifier := homeassistant.NewNotifier("http://localhost:1", "token", "mobile_app_iphone", "http://localhost:5555")
-
-	// WHEN
+	notifier := homeassistant.NewNotifier("http://localhost:1", "token", "mobile_app_iphone", &fakeSigner{})
 	err := notifier.HandleEvent(newTestPayload())
-
-	// THEN
 	if err == nil {
 		t.Fatal("une erreur était attendue quand HA est injoignable")
 	}
 }
+
 func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 	var receivedBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +149,7 @@ func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", "http://localhost:5555")
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", nil)
 
 	payload := domain.FrigatePayload{
 		Type: "new",
@@ -171,7 +168,7 @@ func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 		t.Fatalf("erreur inattendue: %v", err)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.Unmarshal(receivedBody, &body); err != nil {
 		t.Fatalf("body invalide: %v", err)
 	}
@@ -179,11 +176,34 @@ func TestNotifier_EmptyObjectString_HandledGracefully(t *testing.T) {
 		t.Error("message ne devrait pas être vide même avec un objet vide")
 	}
 }
-func TestNotifier_InvalidURL_ReturnsError(t *testing.T) {
-	notifier := homeassistant.NewNotifier("://invalid", "token", "mobile_app_iphone", "http://localhost:5555")
 
+func TestNotifier_NilSigner_NoMediaURLs(t *testing.T) {
+	var receivedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	notifier := homeassistant.NewNotifier(server.URL, "token", "mobile_app_iphone", nil)
 	err := notifier.HandleEvent(newTestPayload())
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
 
+	var body map[string]any
+	if err := json.Unmarshal(receivedBody, &body); err != nil {
+		t.Fatalf("body invalide: %v", err)
+	}
+	data, _ := body["data"].(map[string]any)
+	if data["image"] != nil {
+		t.Error("image ne devrait pas être présent sans signer")
+	}
+}
+
+func TestNotifier_InvalidURL_ReturnsError(t *testing.T) {
+	notifier := homeassistant.NewNotifier("://invalid", "token", "mobile_app_iphone", nil)
+	err := notifier.HandleEvent(newTestPayload())
 	if err == nil {
 		t.Fatal("une erreur était attendue avec une URL invalide")
 	}

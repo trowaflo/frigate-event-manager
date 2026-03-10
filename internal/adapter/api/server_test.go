@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"frigate-event-manager/internal/adapter/api"
 	"frigate-event-manager/internal/adapter/frigate"
@@ -36,14 +37,26 @@ func fakeFrigate() *httptest.Server {
 	}))
 }
 
+func newTestSigner() *api.Signer {
+	return api.NewSigner("http://localhost:5555", time.Hour, time.Hour, 3)
+}
+
+func presign(signer *api.Signer, path string) string {
+	url := signer.SignURL(path)
+	// Strip the base URL to get the relative path+query for httptest
+	return url[len("http://localhost:5555"):]
+}
+
 func TestServer_ProxyEvents_Clip(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/abc123/clip.mp4", nil)
+	req := httptest.NewRequest(http.MethodGet, presign(signer, "/api/events/abc123/clip.mp4"), nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -54,11 +67,13 @@ func TestServer_ProxyEvents_Clip(t *testing.T) {
 func TestServer_ProxyEvents_Snapshot(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/abc123/snapshot.jpg", nil)
+	req := httptest.NewRequest(http.MethodGet, presign(signer, "/api/events/abc123/snapshot.jpg"), nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -69,11 +84,13 @@ func TestServer_ProxyEvents_Snapshot(t *testing.T) {
 func TestServer_ProxyReview_List(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/review?limit=5", nil)
+	req := httptest.NewRequest(http.MethodGet, presign(signer, "/api/review"), nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -83,11 +100,13 @@ func TestServer_ProxyReview_List(t *testing.T) {
 func TestServer_ProxyReview_Preview(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/review/rev123/preview", nil)
+	req := httptest.NewRequest(http.MethodGet, presign(signer, "/api/review/rev123/preview"), nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -98,9 +117,11 @@ func TestServer_ProxyReview_Preview(t *testing.T) {
 func TestServer_Health(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -113,16 +134,43 @@ func TestServer_Health(t *testing.T) {
 	assert.JSONEq(t, `{"status":"ok"}`, string(body))
 }
 
-func TestServer_ProxyCORS(t *testing.T) {
+func TestServer_RejectsUnsignedRequest(t *testing.T) {
 	frig := fakeFrigate()
 	defer frig.Close()
+	signer := newTestSigner()
+	defer signer.Stop()
 
 	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
-	srv := api.NewServer(client, newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/events/x/thumbnail.jpg", nil)
+	// Requête sans presign
+	req := httptest.NewRequest(http.MethodGet, "/api/events/abc/clip.mp4", nil)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
-	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestServer_RejectsExpiredPresign(t *testing.T) {
+	frig := fakeFrigate()
+	defer frig.Close()
+
+	frozenTime := time.Now()
+	signer := api.NewSigner("http://localhost:5555", time.Minute, time.Hour, 3)
+	signer.SetTimeFunc(func() time.Time { return frozenTime })
+	defer signer.Stop()
+
+	client := frigate.NewClient(frig.URL, "u", "p", newTestLogger())
+	srv := api.NewServer(client, signer, newTestLogger())
+
+	url := presign(signer, "/api/events/abc/clip.mp4")
+
+	// Avancer le temps au-delà du TTL
+	signer.SetTimeFunc(func() time.Time { return frozenTime.Add(2 * time.Minute) })
+
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
