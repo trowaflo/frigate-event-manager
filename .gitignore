@@ -4,3 +4,4 @@
 .decrypted~*
 .ansible
 dev/
+settings.local.json
