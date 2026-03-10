@@ -20,26 +20,93 @@ tasks:
           export CONFIG_PATH=dev/config.json
           export MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
           export MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
+          export FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
+          export FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
           exec go run ./cmd/addon
 
   dev:init:
-    desc: Stocke les credentials MQTT dans le Keychain macOS (hors devcontainer)
+    desc: Stocke les credentials MQTT + Frigate dans le Keychain macOS (hors devcontainer)
     cmds:
       - cmd: |
-          echo "--- Stockage des credentials MQTT dans le Keychain ---"
+          echo "--- Stockage des credentials dans le Keychain ---"
           printf "MQTT_USERNAME: " && read USERNAME
           security add-generic-password -a frigate-event-manager -s mqtt-username -w "$USERNAME" -U
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
           security add-generic-password -a frigate-event-manager -s mqtt-password -w "$PASSWORD" -U
-          echo "✅ Credentials MQTT stockés dans le Keychain macOS"
+          printf "FRIGATE_USER: " && read FUSER
+          security add-generic-password -a frigate-event-manager -s frigate-user -w "$FUSER" -U
+          printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
+          security add-generic-password -a frigate-event-manager -s frigate-password -w "$FPASSWORD" -U
+          echo "✅ Credentials stockés dans le Keychain macOS"
     silent: true
 
   dev:clean:
-    desc: Supprime les credentials MQTT du Keychain
+    desc: Supprime les credentials du Keychain
     cmds:
       - security delete-generic-password -a frigate-event-manager -s mqtt-username 2>/dev/null || true
       - security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
+      - security delete-generic-password -a frigate-event-manager -s frigate-user 2>/dev/null || true
+      - security delete-generic-password -a frigate-event-manager -s frigate-password 2>/dev/null || true
       - echo "✅ Credentials supprimés du Keychain"
+    silent: true
+
+  dev:replay:
+    desc: Récupère le dernier review Frigate et le publie en MQTT pour tester
+    cmds:
+      - cmd: |
+          FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
+          FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
+          MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
+          MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
+
+          COOKIE_JAR=$(mktemp)
+          echo "🔐 Login Frigate..."
+          curl -s -c "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/login' \
+            -H 'Content-Type: application/json' \
+            -d "{\"user\": \"$FRIGATE_USER\", \"password\": \"$FRIGATE_PASSWORD\"}"
+
+          echo "📋 Récupération du dernier review..."
+          REVIEW=$(curl -s -b "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/review?limit=1')
+          rm -f "$COOKIE_JAR"
+
+          echo "📦 Review récupéré:"
+          echo "$REVIEW" | python3 -m json.tool 2>/dev/null || echo "$REVIEW"
+
+          # Construire le payload MQTT au format attendu par l'addon
+          PAYLOAD=$(echo "$REVIEW" | python3 -c "
+          import json, sys
+          reviews = json.load(sys.stdin)
+          if not reviews:
+              print('Aucun review trouvé', file=sys.stderr)
+              sys.exit(1)
+          r = reviews[0]
+          payload = {
+              'type': 'new',
+              'before': {},
+              'after': {
+                  'id': r['id'],
+                  'camera': r['camera'],
+                  'start_time': r['start_time'],
+                  'end_time': r.get('end_time'),
+                  'severity': r['severity'],
+                  'thumb_path': r.get('thumb_path', ''),
+                  'data': r.get('data', {})
+              }
+          }
+          print(json.dumps(payload))
+          ")
+
+          echo ""
+          echo "📤 Publication MQTT sur frigate/reviews..."
+          echo "$PAYLOAD" | python3 -m json.tool 2>/dev/null
+
+          echo "$PAYLOAD" | mosquitto_pub \
+            -h mosquitto.trowa-family.ovh -p 1883 \
+            -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" \
+            -t "frigate/reviews" -s
+
+          echo ""
+          echo "✅ Review republié ! L'addon devrait le traiter."
     silent: true
 
   build:

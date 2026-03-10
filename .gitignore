@@ -5,3 +5,5 @@
 .ansible
 dev/
 settings.local.json
+coverage.out
+addon

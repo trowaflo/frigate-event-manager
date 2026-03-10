@@ -2,18 +2,21 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"frigate-event-manager/internal/adapter/api"
 	"frigate-event-manager/internal/adapter/config"
 	"frigate-event-manager/internal/adapter/debughandler"
+	"frigate-event-manager/internal/adapter/frigate"
 	"frigate-event-manager/internal/adapter/homeassistant"
 	mqttadapter "frigate-event-manager/internal/adapter/mqtt"
 	"frigate-event-manager/internal/core/filter"
-	"frigate-event-manager/internal/core/ports"
+	"frigate-event-manager/internal/core/handler"
 	"frigate-event-manager/internal/core/processor"
 	"frigate-event-manager/internal/core/throttle"
 )
@@ -37,33 +40,56 @@ func main() {
 		"notify_service", cfg.NotifyService,
 	)
 
-	// --- Event Handler : dépend de ce qui est configuré ---
-	var eventHandler ports.EventHandler
+	// --- Frigate client (optionnel) ---
+	var frigateClient *frigate.Client
+	if cfg.HasFrigate() {
+		frigateClient = frigate.NewClient(cfg.FrigateURL, cfg.FrigateUser, cfg.FrigatePassword, log)
+		log.Info("client Frigate configuré", "url", cfg.FrigateURL)
+	}
 
+	// --- Event Handlers (indépendants, un échec ne bloque pas les autres) ---
+	multi := handler.NewMulti(log)
+
+	// Debug handler : toujours actif (log + URLs media)
+	apiBaseURL := ""
+	if cfg.HasFrigate() {
+		apiBaseURL = fmt.Sprintf("http://localhost:%d", cfg.APIPort)
+	}
+	multi.Add("debug", debughandler.NewHandler(log, apiBaseURL))
+
+	// Notifier HA : ajouté si configuré
 	if cfg.HasNotifier() {
 		log.Info("notifications HA actives", "ha_url", cfg.HABaseURL, "service", cfg.NotifyService)
 		notifier := homeassistant.NewNotifier(cfg.HABaseURL, cfg.HAToken, cfg.NotifyService)
-		eventHandler = throttle.New(notifier,
+		multi.Add("notifier", throttle.New(notifier,
 			time.Duration(cfg.Cooldown)*time.Second,
 			time.Duration(cfg.Debounce)*time.Second,
 			time.Duration(cfg.TTL)*time.Minute,
-		)
+		))
 		log.Info("throttle activé", "cooldown", cfg.Cooldown, "debounce", cfg.Debounce)
-	} else {
-		log.Info("pas de config HA — événements loggés uniquement")
-		eventHandler = debughandler.NewHandler(log)
 	}
 
 	// --- Le reste est identique quel que soit le mode ---
 	chain := filter.NewFilterChain(
 		filter.NewSeverityFilter(cfg.SeverityFilter),
 	)
-	proc := processor.NewProcessor(chain, eventHandler)
+	proc := processor.NewProcessor(chain, multi)
 	msgHandler := mqttadapter.NewMessageHandler(proc)
 	subscriber := mqttadapter.NewSubscriber(cfg.MQTTBrokerURL, cfg.MQTTTopic, cfg.MQTTClientID, cfg.MQTTUsername, cfg.MQTTPassword, msgHandler, log)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	// --- Serveur API (proxy Frigate) ---
+	if frigateClient != nil {
+		srv := api.NewServer(frigateClient, log)
+		addr := fmt.Sprintf(":%d", cfg.APIPort)
+		go func() {
+			if err := srv.ListenAndServe(addr); err != nil {
+				log.Error("erreur serveur API", "error", err)
+			}
+		}()
+	}
 
 	log.Info("connexion au broker MQTT...")
 	if err := subscriber.Start(ctx); err != nil {

@@ -26,6 +26,12 @@ type Config struct {
 	HAToken       string `json:"-"` // jamais dans le fichier config, vient de SUPERVISOR_TOKEN
 	NotifyService string `json:"notify_service"`
 
+	// Frigate
+	FrigateURL      string `json:"frigate_url"`
+	FrigateUser     string `json:"frigate_user"`
+	FrigatePassword string `json:"frigate_password"`
+	APIPort         int    `json:"api_port"`
+
 	// Filtres
 	SeverityFilter []string `json:"severity_filter"`
 	Cameras        []string `json:"cameras"`
@@ -58,6 +64,11 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// HasFrigate retourne true si l'URL Frigate et les credentials sont configurés.
+func (c *Config) HasFrigate() bool {
+	return c.FrigateURL != "" && c.FrigateUser != "" && c.FrigatePassword != ""
+}
+
 func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("MQTT_USERNAME"); v != "" {
 		c.MQTTUsername = v
@@ -67,6 +78,12 @@ func (c *Config) applyEnvOverrides() {
 	}
 	if v := os.Getenv("SUPERVISOR_TOKEN"); v != "" {
 		c.HAToken = v
+	}
+	if v := os.Getenv("FRIGATE_USER"); v != "" {
+		c.FrigateUser = v
+	}
+	if v := os.Getenv("FRIGATE_PASSWORD"); v != "" {
+		c.FrigatePassword = v
 	}
 }
 
@@ -85,6 +102,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.TTL == 0 {
 		c.TTL = 30
+	}
+	if c.APIPort == 0 {
+		c.APIPort = 5555
 	}
 	c.HABaseURL = "http://supervisor/core"
 }

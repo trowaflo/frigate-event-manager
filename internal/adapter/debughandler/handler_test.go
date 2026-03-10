@@ -12,7 +12,7 @@ import (
 var _ ports.EventHandler = (*debughandler.Handler)(nil)
 
 func TestHandler_HandleEvent_NoError(t *testing.T) {
-    handler := debughandler.NewHandler(slog.Default())
+    handler := debughandler.NewHandler(slog.Default(), "http://localhost:5555")
 
     err := handler.HandleEvent(domain.FrigatePayload{
         Type: "new",
@@ -21,9 +21,27 @@ func TestHandler_HandleEvent_NoError(t *testing.T) {
             Camera:   "front_cam",
             Severity: "alert",
             Data: domain.EventData{
-                Objects: []string{"person"},
-                Zones:   []string{"front_yard"},
+                Objects:    []string{"person"},
+                Zones:      []string{"front_yard"},
+                Detections: []string{"det-abc", "det-def"},
             },
+        },
+    })
+
+    if err != nil {
+        t.Fatalf("erreur inattendue: %v", err)
+    }
+}
+
+func TestHandler_HandleEvent_NoBaseURL(t *testing.T) {
+    handler := debughandler.NewHandler(slog.Default(), "")
+
+    err := handler.HandleEvent(domain.FrigatePayload{
+        Type: "new",
+        After: domain.EventState{
+            ID:       "test-456",
+            Camera:   "back_cam",
+            Severity: "detection",
         },
     })
 
