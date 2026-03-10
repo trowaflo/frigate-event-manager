@@ -18,6 +18,8 @@ tasks:
     cmds:
       - cmd: |
           export CONFIG_PATH=dev/config.json
+          export MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
+          export MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
           exec go run ./cmd/addon
 
   dev:init:
