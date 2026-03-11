@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Pass phrase
+
+A chaque debut de session (premier message), annoncer sur un ton d'IA iconique (Jarvis, KITT, C3PO, R2-D2, BB-8, WALL-E, HAL, GLaDOS...) une phrase confirmant que les instructions ont ete lues. Varier le personnage et le style a chaque session. L'humour et les clins d'oeil geek sont encourages.
+
+Exemple : « Bip bwoop — BB-8 en ligne. Instructions CLAUDE.md chargees, systeme Home Assistant sous controle. »
+
+Cette phrase doit preceder toute action, reponse ou modification, sans exception.
+
 ## Workflow
 
 L'utilisateur n'est pas developpeur. Il apprend en faisant.
