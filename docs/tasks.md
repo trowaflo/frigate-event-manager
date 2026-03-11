@@ -65,6 +65,15 @@
 2.8 (verify)
 ```
 
+## Backlog
+
+- [ ] **Persistence events** — Sauvegarder le ring buffer dans `/data/events.json`
+  - Optionnel, activable via config (`persist_events: true`)
+  - Ecriture apres chaque event (I/O faible si <200 events/jour)
+  - Documenter le risque : si volume important, les I/O peuvent user une SD card (Raspberry Pi)
+  - Charger au boot, respecter la capacite max du ring buffer
+- [ ] **Notif : preview review manquant** — Le lien preview n'apparait plus dans la notification persistante (a investiguer)
+
 ## Phase 1 : MQTT Discovery (FAIT)
 
 - [x] 1.1 Camera Registry — persistence + auto-decouverte
