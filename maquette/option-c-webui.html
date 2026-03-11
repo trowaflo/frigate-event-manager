@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frigate Event Manager — Option C: Web UI (Ingress)</title>
+<style>
+  :root {
+    --bg: #1c1c1c;
+    --surface: #262626;
+    --surface2: #333;
+    --border: #444;
+    --text: #e0e0e0;
+    --text-muted: #999;
+    --primary: #4fc3f7;
+    --primary-dim: #2980b9;
+    --accent-green: #66bb6a;
+    --accent-red: #ef5350;
+    --accent-orange: #ffa726;
+    --accent-yellow: #ffee58;
+    --shadow: rgba(0,0,0,.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--text); }
+
+  /* ---- Layout ---- */
+  .app { display:flex; height:100vh; }
+  .sidebar { width:220px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+  .sidebar-header { padding:20px 16px 12px; border-bottom:1px solid var(--border); }
+  .sidebar-header h1 { font-size:14px; font-weight:700; color:var(--primary); letter-spacing:.5px; }
+  .sidebar-header small { font-size:11px; color:var(--text-muted); }
+  .sidebar nav { flex:1; padding:8px 0; }
+  .sidebar nav a {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; font-size:13px; color:var(--text-muted);
+    text-decoration:none; transition:all .15s;
+  }
+  .sidebar nav a:hover { background:var(--surface2); color:var(--text); }
+  .sidebar nav a.active { background:var(--surface2); color:var(--primary); border-left:3px solid var(--primary); }
+  .sidebar nav a .icon { font-size:16px; width:20px; text-align:center; }
+  .sidebar-footer { padding:12px 16px; border-top:1px solid var(--border); font-size:11px; color:var(--text-muted); }
+
+  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .topbar { height:48px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; justify-content:space-between; }
+  .topbar h2 { font-size:15px; font-weight:600; }
+  .topbar .status { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--accent-green); }
+  .topbar .status .dot { width:8px; height:8px; border-radius:50%; background:var(--accent-green); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .content { flex:1; overflow-y:auto; padding:24px; }
+
+  /* ---- Dashboard page ---- */
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .stat-card .label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+  .stat-card .value { font-size:28px; font-weight:700; }
+  .stat-card .sub { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+  /* ---- Camera grid ---- */
+  .section-title { font-size:14px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .camera-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; margin-bottom:24px; }
+  .camera-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden;
+    transition:border-color .2s;
+  }
+  .camera-card:hover { border-color:var(--primary-dim); }
+  .camera-thumb {
+    height:180px; background:var(--surface2); position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .camera-thumb .placeholder { color:var(--text-muted); font-size:11px; }
+  .camera-thumb .snapshot-img {
+    width:100%; height:100%; object-fit:cover;
+  }
+  .camera-thumb .badge {
+    position:absolute; top:8px; right:8px;
+    padding:3px 8px; border-radius:4px; font-size:10px; font-weight:600; text-transform:uppercase;
+  }
+  .badge-alert { background:var(--accent-red); color:#fff; }
+  .badge-detection { background:var(--accent-orange); color:#000; }
+  .badge-idle { background:var(--surface2); color:var(--text-muted); }
+  .camera-thumb .timestamp {
+    position:absolute; bottom:8px; left:8px;
+    background:rgba(0,0,0,.7); padding:2px 6px; border-radius:3px; font-size:10px; color:#ccc;
+  }
+  .camera-info { padding:12px; }
+  .camera-name { font-size:14px; font-weight:600; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
+  .camera-meta { font-size:11px; color:var(--text-muted); display:flex; gap:12px; }
+  .camera-actions { display:flex; gap:6px; margin-top:8px; }
+  .btn-sm {
+    padding:4px 10px; border-radius:5px; font-size:11px; border:1px solid var(--border);
+    background:var(--surface2); color:var(--text); cursor:pointer; transition:all .15s;
+  }
+  .btn-sm:hover { border-color:var(--primary); color:var(--primary); }
+  .btn-primary { background:var(--primary-dim); border-color:var(--primary-dim); color:#fff; }
+  .btn-primary:hover { background:var(--primary); }
+
+  /* Toggle switch */
+  .toggle { position:relative; width:36px; height:20px; cursor:pointer; }
+  .toggle input { display:none; }
+  .toggle .slider {
+    position:absolute; inset:0; background:var(--surface2); border-radius:10px; transition:.2s;
+    border:1px solid var(--border);
+  }
+  .toggle .slider::before {
+    content:''; position:absolute; width:14px; height:14px; border-radius:50%;
+    left:2px; top:2px; background:var(--text-muted); transition:.2s;
+  }
+  .toggle input:checked + .slider { background:var(--primary-dim); border-color:var(--primary); }
+  .toggle input:checked + .slider::before { transform:translateX(16px); background:#fff; }
+
+  /* ---- Events timeline ---- */
+  .events-table { width:100%; border-collapse:collapse; }
+  .events-table th {
+    text-align:left; font-size:11px; color:var(--text-muted); text-transform:uppercase;
+    letter-spacing:.5px; padding:8px 12px; border-bottom:1px solid var(--border);
+  }
+  .events-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; }
+  .events-table tr:hover td { background:var(--surface); }
+  .events-table .severity { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; }
+
+  /* ---- Settings page ---- */
+  .settings-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .settings-section h3 { font-size:13px; font-weight:600; margin-bottom:12px; color:var(--primary); }
+  .form-row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .form-row label { font-size:12px; color:var(--text-muted); width:160px; flex-shrink:0; }
+  .form-row input, .form-row select {
+    flex:1; padding:6px 10px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:5px; color:var(--text); font-size:13px;
+  }
+  .form-row input:focus, .form-row select:focus { outline:none; border-color:var(--primary); }
+  .chip-list { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip {
+    padding:4px 10px; border-radius:12px; font-size:11px; border:1px solid var(--border);
+    background:var(--surface2); cursor:pointer; transition:all .15s;
+  }
+  .chip.active { background:var(--primary-dim); border-color:var(--primary); color:#fff; }
+
+  /* page visibility */
+  .page { display:none; }
+  .page.visible { display:block; }
+
+  /* ---- Tabs inside pages ---- */
+  .tab-bar { display:flex; gap:2px; margin-bottom:16px; background:var(--surface); border-radius:8px; padding:3px; border:1px solid var(--border); width:fit-content; }
+  .tab-btn { padding:6px 14px; border-radius:6px; font-size:12px; border:none; background:none; color:var(--text-muted); cursor:pointer; }
+  .tab-btn.active { background:var(--surface2); color:var(--primary); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>FRIGATE EVENT<br>MANAGER</h1>
+      <small>v0.2.0 &middot; Addon</small>
+    </div>
+    <nav>
+      <a href="#" class="active" data-page="dashboard"><span class="icon">&#9632;</span> Dashboard</a>
+      <a href="#" data-page="events"><span class="icon">&#9202;</span> Events</a>
+      <a href="#" data-page="cameras"><span class="icon">&#9790;</span> Cameras</a>
+      <a href="#" data-page="settings"><span class="icon">&#9881;</span> Settings</a>
+    </nav>
+    <div class="sidebar-footer">
+      MQTT: connected<br>
+      Frigate: healthy
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="status"><span class="dot"></span> MQTT connecté</div>
+    </div>
+
+    <div class="content">
+
+      <!-- ========== DASHBOARD ========== -->
+      <div class="page visible" id="page-dashboard">
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="label">Events (24h)</div>
+            <div class="value">47</div>
+            <div class="sub">&#9650; 12% vs hier</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Alerts</div>
+            <div class="value" style="color:var(--accent-red)">3</div>
+            <div class="sub">derniere il y a 14min</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Cameras actives</div>
+            <div class="value">5<span style="font-size:14px;color:var(--text-muted)"> / 6</span></div>
+            <div class="sub">garage desactivee</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Notifications</div>
+            <div class="value" style="color:var(--accent-green)">12</div>
+            <div class="sub">persistent_notification</div>
+          </div>
+        </div>
+
+        <div class="section-title">&#128247; Cameras — Derniers snapshots</div>
+        <div class="camera-grid">
+          <!-- Camera 1 -->
+          <div class="camera-card">
+            <div class="camera-thumb" style="background:linear-gradient(135deg,#1a2a1a,#0a1a0a)">
+              <div class="placeholder" style="font-size:48px;opacity:.15">&#127968;</div>
+              <span class="badge badge-alert">ALERT</span>
+              <span class="timestamp">il y a 14 min</span>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">
+                jardin_nord
+                <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
+              </div>
+              <div class="camera-meta">
+                <span>&#128100; person (87%)</span>
+                <span>&#128247; 23 events</span>
+              </div>
+              <div class="camera-actions">
+                <button class="btn-sm btn-primary">Voir clip</button>
+                <button class="btn-sm">Historique</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera 2 -->
+          <div class="camera-card">
+            <div class="camera-thumb" style="background:linear-gradient(135deg,#1a1a2a,#0a0a1a)">
+              <div class="placeholder" style="font-size:48px;opacity:.15">&#128663;</div>
+              <span class="badge badge-detection">DETECTION</span>
+              <span class="timestamp">il y a 2h</span>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">
+                allee_garage
+                <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
+              </div>
+              <div class="camera-meta">
+                <span>&#128663; car (92%)</span>
+                <span>&#128247; 8 events</span>
+              </div>
+              <div class="camera-actions">
+                <button class="btn-sm btn-primary">Voir clip</button>
+                <button class="btn-sm">Historique</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera 3 -->
+          <div class="camera-card">
+            <div class="camera-thumb" style="background:linear-gradient(135deg,#2a2a1a,#1a1a0a)">
+              <div class="placeholder" style="font-size:48px;opacity:.15">&#128058;</div>
+              <span class="badge badge-idle">IDLE</span>
+              <span class="timestamp">il y a 6h</span>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">
+                terrasse
+                <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
+              </div>
+              <div class="camera-meta">
+                <span>&#128058; cat (65%)</span>
+                <span>&#128247; 4 events</span>
+              </div>
+              <div class="camera-actions">
+                <button class="btn-sm">Historique</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera 4 - disabled -->
+          <div class="camera-card" style="opacity:.5">
+            <div class="camera-thumb" style="background:var(--surface2)">
+              <div class="placeholder">notifications desactivees</div>
+            </div>
+            <div class="camera-info">
+              <div class="camera-name">
+                garage
+                <label class="toggle"><input type="checkbox"><span class="slider"></span></label>
+              </div>
+              <div class="camera-meta">
+                <span>&#128247; 0 events</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== EVENTS ========== -->
+      <div class="page" id="page-events">
+        <div class="tab-bar">
+          <button class="tab-btn active">Tous</button>
+          <button class="tab-btn">Alerts</button>
+          <button class="tab-btn">Detections</button>
+        </div>
+        <table class="events-table">
+          <thead>
+            <tr><th>Heure</th><th>Camera</th><th>Severity</th><th>Objets</th><th>Score</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>14:32</td><td>jardin_nord</td>
+              <td><span class="severity" style="background:var(--accent-red);color:#fff">alert</span></td>
+              <td>person</td><td>87%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>14:18</td><td>jardin_nord</td>
+              <td><span class="severity" style="background:var(--accent-orange);color:#000">detection</span></td>
+              <td>person, dog</td><td>72%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>12:45</td><td>allee_garage</td>
+              <td><span class="severity" style="background:var(--accent-red);color:#fff">alert</span></td>
+              <td>car</td><td>92%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>12:30</td><td>allee_garage</td>
+              <td><span class="severity" style="background:var(--accent-orange);color:#000">detection</span></td>
+              <td>car</td><td>88%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>09:12</td><td>terrasse</td>
+              <td><span class="severity" style="background:var(--accent-orange);color:#000">detection</span></td>
+              <td>cat</td><td>65%</td>
+              <td><button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>08:55</td><td>jardin_nord</td>
+              <td><span class="severity" style="background:var(--accent-red);color:#fff">alert</span></td>
+              <td>person</td><td>91%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>07:30</td><td>entree</td>
+              <td><span class="severity" style="background:var(--accent-orange);color:#000">detection</span></td>
+              <td>person</td><td>78%</td>
+              <td><button class="btn-sm">clip</button> <button class="btn-sm">snapshot</button></td>
+            </tr>
+            <tr>
+              <td>06:15</td><td>terrasse</td>
+              <td><span class="severity" style="background:var(--accent-orange);color:#000">detection</span></td>
+              <td>cat</td><td>70%</td>
+              <td><button class="btn-sm">snapshot</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ========== CAMERAS ========== -->
+      <div class="page" id="page-cameras">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+          Cameras auto-decouvertes depuis Frigate. Activez/desactivez les notifications par camera.
+        </p>
+        <table class="events-table">
+          <thead><tr><th>Camera</th><th>Statut</th><th>Dernier event</th><th>Events (24h)</th><th>Notifications</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>jardin_nord</strong></td><td style="color:var(--accent-green)">&#9679; en ligne</td>
+              <td>il y a 14 min</td><td>23</td>
+              <td><label class="toggle"><input type="checkbox" checked><span class="slider"></span></label></td>
+            </tr>
+            <tr>
+              <td><strong>allee_garage</strong></td><td style="color:var(--accent-green)">&#9679; en ligne</td>
+              <td>il y a 2h</td><td>8</td>
+              <td><label class="toggle"><input type="checkbox" checked><span class="slider"></span></label></td>
+            </tr>
+            <tr>
+              <td><strong>terrasse</strong></td><td style="color:var(--accent-green)">&#9679; en ligne</td>
+              <td>il y a 6h</td><td>4</td>
+              <td><label class="toggle"><input type="checkbox" checked><span class="slider"></span></label></td>
+            </tr>
+            <tr>
+              <td><strong>entree</strong></td><td style="color:var(--accent-green)">&#9679; en ligne</td>
+              <td>il y a 12h</td><td>2</td>
+              <td><label class="toggle"><input type="checkbox" checked><span class="slider"></span></label></td>
+            </tr>
+            <tr>
+              <td><strong>salon</strong></td><td style="color:var(--accent-green)">&#9679; en ligne</td>
+              <td>hier 22:30</td><td>10</td>
+              <td><label class="toggle"><input type="checkbox" checked><span class="slider"></span></label></td>
+            </tr>
+            <tr>
+              <td><strong>garage</strong></td><td style="color:var(--accent-yellow)">&#9679; desactivee</td>
+              <td>—</td><td>0</td>
+              <td><label class="toggle"><input type="checkbox"><span class="slider"></span></label></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ========== SETTINGS ========== -->
+      <div class="page" id="page-settings">
+        <div class="settings-section">
+          <h3>MQTT</h3>
+          <div class="form-row"><label>Broker URL</label><input value="mqtt://core-mosquitto:1883" readonly style="opacity:.6"></div>
+          <div class="form-row"><label>Topic</label><input value="frigate/reviews"></div>
+          <div class="form-row"><label>Client ID</label><input value="frigate-event-manager"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Frigate</h3>
+          <div class="form-row"><label>URL</label><input value="http://192.168.1.50:5000"></div>
+          <div class="form-row"><label>User</label><input value="admin"></div>
+          <div class="form-row"><label>Password</label><input type="password" value="••••••••"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Notifications</h3>
+          <div class="form-row">
+            <label>Service</label>
+            <select>
+              <option selected>persistent_notification</option>
+              <option>notify.mobile_app_iphone</option>
+              <option>notify.mobile_app_ipad</option>
+              <option>notify.telegram</option>
+            </select>
+          </div>
+          <div class="form-row"><label style="font-size:11px;color:var(--text-muted)">&#8593; Services decouverts automatiquement depuis Home Assistant</label></div>
+          <div class="form-row"><label>Cooldown (sec)</label><input type="number" value="30" style="width:80px;flex:none"></div>
+          <div class="form-row"><label>Debounce (sec)</label><input type="number" value="5" style="width:80px;flex:none"></div>
+          <div class="form-row"><label>TTL (min)</label><input type="number" value="30" style="width:80px;flex:none"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Filtres globaux</h3>
+          <div class="form-row">
+            <label>Severity</label>
+            <div class="chip-list">
+              <span class="chip active" onclick="this.classList.toggle('active')">alert</span>
+              <span class="chip active" onclick="this.classList.toggle('active')">detection</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Objets</label>
+            <div class="chip-list">
+              <span class="chip active" onclick="this.classList.toggle('active')">person</span>
+              <span class="chip active" onclick="this.classList.toggle('active')">car</span>
+              <span class="chip" onclick="this.classList.toggle('active')">cat</span>
+              <span class="chip" onclick="this.classList.toggle('active')">dog</span>
+              <span class="chip" onclick="this.classList.toggle('active')">package</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-sm btn-primary" style="padding:8px 20px;font-size:13px">Sauvegarder</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.sidebar nav a').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.sidebar nav a').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    const page = link.dataset.page;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
+    document.getElementById('page-' + page).classList.add('visible');
+    document.getElementById('page-title').textContent =
+      page.charAt(0).toUpperCase() + page.slice(1);
+  });
+});
+</script>
+</body>
+</html>
