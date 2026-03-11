@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -15,11 +16,13 @@ import (
 	"frigate-event-manager/internal/adapter/frigate"
 	"frigate-event-manager/internal/adapter/homeassistant"
 	mqttadapter "frigate-event-manager/internal/adapter/mqtt"
+	"frigate-event-manager/internal/adapter/mqttdiscovery"
 	"frigate-event-manager/internal/adapter/supervisor"
 	"frigate-event-manager/internal/core/filter"
 	"frigate-event-manager/internal/core/handler"
 	"frigate-event-manager/internal/core/ports"
 	"frigate-event-manager/internal/core/processor"
+	"frigate-event-manager/internal/core/registry"
 	"frigate-event-manager/internal/core/throttle"
 )
 
@@ -41,6 +44,19 @@ func main() {
 		"mqtt_user", cfg.MQTTUsername,
 		"notify_service", cfg.NotifyService,
 	)
+
+	// --- Camera Registry (persistence dans /data/state.json) ---
+	dataDir := filepath.Dir(configPath)
+	statePath := filepath.Join(dataDir, "state.json")
+	reg := registry.New(statePath)
+	if err := reg.Load(); err != nil {
+		log.Warn("impossible de charger l'état précédent", "path", statePath, "error", err)
+	} else {
+		cams := reg.Cameras()
+		if len(cams) > 0 {
+			log.Info("état restauré", "cameras", len(cams))
+		}
+	}
 
 	// --- Résolution de l'URL ingress via le Supervisor HA ---
 	ingressInfo, err := supervisor.FetchIngressInfo(cfg.HAToken)
@@ -67,6 +83,9 @@ func main() {
 	// --- Event Handlers (indépendants, un échec ne bloque pas les autres) ---
 	multi := handler.NewMulti(log)
 
+	// Registry handler : alimente le registry à chaque événement (toujours actif)
+	multi.Add("registry", registry.NewHandler(reg))
+
 	// Debug handler : toujours actif (log + presigned URLs media)
 	multi.Add("debug", debughandler.NewHandler(log, mediaSigner))
 
@@ -82,13 +101,17 @@ func main() {
 		log.Info("throttle activé", "cooldown", cfg.Cooldown, "debounce", cfg.Debounce)
 	}
 
-	// --- Le reste est identique quel que soit le mode ---
+	// --- Processor + MQTT subscriber ---
 	chain := filter.NewFilterChain(
 		filter.NewSeverityFilter(cfg.SeverityFilter),
 	)
 	proc := processor.NewProcessor(chain, multi)
 	msgHandler := mqttadapter.NewMessageHandler(proc)
 	subscriber := mqttadapter.NewSubscriber(cfg.MQTTBrokerURL, cfg.MQTTTopic, cfg.MQTTClientID, cfg.MQTTUsername, cfg.MQTTPassword, msgHandler, log)
+
+	// Command handler pour les switchs MQTT Discovery
+	switchHandler := mqttdiscovery.NewSwitchCommandHandler(reg, log)
+	subscriber.SetCommandHandler(switchHandler)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -104,8 +127,28 @@ func main() {
 		}()
 	}
 
+	// --- Connexion MQTT ---
 	log.Info("connexion au broker MQTT...")
-	if err := subscriber.Start(ctx); err != nil {
+	if err := subscriber.Connect(ctx); err != nil {
+		log.Error("erreur fatale", "error", err)
+		os.Exit(1)
+	}
+
+	// --- MQTT Discovery : publier les entités après connexion ---
+	if cm := subscriber.ConnectionManager(); cm != nil {
+		mqttPub := mqttdiscovery.NewAutopahoAdapter(cm)
+		discoveryPub := mqttdiscovery.NewPublisher(ctx, mqttPub, log)
+
+		// Enregistrer le publisher comme listener du registry
+		reg.AddListener(discoveryPub)
+
+		// Publier les entités des caméras déjà connues (restaurées depuis state.json)
+		discoveryPub.PublishAll(reg.Cameras())
+		log.Info("MQTT Discovery initialisé")
+	}
+
+	// --- Attente du signal d'arrêt ---
+	if err := subscriber.Wait(ctx); err != nil {
 		log.Error("erreur fatale", "error", err)
 		os.Exit(1)
 	}
