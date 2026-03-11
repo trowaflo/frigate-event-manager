@@ -14,21 +14,26 @@ tasks:
       - go tool cover -html=coverage.out
 
   dev:
-    desc: Lance l'addon (SUPERVISOR_TOKEN fourni par le devcontainer HA)
+    desc: Lance l'addon en local
     cmds:
       - cmd: |
           export CONFIG_PATH=dev/config.json
+          {{if eq OS "darwin"}}
           export MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
           export MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
           export FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
           export FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
+          {{else}}
+          if [ -f dev/.env ]; then set -a; . dev/.env; set +a; fi
+          {{end}}
           exec go run ./cmd/addon
 
   dev:init:
-    desc: Stocke les credentials MQTT + Frigate dans le Keychain macOS (hors devcontainer)
+    desc: Stocke les credentials MQTT + Frigate
     cmds:
       - cmd: |
-          echo "--- Stockage des credentials dans le Keychain ---"
+          {{if eq OS "darwin"}}
+          echo "--- Stockage des credentials dans le Keychain macOS ---"
           printf "MQTT_USERNAME: " && read USERNAME
           security add-generic-password -a frigate-event-manager -s mqtt-username -w "$USERNAME" -U
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
@@ -37,47 +42,71 @@ tasks:
           security add-generic-password -a frigate-event-manager -s frigate-user -w "$FUSER" -U
           printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
           security add-generic-password -a frigate-event-manager -s frigate-password -w "$FPASSWORD" -U
-          echo "✅ Credentials stockés dans le Keychain macOS"
+          echo "Credentials stockes dans le Keychain macOS"
+          {{else}}
+          echo "--- Stockage des credentials dans dev/.env ---"
+          printf "MQTT_USERNAME: " && read USERNAME
+          printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
+          printf "FRIGATE_USER: " && read FUSER
+          printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
+          cat > dev/.env <<EOF
+          MQTT_USERNAME=$USERNAME
+          MQTT_PASSWORD=$PASSWORD
+          FRIGATE_USER=$FUSER
+          FRIGATE_PASSWORD=$FPASSWORD
+          EOF
+          chmod 600 dev/.env
+          echo "Credentials stockes dans dev/.env (chmod 600)"
+          {{end}}
     silent: true
 
   dev:clean:
-    desc: Supprime les credentials du Keychain
+    desc: Supprime les credentials stockes
     cmds:
-      - security delete-generic-password -a frigate-event-manager -s mqtt-username 2>/dev/null || true
-      - security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
-      - security delete-generic-password -a frigate-event-manager -s frigate-user 2>/dev/null || true
-      - security delete-generic-password -a frigate-event-manager -s frigate-password 2>/dev/null || true
-      - echo "✅ Credentials supprimés du Keychain"
+      - cmd: |
+          {{if eq OS "darwin"}}
+          security delete-generic-password -a frigate-event-manager -s mqtt-username 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s frigate-user 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s frigate-password 2>/dev/null || true
+          echo "Credentials supprimes du Keychain"
+          {{else}}
+          rm -f dev/.env
+          echo "dev/.env supprime"
+          {{end}}
     silent: true
 
   dev:replay:
-    desc: Récupère le dernier review Frigate et le publie en MQTT pour tester
+    desc: Recupere le dernier review Frigate et le publie en MQTT pour tester
     cmds:
       - cmd: |
+          {{if eq OS "darwin"}}
           FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
           FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
           MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
           MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
+          {{else}}
+          if [ -f dev/.env ]; then set -a; . dev/.env; set +a; fi
+          {{end}}
 
           COOKIE_JAR=$(mktemp)
-          echo "🔐 Login Frigate..."
+          echo "Login Frigate..."
           curl -s -c "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/login' \
             -H 'Content-Type: application/json' \
             -d "{\"user\": \"$FRIGATE_USER\", \"password\": \"$FRIGATE_PASSWORD\"}"
 
-          echo "📋 Récupération du dernier review..."
+          echo "Recuperation du dernier review..."
           REVIEW=$(curl -s -b "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/review?limit=1')
           rm -f "$COOKIE_JAR"
 
-          echo "📦 Review récupéré:"
+          echo "Review recupere:"
           echo "$REVIEW" | python3 -m json.tool 2>/dev/null || echo "$REVIEW"
 
-          # Construire le payload MQTT au format attendu par l'addon
           PAYLOAD=$(echo "$REVIEW" | python3 -c "
           import json, sys
           reviews = json.load(sys.stdin)
           if not reviews:
-              print('Aucun review trouvé', file=sys.stderr)
+              print('Aucun review trouve', file=sys.stderr)
               sys.exit(1)
           r = reviews[0]
           payload = {
@@ -97,7 +126,7 @@ tasks:
           ")
 
           echo ""
-          echo "📤 Publication MQTT sur frigate/reviews..."
+          echo "Publication MQTT sur frigate/reviews..."
           echo "$PAYLOAD" | python3 -m json.tool 2>/dev/null
 
           echo "$PAYLOAD" | mosquitto_pub \
@@ -106,7 +135,7 @@ tasks:
             -t "frigate/reviews" -s
 
           echo ""
-          echo "✅ Review republié ! L'addon devrait le traiter."
+          echo "Review republie ! L'addon devrait le traiter."
     silent: true
 
   build:
@@ -115,6 +144,6 @@ tasks:
       - docker build -t frigate-event-manager:dev .
 
   build:multi:
-    desc: Build multi-arch (nécessite docker buildx)
+    desc: Build multi-arch (necessite docker buildx)
     cmds:
       - docker buildx build --platform linux/amd64,linux/arm64 -t frigate-event-manager:dev .
