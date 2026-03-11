@@ -533,30 +533,57 @@
 <div class="config-flow-overlay" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="config-flow">
     <div class="cf-steps">
-      <div class="cf-step done" id="dot-0"></div>
-      <div class="cf-step active" id="dot-1"></div>
+      <div class="cf-step active" id="dot-0"></div>
+      <div class="cf-step" id="dot-1"></div>
       <div class="cf-step" id="dot-2"></div>
       <div class="cf-step" id="dot-3"></div>
+      <div class="cf-step" id="dot-4"></div>
     </div>
 
-    <!-- Step 1: Frigate connection -->
+    <!-- Step 1: Frigate connection — detect existing integration -->
     <div class="cf-step-content visible" id="step-0">
       <div class="cf-header">
         <h2>Connexion Frigate</h2>
         <p>Configurez l'acces a votre instance Frigate NVR</p>
       </div>
       <div class="cf-body">
-        <div class="cf-field">
-          <label>URL Frigate</label>
-          <input value="http://192.168.1.50:5000" placeholder="http://frigate:5000">
+        <!-- Detected existing integration -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('frigate-mode-existing').checked=true;document.getElementById('frigate-manual-fields').style.display='none'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="frigate-mode" id="frigate-mode-existing" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Integration Frigate detectee</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            <div>URL: <strong style="color:var(--ha-text)">http://192.168.1.50:5000</strong></div>
+            <div>6 cameras configurees &middot; MQTT sur <strong style="color:var(--ha-text)">core-mosquitto:1883</strong></div>
+            <div style="margin-top:4px;font-style:italic;color:var(--ha-text-secondary)">Les credentials Frigate seront reutilises. Pas de double configuration.</div>
+          </div>
         </div>
-        <div class="cf-field">
-          <label>Utilisateur</label>
-          <input value="admin">
+
+        <!-- Manual option -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('frigate-mode-manual').checked=true;document.getElementById('frigate-manual-fields').style.display='block'">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="frigate-mode" id="frigate-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Configuration manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Saisir manuellement l'URL et les credentials Frigate
+          </div>
         </div>
-        <div class="cf-field">
-          <label>Mot de passe</label>
-          <input type="password" value="secret123">
+
+        <div id="frigate-manual-fields" style="display:none;margin-top:16px">
+          <div class="cf-field">
+            <label>URL Frigate</label>
+            <input placeholder="http://frigate:5000">
+          </div>
+          <div class="cf-field">
+            <label>Utilisateur</label>
+            <input placeholder="admin">
+          </div>
+          <div class="cf-field">
+            <label>Mot de passe</label>
+            <input type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
+          </div>
         </div>
       </div>
       <div class="cf-actions">
@@ -565,21 +592,58 @@
       </div>
     </div>
 
-    <!-- Step 2: MQTT -->
+    <!-- Step 2: MQTT — detect existing integration -->
     <div class="cf-step-content" id="step-1">
       <div class="cf-header">
         <h2>MQTT</h2>
-        <p>Configurez la connexion MQTT pour recevoir les evenements</p>
+        <p>Configurez la connexion MQTT pour recevoir les evenements Frigate</p>
       </div>
       <div class="cf-body">
-        <div class="cf-field">
-          <label>Broker URL</label>
-          <input value="mqtt://core-mosquitto:1883">
-          <div class="helper">Detecte automatiquement depuis l'addon Mosquitto</div>
+        <!-- Detected existing MQTT -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('mqtt-mode-existing').checked=true;document.getElementById('mqtt-manual-fields').style.display='none'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="mqtt-mode" id="mqtt-mode-existing" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Integration MQTT detectee</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            <div>Broker: <strong style="color:var(--ha-text)">mqtt://core-mosquitto:1883</strong></div>
+            <div>User: <strong style="color:var(--ha-text)">homeassistant</strong></div>
+            <div style="margin-top:4px;font-style:italic">La connexion au broker sera reutilisee. Le topic d'ecoute reste specifique a FEM.</div>
+          </div>
         </div>
-        <div class="cf-field">
-          <label>Topic</label>
-          <input value="frigate/reviews">
+
+        <!-- Manual -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('mqtt-mode-manual').checked=true;document.getElementById('mqtt-manual-fields').style.display='block'">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="mqtt-mode" id="mqtt-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Configuration manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Saisir manuellement l'adresse du broker MQTT
+          </div>
+        </div>
+
+        <div id="mqtt-manual-fields" style="display:none;margin-top:16px">
+          <div class="cf-field">
+            <label>Broker URL</label>
+            <input placeholder="mqtt://localhost:1883">
+          </div>
+          <div class="cf-field">
+            <label>Username</label>
+            <input placeholder="">
+          </div>
+          <div class="cf-field">
+            <label>Password</label>
+            <input type="password" placeholder="">
+          </div>
+        </div>
+
+        <div style="margin-top:16px;border-top:1px solid var(--ha-divider);padding-top:16px">
+          <div class="cf-field">
+            <label>Topic d'ecoute</label>
+            <input value="frigate/reviews">
+            <div class="helper">Topic specifique a Frigate Event Manager (different du topic de l'integration Frigate)</div>
+          </div>
         </div>
       </div>
       <div class="cf-actions">
@@ -588,42 +652,46 @@
       </div>
     </div>
 
-    <!-- Step 3: Cameras discovered -->
+    <!-- Step 3: Camera discovery method -->
     <div class="cf-step-content" id="step-2">
       <div class="cf-header">
-        <h2>Cameras detectees</h2>
-        <p>6 cameras trouvees sur Frigate. Selectionnez celles a surveiller.</p>
+        <h2>Decouverte des cameras</h2>
+        <p>Comment souhaitez-vous detecter les cameras ?</p>
       </div>
       <div class="cf-body">
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">jardin_nord</div></div>
-          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        <!-- Option: from existing Frigate integration -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer" onclick="document.getElementById('cam-mode-integration').checked=true">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="cam-mode" id="cam-mode-integration" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Depuis l'integration Frigate (recommande)</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            Recupere la liste des 6 cameras configurees dans l'integration Frigate existante.<br>
+            <span style="color:var(--ha-text)">Avantage :</span> synchronise automatiquement si vous ajoutez/supprimez des cameras dans Frigate.
+          </div>
         </div>
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">allee_garage</div></div>
-          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+
+        <!-- Option: MQTT auto-discovery -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer" onclick="document.getElementById('cam-mode-mqtt').checked=true">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="cam-mode" id="cam-mode-mqtt" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Decouverte par MQTT</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            Les cameras apparaissent automatiquement quand un evenement est recu sur le topic MQTT.<br>
+            <span style="color:var(--ha-text)">Avantage :</span> fonctionne sans l'integration Frigate (mode standalone).
+          </div>
         </div>
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">terrasse</div></div>
-          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
-        </div>
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">entree</div></div>
-          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
-        </div>
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">salon</div></div>
-          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
-        </div>
-        <div class="entity-row">
-          <div class="entity-icon">&#128249;</div>
-          <div class="entity-info"><div class="entity-name">garage</div></div>
-          <label class="ha-toggle"><input type="checkbox"><span class="track"></span></label>
+
+        <!-- Option: manual -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('cam-mode-manual').checked=true">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="cam-mode" id="cam-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Selection manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Choisir manuellement les cameras a surveiller
+          </div>
         </div>
       </div>
       <div class="cf-actions">
@@ -632,14 +700,94 @@
       </div>
     </div>
 
-    <!-- Step 4: Done -->
+    <!-- Step 4: Cameras selection (pre-populated from integration) -->
     <div class="cf-step-content" id="step-3">
+      <div class="cf-header">
+        <h2>Cameras detectees</h2>
+        <p>6 cameras trouvees via l'integration Frigate. Toutes activees par defaut.</p>
+      </div>
+      <div class="cf-body">
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ha-green);display:flex;align-items:center;gap:8px">
+          <span>&#9989;</span> Synchronise avec l'integration Frigate &mdash; les nouvelles cameras seront ajoutees automatiquement
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">jardin_nord</div>
+            <div class="entity-id">camera.frigate_jardin_nord</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">allee_garage</div>
+            <div class="entity-id">camera.frigate_allee_garage</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">terrasse</div>
+            <div class="entity-id">camera.frigate_terrasse</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">entree</div>
+            <div class="entity-id">camera.frigate_entree</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">salon</div>
+            <div class="entity-id">camera.frigate_salon</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">garage</div>
+            <div class="entity-id">camera.frigate_garage</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+      </div>
+      <div class="cf-actions">
+        <button class="cf-btn cf-btn-text" onclick="goToStep(2)">Retour</button>
+        <button class="cf-btn cf-btn-primary" onclick="goToStep(4)">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Done -->
+    <div class="cf-step-content" id="step-4">
       <div class="cf-header" style="text-align:center;padding-bottom:0">
         <div style="font-size:48px;margin-bottom:8px">&#9989;</div>
         <h2>Configuration terminee !</h2>
-        <p>5 cameras ajoutees avec 20 entites</p>
+        <p>6 cameras ajoutees avec 24 entites</p>
       </div>
       <div class="cf-body" style="text-align:center">
+        <div style="background:var(--ha-bg);border-radius:8px;padding:12px;margin-bottom:12px;text-align:left;font-size:12px">
+          <div style="color:var(--ha-text-secondary);margin-bottom:8px">Resume de la configuration :</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>Frigate : <strong>via integration existante</strong></span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>MQTT : <strong>via integration existante</strong> (topic: frigate/reviews)</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>Cameras : <strong>6 synchronisees</strong> depuis Frigate</span>
+          </div>
+        </div>
         <p style="font-size:13px;color:var(--ha-text-secondary)">
           Les entites sont disponibles dans votre dashboard.<br>
           Vous pouvez maintenant creer des automations.
