@@ -135,6 +135,36 @@ func (c *Config) applyDefaults() {
 }
 
 
+// Sanitized retourne la config sans secrets pour affichage dans la Web UI.
+// Les mots de passe sont masqués, les tokens sont omis.
+func (c *Config) Sanitized() map[string]any {
+	mask := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		return "***"
+	}
+	return map[string]any{
+		"mqtt_broker_url": c.MQTTBrokerURL,
+		"mqtt_topic":      c.MQTTTopic,
+		"mqtt_client_id":  c.MQTTClientID,
+		"mqtt_username":   c.MQTTUsername,
+		"mqtt_password":   mask(c.MQTTPassword),
+		"notify_service":  c.NotifyService,
+		"frigate_url":     c.FrigateURL,
+		"frigate_user":    c.FrigateUser,
+		"frigate_password": mask(c.FrigatePassword),
+		"api_port":        c.APIPort,
+		"presign_ttl":     c.PresignTTL,
+		"media_base_url":  c.MediaBaseURL,
+		"cooldown":        c.Cooldown,
+		"debounce":        c.Debounce,
+		"ttl":             c.TTL,
+		"severity_filter": c.SeverityFilter,
+		"cameras":         c.Cameras,
+	}
+}
+
 func (c *Config) validate() error {
 	if c.MQTTBrokerURL == "" {
 		return fmt.Errorf("mqtt_broker_url est obligatoire")

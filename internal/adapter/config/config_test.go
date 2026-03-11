@@ -199,3 +199,60 @@ func TestConfig_HasNotifier_False_MissingService(t *testing.T) {
 		t.Error("ne devrait PAS avoir un notifier sans notify_service")
 	}
 }
+
+// --- Sanitized ---
+
+func TestConfig_Sanitized_MasksSecrets(t *testing.T) {
+	cfg := &config.Config{
+		MQTTBrokerURL:   "tcp://localhost:1883",
+		MQTTTopic:       "frigate/reviews",
+		MQTTUsername:     "user",
+		MQTTPassword:     "secret_password",
+		FrigateURL:       "http://frigate:5000",
+		FrigateUser:      "admin",
+		FrigatePassword:  "frigate_secret",
+		NotifyService:    "persistent_notification",
+		Cooldown:         30,
+		Debounce:         5,
+		TTL:              30,
+		APIPort:          5555,
+		PresignTTL:       60,
+		SeverityFilter:   []string{"alert"},
+	}
+
+	s := cfg.Sanitized()
+
+	// Valeurs visibles
+	if s["mqtt_broker_url"] != "tcp://localhost:1883" {
+		t.Errorf("mqtt_broker_url attendu, reçu %v", s["mqtt_broker_url"])
+	}
+	if s["frigate_user"] != "admin" {
+		t.Errorf("frigate_user attendu 'admin', reçu %v", s["frigate_user"])
+	}
+	if s["cooldown"] != 30 {
+		t.Errorf("cooldown attendu 30, reçu %v", s["cooldown"])
+	}
+
+	// Secrets masqués
+	if s["mqtt_password"] != "***" {
+		t.Errorf("mqtt_password devrait être masqué, reçu %v", s["mqtt_password"])
+	}
+	if s["frigate_password"] != "***" {
+		t.Errorf("frigate_password devrait être masqué, reçu %v", s["frigate_password"])
+	}
+}
+
+func TestConfig_Sanitized_EmptyPasswordsStayEmpty(t *testing.T) {
+	cfg := &config.Config{
+		MQTTBrokerURL: "tcp://localhost:1883",
+	}
+
+	s := cfg.Sanitized()
+
+	if s["mqtt_password"] != "" {
+		t.Errorf("mot de passe vide devrait rester vide, reçu %v", s["mqtt_password"])
+	}
+	if s["frigate_password"] != "" {
+		t.Errorf("mot de passe vide devrait rester vide, reçu %v", s["frigate_password"])
+	}
+}
