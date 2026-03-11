@@ -50,7 +50,7 @@ tasks:
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
           printf "FRIGATE_USER: " && read FUSER
           printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
-          printf 'MQTT_USERNAME=%s\nMQTT_PASSWORD=%s\nFRIGATE_USER=%s\nFRIGATE_PASSWORD=%s\n' \
+          printf "MQTT_USERNAME='%s'\nMQTT_PASSWORD='%s'\nFRIGATE_USER='%s'\nFRIGATE_PASSWORD='%s'\n" \
             "$USERNAME" "$PASSWORD" "$FUSER" "$FPASSWORD" > dev/.env
           chmod 600 dev/.env
           echo "Credentials stockes dans dev/.env (chmod 600)"
