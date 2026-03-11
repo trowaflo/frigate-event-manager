@@ -97,23 +97,32 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 	}
 
 	// Media URLs presignées
-	if n.signer != nil && len(after.Data.Detections) > 0 {
-		detID := after.Data.Detections[0]
-		snapshotURL := n.signer.SignURL("/api/events/" + detID + "/snapshot.jpg")
-		clipURL := n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
+	if n.signer != nil {
+		// Preview du review
+		if after.ID != "" {
+			previewURL := n.signer.SignURL("/api/review/" + after.ID + "/preview")
+			message += fmt.Sprintf("\n\n**Review** : [preview](%s)", previewURL)
+		}
 
-		data["image"] = snapshotURL
-		data["clickAction"] = clipURL
+		// Liens pour chaque detection
+		for i, detID := range after.Data.Detections {
+			snapshotURL := n.signer.SignURL("/api/events/" + detID + "/snapshot.jpg")
+			clipURL := n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
+			thumbnailURL := n.signer.SignURL("/api/events/" + detID + "/thumbnail.jpg")
 
-		// Pour persistent_notification (et tout service texte) :
-		// ajouter les liens media dans le message en markdown.
-		message += fmt.Sprintf("\n\n[![Snapshot](%s)](%s)", snapshotURL, clipURL)
-	}
+			// Garder image/clickAction pour iOS (premiere detection)
+			if i == 0 {
+				data["image"] = snapshotURL
+				data["clickAction"] = clipURL
+			}
 
-	// Preview du review (si disponible)
-	if n.signer != nil && after.ID != "" {
-		previewURL := n.signer.SignURL("/api/review/" + after.ID + "/preview")
-		message += fmt.Sprintf("\n\n[Voir le preview](%s)", previewURL)
+			label := fmt.Sprintf("Detection %d", i+1)
+			if i < len(after.Data.Objects) {
+				label = after.Data.Objects[i]
+			}
+			message += fmt.Sprintf("\n\n**%s** : [snapshot](%s) · [clip](%s) · [thumbnail](%s)",
+				label, snapshotURL, clipURL, thumbnailURL)
+		}
 	}
 
 	return notificationPayload{
