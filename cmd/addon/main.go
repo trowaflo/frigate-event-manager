@@ -18,6 +18,7 @@ import (
 	mqttadapter "frigate-event-manager/internal/adapter/mqtt"
 	"frigate-event-manager/internal/adapter/mqttdiscovery"
 	"frigate-event-manager/internal/adapter/supervisor"
+	"frigate-event-manager/internal/core/eventstore"
 	"frigate-event-manager/internal/core/filter"
 	"frigate-event-manager/internal/core/handler"
 	"frigate-event-manager/internal/core/ports"
@@ -80,11 +81,17 @@ func main() {
 		log.Info("presigned URLs activées", "ttl", presignTTL, "base_url", cfg.MediaBaseURL)
 	}
 
+	// --- Event Store (ring buffer pour la timeline Web UI) ---
+	evStore := eventstore.New(200)
+
 	// --- Event Handlers (indépendants, un échec ne bloque pas les autres) ---
 	multi := handler.NewMulti(log)
 
 	// Registry handler : alimente le registry à chaque événement (toujours actif)
 	multi.Add("registry", registry.NewHandler(reg))
+
+	// Event store handler : alimente la timeline (toujours actif)
+	multi.Add("eventstore", eventstore.NewHandler(evStore))
 
 	// Debug handler : toujours actif (log + presigned URLs media)
 	multi.Add("debug", debughandler.NewHandler(log, mediaSigner))
@@ -116,16 +123,14 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// --- Serveur API (proxy Frigate avec presigned URLs) ---
-	if frigateClient != nil {
-		srv := api.NewServer(frigateClient, signer, log)
-		addr := fmt.Sprintf(":%d", cfg.APIPort)
-		go func() {
-			if err := srv.ListenAndServe(addr); err != nil {
-				log.Error("erreur serveur API", "error", err)
-			}
-		}()
-	}
+	// --- Serveur API (Web UI + management + proxy media si Frigate configuré) ---
+	srv := api.NewServer(frigateClient, signer, reg, evStore, cfg, log)
+	addr := fmt.Sprintf(":%d", cfg.APIPort)
+	go func() {
+		if err := srv.ListenAndServe(addr); err != nil {
+			log.Error("erreur serveur API", "error", err)
+		}
+	}()
 
 	// --- Connexion MQTT ---
 	log.Info("connexion au broker MQTT...")
