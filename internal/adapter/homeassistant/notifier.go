@@ -96,11 +96,24 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 		"group": "frigate-" + after.Camera,
 	}
 
-	// Media URLs presignées (snapshot de la première detection)
+	// Media URLs presignées
 	if n.signer != nil && len(after.Data.Detections) > 0 {
 		detID := after.Data.Detections[0]
-		data["image"] = n.signer.SignURL("/api/events/" + detID + "/snapshot.jpg")
-		data["clickAction"] = n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
+		snapshotURL := n.signer.SignURL("/api/events/" + detID + "/snapshot.jpg")
+		clipURL := n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
+
+		data["image"] = snapshotURL
+		data["clickAction"] = clipURL
+
+		// Pour persistent_notification (et tout service texte) :
+		// ajouter les liens media dans le message en markdown.
+		message += fmt.Sprintf("\n\n[![Snapshot](%s)](%s)", snapshotURL, clipURL)
+	}
+
+	// Preview du review (si disponible)
+	if n.signer != nil && after.ID != "" {
+		previewURL := n.signer.SignURL("/api/review/" + after.ID + "/preview")
+		message += fmt.Sprintf("\n\n[Voir le preview](%s)", previewURL)
 	}
 
 	return notificationPayload{
