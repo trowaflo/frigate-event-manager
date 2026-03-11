@@ -24,7 +24,7 @@ tasks:
           export FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
           export FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
           {{else}}
-          if [ -f dev/.env ]; then set -a; . dev/.env; set +a; fi
+          set -a && . dev/.env && set +a
           {{end}}
           exec go run ./cmd/addon
 
@@ -50,12 +50,8 @@ tasks:
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
           printf "FRIGATE_USER: " && read FUSER
           printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
-          cat > dev/.env <<EOF
-          MQTT_USERNAME=$USERNAME
-          MQTT_PASSWORD=$PASSWORD
-          FRIGATE_USER=$FUSER
-          FRIGATE_PASSWORD=$FPASSWORD
-          EOF
+          printf 'MQTT_USERNAME=%s\nMQTT_PASSWORD=%s\nFRIGATE_USER=%s\nFRIGATE_PASSWORD=%s\n' \
+            "$USERNAME" "$PASSWORD" "$FUSER" "$FPASSWORD" > dev/.env
           chmod 600 dev/.env
           echo "Credentials stockes dans dev/.env (chmod 600)"
           {{end}}
@@ -87,7 +83,7 @@ tasks:
           MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
           MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
           {{else}}
-          if [ -f dev/.env ]; then set -a; . dev/.env; set +a; fi
+          set -a && . dev/.env && set +a
           {{end}}
 
           COOKIE_JAR=$(mktemp)
