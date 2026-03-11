@@ -45,6 +45,7 @@ tasks:
           echo "Credentials stockes dans le Keychain macOS"
           {{else}}
           echo "--- Stockage des credentials dans dev/.env ---"
+          mkdir -p dev
           printf "MQTT_USERNAME: " && read USERNAME
           printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
           printf "FRIGATE_USER: " && read FUSER
