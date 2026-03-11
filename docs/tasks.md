@@ -67,11 +67,12 @@
 
 ## Backlog
 
-- [ ] **Persistence events** — Sauvegarder le ring buffer dans `/data/events.json`
+- [x] **Persistence events** — Sauvegarder le ring buffer dans `/data/events.json`
   - Optionnel, activable via config (`persist_events: true`)
-  - Ecriture apres chaque event (I/O faible si <200 events/jour)
-  - Documenter le risque : si volume important, les I/O peuvent user une SD card (Raspberry Pi)
-  - Charger au boot, respecter la capacite max du ring buffer
+  - Ecriture atomique (tmp + rename) apres chaque event
+  - Chargement au boot, respecte la capacite max du ring buffer
+  - 5 tests (save/load, capacite, fichier absent, fichier corrompu, desactive par defaut)
+  - Note : sur stockage flash/SD card (Raspberry Pi), les ecritures frequentes peuvent accelerer l'usure
 
 ## Phase 1 : MQTT Discovery (FAIT)
 

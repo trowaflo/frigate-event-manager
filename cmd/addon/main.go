@@ -83,6 +83,16 @@ func main() {
 
 	// --- Event Store (ring buffer pour la timeline Web UI) ---
 	evStore := eventstore.New(200)
+	if cfg.PersistEvents {
+		eventsPath := filepath.Join(dataDir, "events.json")
+		if err := evStore.Load(eventsPath); err != nil {
+			log.Warn("impossible de charger les événements", "path", eventsPath, "error", err)
+		} else if evStore.Len() > 0 {
+			log.Info("événements restaurés", "count", evStore.Len())
+		}
+		evStore.EnablePersistence(eventsPath)
+		log.Info("persistence des événements activée", "path", eventsPath)
+	}
 
 	// --- Event Handlers (indépendants, un échec ne bloque pas les autres) ---
 	multi := handler.NewMulti(log)

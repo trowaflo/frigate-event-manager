@@ -24,10 +24,11 @@ type StatsSnapshot struct {
 
 // Store est un ring buffer en mémoire pour les événements récents.
 type Store struct {
-	mu       sync.RWMutex
-	records  []EventRecord
-	capacity int
-	now      func() time.Time // injectable pour les tests
+	mu          sync.RWMutex
+	records     []EventRecord
+	capacity    int
+	now         func() time.Time // injectable pour les tests
+	persistPath string           // vide = pas de persistence
 }
 
 // New crée un store avec une capacité maximale.
@@ -51,6 +52,8 @@ func (s *Store) Add(record EventRecord) {
 	} else {
 		s.records = append(s.records, record)
 	}
+
+	_ = s.persistLocked()
 }
 
 // List retourne les événements les plus récents.

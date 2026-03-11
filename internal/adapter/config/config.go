@@ -38,6 +38,9 @@ type Config struct {
 	// En dev, fallback sur localhost:APIPort.
 	MediaBaseURL string `json:"media_base_url"`
 
+	// Persistence
+	PersistEvents bool `json:"persist_events"` // sauvegarde le ring buffer sur disque
+
 	// Filtres
 	SeverityFilter []string `json:"severity_filter"`
 	Cameras        []string `json:"cameras"`
@@ -160,6 +163,7 @@ func (c *Config) Sanitized() map[string]any {
 		"cooldown":        c.Cooldown,
 		"debounce":        c.Debounce,
 		"ttl":             c.TTL,
+		"persist_events":  c.PersistEvents,
 		"severity_filter": c.SeverityFilter,
 		"cameras":         c.Cameras,
 	}
