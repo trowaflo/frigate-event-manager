@@ -101,7 +101,7 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 		// Preview du review
 		if after.ID != "" {
 			previewURL := n.signer.SignURL("/api/review/" + after.ID + "/preview")
-			message += fmt.Sprintf("\n\n**Review** : [preview](%s)", previewURL)
+			message += fmt.Sprintf("\n\n<a href=\"%s\" target=\"_blank\">Preview review</a>", previewURL)
 		}
 
 		// Liens pour chaque detection
@@ -110,17 +110,19 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 			clipURL := n.signer.SignURL("/api/events/" + detID + "/clip.mp4")
 			thumbnailURL := n.signer.SignURL("/api/events/" + detID + "/thumbnail.jpg")
 
-			// Garder image/clickAction pour iOS (premiere detection)
+			// image/clickAction pour iOS (premiere detection)
 			if i == 0 {
 				data["image"] = snapshotURL
 				data["clickAction"] = clipURL
+				// Image cliquable vers le clip
+				message += fmt.Sprintf("\n\n<a href=\"%s\" target=\"_blank\"><img src=\"%s\" style=\"max-width:100%%\"></a>", clipURL, snapshotURL)
 			}
 
 			label := fmt.Sprintf("Detection %d", i+1)
 			if i < len(after.Data.Objects) {
 				label = after.Data.Objects[i]
 			}
-			message += fmt.Sprintf("\n\n**%s** : [snapshot](%s) · [clip](%s) · [thumbnail](%s)",
+			message += fmt.Sprintf("\n\n**%s** : <a href=\"%s\" target=\"_blank\">snapshot</a> · <a href=\"%s\" target=\"_blank\">clip</a> · <a href=\"%s\" target=\"_blank\">thumbnail</a>",
 				label, snapshotURL, clipURL, thumbnailURL)
 		}
 	}
