@@ -49,7 +49,7 @@ variable "IMAGE" {
 # Base target : push main → tag "main"
 target "frigate-event-manager" {
   context    = "."
-  dockerfile = "docker/Dockerfile"
+  dockerfile = "Dockerfile"
   platforms  = ["linux/amd64", "linux/arm64"]
   tags       = ["${IMAGE}:${sanitize(GITHUB_REF_NAME)}"]
   cache-from = ["type=gha"]
