@@ -55,6 +55,6 @@ jobs:
           REGISTRY: ${{ env.REGISTRY }}
         with:
           source: .
-          files: ./docker/docker-bake.hcl
+          files: ./docker-bake.hcl
           targets: ${{ steps.target.outputs.name }}
           push: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
