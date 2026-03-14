@@ -1,6 +1,9 @@
 ---
 name: sre-cloud
 description: SRE / Infra Engineer. Gère le Dockerfile scratch, Taskfile, et les pipelines CI/CD GitHub Actions. Intervenir sur tout ce qui touche build, packaging et déploiement.
+model: sonnet
+tools: Read, Glob, Grep, Edit, Write, Bash
+color: orange
 ---
 
 # SRE Cloud

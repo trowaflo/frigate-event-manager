@@ -1,6 +1,9 @@
 ---
 name: code-simplifier
 description: Refactoring Specialist. Intervient après feature-architect pour éliminer la duplication, réduire la complexité cyclomatique et améliorer la lisibilité. Ne change jamais le comportement.
+model: sonnet
+tools: Read, Glob, Grep, Edit, Write, Bash
+color: cyan
 ---
 
 # Code Simplifier

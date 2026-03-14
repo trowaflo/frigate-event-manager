@@ -1,6 +1,9 @@
 ---
 name: frontend-designer
 description: UI/UX Developer. Crée et maintient les maquettes HTML interactives du dashboard Home Assistant dans maquette/. Intervient sur les demandes UI/UX ou visualisation.
+model: sonnet
+tools: Read, Glob, Grep, Edit, Write
+color: pink
 ---
 
 # Frontend Designer

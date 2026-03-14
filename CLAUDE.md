@@ -78,7 +78,19 @@ Utiliser les subagents generalement pour garder le contexte principal propre :
 
 ### Agents specialises (`.claude/agents/`)
 
-8 agents avec scopes stricts pour les taches multi-composants :
+6 agents avec scopes stricts pour les taches multi-composants :
+
+| Agent | Role |
+| --- | --- |
+| `orchestrator` | Chef d'equipe — decompose, assigne, cree les PRs |
+| `go-architect` | Code Go metier, architecture hexagonale |
+| `reviewer` | Review qualite + securite + sync doc (apres go-architect) |
+| `quality-guard` | Tests et coverage ≥80% |
+| `code-simplifier` | Refactoring DRY (apres reviewer + quality-guard) |
+| `frontend-designer` | Maquettes HTML interactives `maquette/` |
+| `sre-cloud` | Dockerfile, CI/CD, Taskfile |
+
+**Pipeline obligatoire** (toute feature) : implement (go-architect) → review + tests (parallele) → simplify → PR.
 
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
