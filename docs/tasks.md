@@ -88,15 +88,135 @@ _Aucune tâche en cours. Prêt pour la prochaine session._
 
 ## Backlog
 
-- [x] **Persistence events** — Sauvegarder le ring buffer dans `/data/events.json` ✅
+> Analyse de référence : [SgtBatten/HA_blueprints](https://github.com/SgtBatten/HA_blueprints) — blueprint Frigate Camera Notifications
+
+### Fait
+
+- [x] **Persistence events** — Ring buffer `/data/events.json` ✅
+
+### Refactoring
+
 - [ ] **Magic strings severity** — Extraire `"alert"` et `"detection"` en constantes dans `internal/domain/`
-  - Actuellement hardcodées dans `store.go:96-99`, `event_test.go`, et d'autres fichiers
+  - Hardcodées dans `store.go`, `event_test.go` et plusieurs adapters
   - Refactoring transversal, non bloquant
-  - Optionnel, activable via config (`persist_events: true`)
-  - Ecriture atomique (tmp + rename) apres chaque event
-  - Chargement au boot, respecte la capacite max du ring buffer
-  - 5 tests (save/load, capacite, fichier absent, fichier corrompu, desactive par defaut)
-  - Note : sur stockage flash/SD card (Raspberry Pi), les ecritures frequentes peuvent accelerer l'usure
+
+---
+
+### Phase 3 : Parité fonctionnelle blueprint (court terme)
+
+#### 3.1 Filtres manquants
+
+Le `FilterChain` est prêt architecturalement — il suffit d'implémenter les filtres et de les brancher dans `main.go`.
+
+- [ ] **ZoneFilter** — filtrer par zone(s) Frigate
+  - Config : `zones: [jardin, entree]`, `zone_multi: true` (toutes requises), `zone_order_enforced: true`
+  - Source : `after.CurrentZones` + `after.EnteredZones` dans le payload
+  - Liste vide = tout accepter (convention existante)
+
+- [ ] **LabelFilter** — filtrer par objet détecté
+  - Config : `labels: [person, car, dog]`
+  - Source : `after.Data.Objects`
+  - Liste vide = tout accepter
+
+- [ ] **TimeFilter** — plages horaires de silence
+  - Config : `disable_times: [0,1,2,3,4,5,22,23]` (heures UTC)
+  - Évalué à chaque événement, pas au boot
+
+- [ ] **ScoreFilter** — filtre par score de confiance Frigate
+  - Config : `min_score: 0.75`
+  - Source : `after.TopScore` (à ajouter dans le domaine si absent)
+  - Différenciant vs blueprint (pas natif, souvent fait en Jinja2)
+
+#### 3.2 Cycle de vie de l'événement
+
+- [ ] **Mise à jour de notification existante** — exploiter le `tag` Frigate pour mettre à jour la notif en cours
+  - Actuellement : chaque update MQTT peut déclencher une notif dupliquée (bloquée par Throttler)
+  - Cible : détecter les updates du même `review_id`, envoyer un `replace_id` / même `tag`
+  - Scope : `internal/adapter/homeassistant/notifier.go` + état en mémoire par `review_id`
+
+- [ ] **Notification de fin d'événement** — envoyer une notif finale quand `type: end`
+  - Config : `final_update: true`, `final_delay: 2s`
+  - Contenu : image finale + durée de l'événement
+  - Nécessite de tracker l'état `review_id → {notifié: bool, tag: string}`
+
+- [ ] **Sub_label → mise à jour notif** — re-notifier quand Double Take identifie un visage
+  - Source : `after.SubLabels`
+  - Déclenche un update de la notif existante avec le nom reconnu
+
+#### 3.3 Enrichissement des notifications
+
+- [ ] **Boutons d'action natifs HA Companion** — remplacer les liens HTML dans le message
+  - 3 boutons configurables : label, URL, icône
+  - Exemples : "Voir clip", "Silence 30min", "Ouvrir Frigate"
+  - Format HA : `actions: [{action: URI, title: "...", uri: "..."}]`
+
+- [ ] **Notification critique** (bypass DND iOS)
+  - Config : `critical: true` + condition Jinja2 optionnelle (ex: hors heures ouvrées)
+  - Format HA : `push: {sound: {critical: 1, volume: 1.0}}`
+
+- [ ] **Alert once** — son uniquement sur la première notification, updates silencieuses
+  - Format HA : `apns_headers: {"apns-collapse-id": tag}`
+
+- [ ] **Initial delay** — attendre N secondes avant la première notif pour laisser Frigate générer une image
+  - Config : `initial_delay: 5` (secondes)
+  - Implémenté dans le Throttler ou comme délai dans le notifier
+
+- [ ] **Tap action configurable**
+  - Config : `url_type: clip | snapshot | stream | frigate | app`
+  - Actuellement fixé sur le clip de la première détection
+
+- [ ] **GIFs animés** — ajouter `event_preview.gif` et `review_preview.gif` au proxy media
+  - Pas de logique nouvelle : simple proxy vers `GET /api/events/{id}/preview.gif`
+  - Nécessite d'ajouter les routes dans `server.go`
+
+#### 3.4 Déduplication cross-caméras
+
+- [ ] **Déduplication cross-caméras** — une seule notif si 2 caméras détectent le même objet simultanément
+  - Basé sur : même label + timestamp proche + zones adjacentes (configurable)
+  - État en mémoire dans le Processor ou un nouveau composant `Deduplicator`
+  - Impossible dans le blueprint (pas d'état partagé entre automations)
+
+---
+
+### Phase 4 : Différenciation (moyen terme)
+
+- [ ] **Multi-canal de notification**
+  - `TelegramHandler` — API Telegram Bot (token + chat_id)
+  - `WebhookHandler` — POST générique vers n'importe quelle URL
+  - Architecture `EventHandler` déjà prête, pas de changement au core
+
+- [ ] **Webhook entrant depuis HA**
+  - `POST /api/silence?camera=jardin&duration=30m` — silencer depuis une automation HA
+  - Complémentaire au switch MQTT existant, plus expressif
+
+- [ ] **Filtre de présence via état HA**
+  - `GET /api/states/person.john` via l'API Supervisor
+  - N'alerte pas si la personne est "home"
+  - Nécessite un client HA API dans `internal/adapter/supervisor/`
+
+---
+
+### Phase 5 : Intégration HACS (long terme)
+
+> Objectif : publier comme intégration HA native, configuration via UI HA, entités via API HA (pas MQTT).
+
+- [ ] **Config via `config_entries`** — remplacer `options.json` par le config flow HA
+  - Chaque filtre = un champ de formulaire dans l'UI HA
+  - Hot-reload sans redémarrage addon
+
+- [ ] **Entités via API HA entity registry** — remplacer MQTT Discovery
+  - Plus de dépendance MQTT pour les entités (découplage complet)
+  - Support natif device classes, icônes, catégories dans l'UI HA
+  - `registry.Listener` → ajouter un `HAEntityPublisher` à côté du `MQTTDiscoveryPublisher`
+
+- [ ] **`binary_sensor.fem_{cam}_motion`** — nouvelle entité par caméra
+  - `on` sur `type: new`, `off` sur `type: end`
+  - Permet les automations HA classiques sans MQTT
+
+- [ ] **Services HA (actions)**
+  - `frigate_event_manager.silence_camera(camera, duration)`
+  - `frigate_event_manager.replay_last_event(camera)`
+  - Remplacent le switch MQTT, surface d'intégration propre pour les scripts HA
 
 ## Phase 1 : MQTT Discovery (FAIT)
 
