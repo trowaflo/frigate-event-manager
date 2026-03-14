@@ -78,7 +78,7 @@ func TestPersistence_LoadFileNotExists(t *testing.T) {
 func TestPersistence_LoadCorruptedFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "events.json")
-	os.WriteFile(path, []byte("not json"), 0644)
+	require.NoError(t, os.WriteFile(path, []byte("not json"), 0644))
 
 	store := New(10)
 	err := store.Load(path)

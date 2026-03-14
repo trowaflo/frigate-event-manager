@@ -1,6 +1,7 @@
 package eventstore
 
 import (
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -53,7 +54,9 @@ func (s *Store) Add(record EventRecord) {
 		s.records = append(s.records, record)
 	}
 
-	_ = s.persistLocked()
+	if err := s.persistLocked(); err != nil {
+		slog.Warn("échec de la persistence des événements", "erreur", err)
+	}
 }
 
 // List retourne les événements les plus récents.

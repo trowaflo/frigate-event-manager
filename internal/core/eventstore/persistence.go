@@ -47,8 +47,7 @@ func (s *Store) Load(path string) error {
 		events = events[len(events)-s.capacity:]
 	}
 
-	s.records = make([]EventRecord, len(events))
-	copy(s.records, events)
+	s.records = events
 	return nil
 }
 
@@ -78,12 +77,16 @@ func (s *Store) persistLocked() error {
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return fmt.Errorf("impossible de fermer le fichier temporaire: %w", err)
 	}
 
 	if err := os.Rename(tmp.Name(), s.persistPath); err != nil {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("impossible de renommer le fichier d'événements: %w", err)
+	}
+	// Garantir les permissions explicitement (indépendamment de l'umask du processus)
+	if err := os.Chmod(s.persistPath, 0600); err != nil {
+		return fmt.Errorf("impossible de définir les permissions du fichier d'événements: %w", err)
 	}
 	return nil
 }

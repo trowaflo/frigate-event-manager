@@ -21,12 +21,13 @@ cmd/addon/main.go  (branchement uniquement)
 
 Ne jamais modifier `*_test.go`, `maquette/`, `Dockerfile`, `.github/`, `docs/`.
 
-## Avant de modifier un fichier
+## Avant de modifier ou créer un fichier
 
-1. Lire `docs/tasks.md` — vérifier aucun lock actif sur le fichier cible
-2. Déclarer : `[LOCK_REQUEST by T-XXX: chemin/fichier.go | requested: <timestamp>]`
-3. Si conflit FIFO → passer en `WAITING_FOR_LOCK`, notifier Orchestrator
-4. Après lock accordé → commencer les modifications
+1. **Lire TOUS les fichiers `.go` existants dans le package cible** — pour détecter du code déjà existant et éviter les doublons. Si la fonctionnalité existe déjà, le signaler à l'Orchestrator et ne rien créer.
+2. Lire `docs/tasks.md` — vérifier aucun lock actif sur le fichier cible
+3. Déclarer : `[LOCK_REQUEST by T-XXX: chemin/fichier.go | requested: <timestamp>]`
+4. Si conflit FIFO → passer en `WAITING_FOR_LOCK`, notifier Orchestrator
+5. Après lock accordé → commencer les modifications
 
 ## Architecture à respecter
 
