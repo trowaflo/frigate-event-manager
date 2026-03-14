@@ -76,6 +76,21 @@ Utiliser les subagents generalement pour garder le contexte principal propre :
 - Pour les problemes complexes, lancer plusieurs subagents en parallele
 - Un sujet par subagent pour une execution focalisee
 
+### Agents specialises (`.claude/agents/`)
+
+8 agents avec scopes stricts pour les taches multi-composants :
+
+- **Lancer** : "Utilise l'agent orchestrator pour [tache]"
+- **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
+- **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`
+
+**Skills != Agents** : skills = recettes invocables (`/skill`), agents = identites autonomes spawnables avec scope propre.
+
+## Pieges connus
+
+- **`skill-creator` → `run_loop.py`** : ~300 appels API (5 iter × 20 requetes × 3 repetitions). Estimer et confirmer le cout avant de lancer. Requiert `ANTHROPIC_API_KEY` separe de Claude Code.
+- **Skills != Agents** : creer un skill qui duplique un agent existant est une erreur — spawner l'agent directement.
+
 ## Project
 
 Home Assistant addon en Go. Ecoute les events Frigate via MQTT, filtre, et dispatch vers N handlers (notifications HA, MQTT Discovery, debug). Container Docker `scratch` avec un seul binaire.

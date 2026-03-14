@@ -1,6 +1,6 @@
 ---
 name: archi
-description: Explique l'architecture du projet, le flux de donnees, ou le role d'un composant. Utilise quand on demande comment ca marche.
+description: Explique l'architecture du projet frigate-event-manager, le flux de donnees MQTT/Frigate, ou le role d'un composant. Utiliser quand on demande "comment ca marche", "c'est quoi X", "explique-moi Y", "comment fonctionne Z", ou avant d'implementer pour comprendre le contexte.
 user-invocable: true
 argument-hint: "[composant]"
 ---

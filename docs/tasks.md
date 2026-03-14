@@ -1,5 +1,26 @@
 # Tasks — Frigate Event Manager
 
+> Protocole complet : `.claude/agents/orchestrator.md`
+
+---
+
+## Blackboard Actif
+
+_Aucune tâche en cours. Prêt pour la prochaine session._
+
+<!--
+### T-XXX | [Titre]
+- Status: TODO
+- Owner: —
+- Scope: —
+- Locks: —
+- Depends: —
+- Blocks: —
+- Notes: —
+-->
+
+---
+
 ## Phase 2 : Web UI (ingress)
 
 ### Decisions d'architecture

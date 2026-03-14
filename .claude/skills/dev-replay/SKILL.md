@@ -9,7 +9,7 @@ argument-hint: "[camera] [severity]"
 
 Publie un event Frigate de test sur le broker MQTT local.
 
-1. Lire `dev/options.json` pour recuperer broker URL, topic, credentials
-2. Verifier que `mosquitto_pub` est installe
-3. Publier un message `frigate/reviews` avec camera=$0 (defaut: "test_camera"), severity=$1 (defaut: "alert"), timestamp=now, objects=["person"]
-4. Indiquer ce que l'utilisateur devrait voir dans les logs
+1. Lancer `task dev:replay` — recupere le dernier event Frigate reel et le republie sur MQTT
+2. Les credentials viennent du Keychain macOS (ou `dev/.env` sur Linux) — geres automatiquement par le Taskfile
+3. Si `$ARGUMENTS` contient camera ou severity, signaler que `task dev:replay` ne supporte pas ces arguments (il rejoue le dernier event reel tel quel)
+4. Indiquer ce que l'utilisateur devrait voir dans les logs de `task dev`
