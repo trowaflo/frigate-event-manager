@@ -38,6 +38,9 @@ type signingKey struct {
 // rotation est l'intervalle de rotation des clés.
 // maxKeys est le nombre de clés rétro-actives conservées.
 func NewSigner(baseURL string, ttl, rotation time.Duration, maxKeys int) *Signer {
+	if maxKeys < 1 {
+		maxKeys = 1
+	}
 	s := &Signer{
 		baseURL:  strings.TrimRight(baseURL, "/"),
 		ttl:      ttl,

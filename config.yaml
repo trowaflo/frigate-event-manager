@@ -46,3 +46,4 @@ schema:
   media_base_url: url?
   api_port: "int(1,65535)?"
   presign_ttl: "int(1,1440)?"
+  persist_events: bool?

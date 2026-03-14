@@ -18,8 +18,8 @@ type EventRecord struct {
 
 // StatsSnapshot contient les statistiques du dashboard.
 type StatsSnapshot struct {
-	Events24h    int `json:"events_24h"`
-	Alerts24h    int `json:"alerts_24h"`
+	Events24h     int `json:"events_24h"`
+	Alerts24h     int `json:"alerts_24h"`
 	Detections24h int `json:"detections_24h"`
 }
 

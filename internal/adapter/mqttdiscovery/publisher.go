@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"frigate-event-manager/internal/core/registry"
@@ -69,13 +70,13 @@ func (p *Publisher) publishConfig(cam registry.CameraState) {
 	p.publishJSON(
 		fmt.Sprintf("%s/sensor/%s_%s_last_alert/config", discoveryPrefix, nodeName, safeName),
 		map[string]any{
-			"name":                "Derniere alerte",
-			"unique_id":           fmt.Sprintf("%s_%s_last_alert", nodeName, safeName),
-			"state_topic":        fmt.Sprintf("%s/%s/%s/last_alert", nodeName, nodeName, safeName),
-			"device":              device,
-			"icon":                "mdi:alert-circle",
-			"device_class":        "timestamp",
-			"entity_category":     "diagnostic",
+			"name":            "Derniere alerte",
+			"unique_id":       fmt.Sprintf("%s_%s_last_alert", nodeName, safeName),
+			"state_topic":     fmt.Sprintf("%s/%s/%s/last_alert", nodeName, nodeName, safeName),
+			"device":          device,
+			"icon":            "mdi:alert-circle",
+			"device_class":    "timestamp",
+			"entity_category": "diagnostic",
 		},
 		true,
 	)
@@ -84,11 +85,11 @@ func (p *Publisher) publishConfig(cam registry.CameraState) {
 	p.publishJSON(
 		fmt.Sprintf("%s/sensor/%s_%s_last_object/config", discoveryPrefix, nodeName, safeName),
 		map[string]any{
-			"name":               "Dernier objet detecte",
-			"unique_id":          fmt.Sprintf("%s_%s_last_object", nodeName, safeName),
-			"state_topic":       fmt.Sprintf("%s/%s/%s/last_object", nodeName, nodeName, safeName),
-			"device":             device,
-			"icon":               "mdi:eye",
+			"name":        "Dernier objet detecte",
+			"unique_id":   fmt.Sprintf("%s_%s_last_object", nodeName, safeName),
+			"state_topic": fmt.Sprintf("%s/%s/%s/last_object", nodeName, nodeName, safeName),
+			"device":      device,
+			"icon":        "mdi:eye",
 		},
 		true,
 	)
@@ -97,12 +98,12 @@ func (p *Publisher) publishConfig(cam registry.CameraState) {
 	p.publishJSON(
 		fmt.Sprintf("%s/sensor/%s_%s_event_count/config", discoveryPrefix, nodeName, safeName),
 		map[string]any{
-			"name":               "Evenements (24h)",
-			"unique_id":          fmt.Sprintf("%s_%s_event_count", nodeName, safeName),
-			"state_topic":       fmt.Sprintf("%s/%s/%s/event_count", nodeName, nodeName, safeName),
-			"device":             device,
-			"icon":               "mdi:counter",
-			"state_class":        "measurement",
+			"name":        "Evenements (24h)",
+			"unique_id":   fmt.Sprintf("%s_%s_event_count", nodeName, safeName),
+			"state_topic": fmt.Sprintf("%s/%s/%s/event_count", nodeName, nodeName, safeName),
+			"device":      device,
+			"icon":        "mdi:counter",
+			"state_class": "measurement",
 		},
 		true,
 	)
@@ -111,11 +112,11 @@ func (p *Publisher) publishConfig(cam registry.CameraState) {
 	p.publishJSON(
 		fmt.Sprintf("%s/sensor/%s_%s_severity/config", discoveryPrefix, nodeName, safeName),
 		map[string]any{
-			"name":               "Severite",
-			"unique_id":          fmt.Sprintf("%s_%s_severity", nodeName, safeName),
-			"state_topic":       fmt.Sprintf("%s/%s/%s/severity", nodeName, nodeName, safeName),
-			"device":             device,
-			"icon":               "mdi:shield-alert",
+			"name":        "Severite",
+			"unique_id":   fmt.Sprintf("%s_%s_severity", nodeName, safeName),
+			"state_topic": fmt.Sprintf("%s/%s/%s/severity", nodeName, nodeName, safeName),
+			"device":      device,
+			"icon":        "mdi:shield-alert",
 		},
 		true,
 	)
@@ -124,14 +125,14 @@ func (p *Publisher) publishConfig(cam registry.CameraState) {
 	p.publishJSON(
 		fmt.Sprintf("%s/switch/%s_%s_notifications/config", discoveryPrefix, nodeName, safeName),
 		map[string]any{
-			"name":               "Notifications",
-			"unique_id":          fmt.Sprintf("%s_%s_notifications", nodeName, safeName),
-			"state_topic":       fmt.Sprintf("%s/%s/%s/notifications", nodeName, nodeName, safeName),
-			"command_topic":      fmt.Sprintf("%s/%s/%s/notifications/set", nodeName, nodeName, safeName),
-			"payload_on":         "ON",
-			"payload_off":        "OFF",
-			"device":             device,
-			"icon":               "mdi:bell",
+			"name":          "Notifications",
+			"unique_id":     fmt.Sprintf("%s_%s_notifications", nodeName, safeName),
+			"state_topic":   fmt.Sprintf("%s/%s/%s/notifications", nodeName, nodeName, safeName),
+			"command_topic": fmt.Sprintf("%s/%s/%s/notifications/set", nodeName, nodeName, safeName),
+			"payload_on":    "ON",
+			"payload_off":   "OFF",
+			"device":        device,
+			"icon":          "mdi:bell",
 		},
 		true,
 	)
@@ -198,6 +199,8 @@ func devicePayload(cameraName string) map[string]any {
 	}
 }
 
+var unsafeChars = regexp.MustCompile(`[^a-z0-9_-]`)
+
 func sanitize(name string) string {
-	return strings.ReplaceAll(strings.ToLower(name), " ", "_")
+	return unsafeChars.ReplaceAllString(strings.ToLower(name), "_")
 }

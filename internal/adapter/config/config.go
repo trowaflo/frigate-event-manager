@@ -142,7 +142,6 @@ func (c *Config) applyDefaults() {
 	c.HABaseURL = "http://supervisor/core"
 }
 
-
 // Sanitized retourne la config sans secrets pour affichage dans la Web UI.
 // Les mots de passe sont masqués, les tokens sont omis.
 func (c *Config) Sanitized() map[string]any {
@@ -153,21 +152,21 @@ func (c *Config) Sanitized() map[string]any {
 		return "***"
 	}
 	return map[string]any{
-		"mqtt_broker_url": c.MQTTBrokerURL,
-		"mqtt_topic":      c.MQTTTopic,
-		"mqtt_client_id":  c.MQTTClientID,
-		"mqtt_username":   c.MQTTUsername,
-		"mqtt_password":   mask(c.MQTTPassword),
-		"notify_service":  c.NotifyService,
-		"frigate_url":     c.FrigateURL,
-		"frigate_user":    c.FrigateUser,
-		"frigate_password": mask(c.FrigatePassword),
-		"api_port":        c.APIPort,
-		"presign_ttl":     c.PresignTTL,
-		"media_base_url":  c.MediaBaseURL,
-		"cooldown":        c.Cooldown,
-		"debounce":        c.Debounce,
-		"ttl":             c.TTL,
+		"mqtt_broker_url":     c.MQTTBrokerURL,
+		"mqtt_topic":          c.MQTTTopic,
+		"mqtt_client_id":      c.MQTTClientID,
+		"mqtt_username":       c.MQTTUsername,
+		"mqtt_password":       mask(c.MQTTPassword),
+		"notify_service":      c.NotifyService,
+		"frigate_url":         c.FrigateURL,
+		"frigate_user":        c.FrigateUser,
+		"frigate_password":    mask(c.FrigatePassword),
+		"api_port":            c.APIPort,
+		"presign_ttl":         c.PresignTTL,
+		"media_base_url":      c.MediaBaseURL,
+		"cooldown":            c.Cooldown,
+		"debounce":            c.Debounce,
+		"ttl":                 c.TTL,
 		"persist_events":      c.PersistEvents,
 		"severity_filter":     c.SeverityFilter,
 		"cameras":             c.Cameras,

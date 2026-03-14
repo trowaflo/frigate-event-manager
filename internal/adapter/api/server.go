@@ -22,8 +22,8 @@ var webFS embed.FS
 // Server expose un serveur HTTP pour la Web UI, l'API management,
 // et le proxy media vers Frigate (avec presigned URLs).
 type Server struct {
-	client     *frigate.Client    // nil si Frigate non configuré
-	signer     *Signer            // nil si Frigate non configuré
+	client     *frigate.Client // nil si Frigate non configuré
+	signer     *Signer         // nil si Frigate non configuré
 	registry   *registry.Registry
 	eventStore *eventstore.Store
 	config     *config.Config
@@ -50,9 +50,9 @@ func NewServer(client *frigate.Client, signer *Signer, reg *registry.Registry, s
 func (s *Server) routes() {
 	// Proxy media Frigate (protégé par presigned URL, uniquement si Frigate configuré)
 	if s.client != nil && s.signer != nil {
-		s.mux.HandleFunc("/api/events/", s.requirePresign(s.proxyFrigate))
-		s.mux.HandleFunc("/api/review/", s.requirePresign(s.proxyFrigate))
-		s.mux.HandleFunc("/api/review", s.requirePresign(s.proxyFrigate))
+		s.mux.HandleFunc("GET /api/events/", s.requirePresign(s.proxyFrigate))
+		s.mux.HandleFunc("GET /api/review/", s.requirePresign(s.proxyFrigate))
+		s.mux.HandleFunc("GET /api/review", s.requirePresign(s.proxyFrigate))
 	}
 
 	// API Management (protégé par ingress, pas de presign)

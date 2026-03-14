@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -82,7 +83,7 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 
 	label := formatLabel(after.Data.Objects, after.Data.SubLabels)
 
-	zones := strings.Join(after.Data.Zones, ", ")
+	zones := html.EscapeString(strings.Join(after.Data.Zones, ", "))
 	message := label
 	if zones != "" {
 		message = fmt.Sprintf("%s dans %s", label, zones)
@@ -90,6 +91,9 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 
 	cameraTitle := strings.ReplaceAll(after.Camera, "_", " ")
 	cameraTitle = cases.Title(language.English).String(cameraTitle)
+	cameraTitle = html.EscapeString(cameraTitle)
+
+	severity := html.EscapeString(after.Severity)
 
 	data := map[string]any{
 		"tag":   "frigate-" + after.ID,
@@ -120,7 +124,7 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 
 			label := fmt.Sprintf("Detection %d", i+1)
 			if i < len(after.Data.Objects) {
-				label = after.Data.Objects[i]
+				label = html.EscapeString(after.Data.Objects[i])
 			}
 			message += fmt.Sprintf("\n\n**%s** : <a href=\"%s\" target=\"_blank\">snapshot</a> · <a href=\"%s\" target=\"_blank\">clip</a> · <a href=\"%s\" target=\"_blank\">thumbnail</a>",
 				label, snapshotURL, clipURL, thumbnailURL)
@@ -128,7 +132,7 @@ func (n *Notifier) buildNotification(payload domain.FrigatePayload) notification
 	}
 
 	return notificationPayload{
-		Title:   fmt.Sprintf("%s — %s", cameraTitle, after.Severity),
+		Title:   fmt.Sprintf("%s \u2014 %s", cameraTitle, severity),
 		Message: message,
 		Data:    data,
 	}
@@ -149,13 +153,18 @@ func formatLabel(objects, subLabels []string) string {
 
 	titles := make([]string, len(filtered))
 	for i, o := range filtered {
+		o = html.EscapeString(o)
 		titles[i] = strings.ToUpper(o[:1]) + o[1:]
 	}
 
 	label := strings.Join(titles, ", ")
 
 	if len(subLabels) > 0 {
-		label = fmt.Sprintf("%s (%s)", label, strings.Join(subLabels, ", "))
+		escaped := make([]string, len(subLabels))
+		for i, s := range subLabels {
+			escaped[i] = html.EscapeString(s)
+		}
+		label = fmt.Sprintf("%s (%s)", label, strings.Join(escaped, ", "))
 	}
 
 	return label

@@ -12,14 +12,14 @@ import (
 
 // CameraState représente l'état connu d'une caméra découverte.
 type CameraState struct {
-	Name            string    `json:"name"`
-	Enabled         bool      `json:"enabled"`          // notifications actives
-	FirstSeen       time.Time `json:"first_seen"`       // première apparition
-	LastEventTime   time.Time `json:"last_event_time"`  // dernier événement reçu
-	LastSeverity    string    `json:"last_severity"`     // "alert" ou "detection"
-	LastObjects     []string  `json:"last_objects"`      // ["person", "car", ...]
-	EventCount24h   int       `json:"event_count_24h"`   // compteur glissant 24h
-	eventTimestamps []time.Time                          // interne, pour le compteur 24h
+	Name            string      `json:"name"`
+	Enabled         bool        `json:"enabled"`         // notifications actives
+	FirstSeen       time.Time   `json:"first_seen"`      // première apparition
+	LastEventTime   time.Time   `json:"last_event_time"` // dernier événement reçu
+	LastSeverity    string      `json:"last_severity"`   // "alert" ou "detection"
+	LastObjects     []string    `json:"last_objects"`    // ["person", "car", ...]
+	EventCount24h   int         `json:"event_count_24h"` // compteur glissant 24h
+	eventTimestamps []time.Time // interne, pour le compteur 24h
 }
 
 // Listener est notifié quand le registry change.

@@ -2,6 +2,7 @@ package mqttdiscovery
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -23,6 +24,9 @@ func NewAutopahoAdapter(cm *autopaho.ConnectionManager) *AutopahoAdapter {
 
 // Publish envoie un message MQTT via autopaho.
 func (a *AutopahoAdapter) Publish(ctx context.Context, topic string, qos byte, retain bool, payload []byte) error {
+	if a.cm == nil {
+		return fmt.Errorf("connexion MQTT non initialisée")
+	}
 	_, err := a.cm.Publish(ctx, &paho.Publish{
 		Topic:   topic,
 		QoS:     qos,
