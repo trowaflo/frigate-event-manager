@@ -89,6 +89,9 @@ _Aucune tâche en cours. Prêt pour la prochaine session._
 ## Backlog
 
 - [x] **Persistence events** — Sauvegarder le ring buffer dans `/data/events.json` ✅
+- [ ] **Magic strings severity** — Extraire `"alert"` et `"detection"` en constantes dans `internal/domain/`
+  - Actuellement hardcodées dans `store.go:96-99`, `event_test.go`, et d'autres fichiers
+  - Refactoring transversal, non bloquant
   - Optionnel, activable via config (`persist_events: true`)
   - Ecriture atomique (tmp + rename) apres chaque event
   - Chargement au boot, respecte la capacite max du ring buffer
