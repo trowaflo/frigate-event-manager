@@ -3,6 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -101,7 +102,9 @@ func (r *Registry) RecordEvent(camera, severity string, objects []string) bool {
 	cam.EventCount24h = len(filtered)
 
 	// Persister après chaque changement
-	_ = r.persistLocked()
+	if err := r.persistLocked(); err != nil {
+		slog.Warn("échec de la persistence du registry", "erreur", err)
+	}
 
 	// Notifier les listeners
 	snapshot := *cam
@@ -129,7 +132,9 @@ func (r *Registry) SetEnabled(camera string, enabled bool) error {
 	}
 
 	cam.Enabled = enabled
-	_ = r.persistLocked()
+	if err := r.persistLocked(); err != nil {
+		slog.Warn("échec de la persistence du registry", "erreur", err)
+	}
 
 	snapshot := *cam
 	for _, l := range r.listeners {

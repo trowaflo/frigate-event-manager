@@ -82,6 +82,13 @@ func (c *Client) login() error {
 	return fmt.Errorf("login Frigate réussi mais aucun token trouvé")
 }
 
+// getToken retourne le token courant sous lock.
+func (c *Client) getToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.token
+}
+
 // ensureAuth s'assure qu'un token valide est disponible.
 func (c *Client) ensureAuth() error {
 	c.mu.Lock()
@@ -100,7 +107,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.getToken())
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -117,7 +124,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 			return nil, fmt.Errorf("re-login échoué: %w", err)
 		}
 
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("Authorization", "Bearer "+c.getToken())
 		return c.client.Do(req)
 	}
 

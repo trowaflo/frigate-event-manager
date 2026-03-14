@@ -56,7 +56,17 @@ func (h *SwitchCommandHandler) HandleCommand(topic string, payload []byte) {
 	camera := parts[2]
 	value := strings.TrimSpace(strings.ToUpper(string(payload)))
 
-	enabled := value == "ON"
+	var enabled bool
+	switch value {
+	case "ON":
+		enabled = true
+	case "OFF":
+		enabled = false
+	default:
+		h.logger.Warn("valeur de commande MQTT ignorée", "camera", camera, "value", value)
+		return
+	}
+
 	if err := h.registry.SetEnabled(camera, enabled); err != nil {
 		h.logger.Warn("impossible de changer l'état notifications", "camera", camera, "error", err)
 		return
