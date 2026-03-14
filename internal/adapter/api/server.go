@@ -178,7 +178,7 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	severity := r.URL.Query().Get("severity")
 	limit := 50 // défaut
 	if l := r.URL.Query().Get("limit"); l != "" {
-		fmt.Sscanf(l, "%d", &limit)
+		_, _ = fmt.Sscanf(l, "%d", &limit)
 	}
 	s.writeJSON(w, s.eventStore.List(limit, severity))
 }

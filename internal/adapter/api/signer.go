@@ -134,6 +134,6 @@ func (s *Signer) Verify(r *http.Request) bool {
 func computeHMAC(key []byte, path string, exp int64) string {
 	mac := hmac.New(sha256.New, key)
 	// Payload signé : path + expiration, séparés par un newline
-	fmt.Fprintf(mac, "%s\n%d", path, exp)
+	_, _ = fmt.Fprintf(mac, "%s\n%d", path, exp)
 	return hex.EncodeToString(mac.Sum(nil))
 }

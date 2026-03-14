@@ -77,8 +77,7 @@ func TestSigner_Verify_TamperedPath(t *testing.T) {
 	url := s.SignURL("/api/events/abc/clip.mp4")
 
 	// Changer le path mais garder la même signature
-	tampered := url
-	tampered = "/api/events/OTHER/clip.mp4" + url[len("/api/events/abc/clip.mp4"):]
+	tampered := "/api/events/OTHER/clip.mp4" + url[len("/api/events/abc/clip.mp4"):]
 
 	req := httptest.NewRequest(http.MethodGet, "http://localhost:5555"+tampered, nil)
 	assert.False(t, s.Verify(req), "tampered path should fail")
