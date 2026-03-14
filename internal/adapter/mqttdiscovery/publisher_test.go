@@ -3,6 +3,7 @@ package mqttdiscovery
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -155,4 +156,42 @@ func TestPublisher_PublishAll_RestoresOnBoot(t *testing.T) {
 	// 5 configs * 2 cameras = 10 configs
 	configs := mqtt.findByTopic("/config")
 	assert.Len(t, configs, 10)
+}
+
+// TestPublisher_Publish_EchecMQTT valide que l'erreur de publication est loguée sans paniquer.
+func TestPublisher_Publish_EchecMQTT(t *testing.T) {
+	mqttErr := &errorMQTT{}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	pub := NewPublisher(context.Background(), mqttErr, logger)
+
+	cam := registry.CameraState{
+		Name:          "jardin",
+		Enabled:       true,
+		LastSeverity:  "alert",
+		LastObjects:   []string{"person"},
+		EventCount24h: 1,
+	}
+
+	// Ne doit pas paniquer même si MQTT retourne une erreur
+	assert.NotPanics(t, func() {
+		pub.OnCameraAdded(cam)
+	})
+}
+
+// TestPublisher_NewAutopahoAdapter valide la construction via NewAutopahoAdapter.
+// On ne peut pas tester Publish sans serveur MQTT réel, mais on vérifie la construction.
+func TestPublisher_NewAutopahoAdapter_NonNil(t *testing.T) {
+	// NewAutopahoAdapter attend un *autopaho.ConnectionManager qui peut être nil.
+	// On vérifie simplement que la construction fonctionne.
+	adapter := NewAutopahoAdapter(nil)
+	assert.NotNil(t, adapter)
+}
+
+// --- mocks supplémentaires ---
+
+// errorMQTT est un mock MQTT qui retourne toujours une erreur.
+type errorMQTT struct{}
+
+func (e *errorMQTT) Publish(_ context.Context, _ string, _ byte, _ bool, _ []byte) error {
+	return fmt.Errorf("erreur MQTT simulée")
 }

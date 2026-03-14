@@ -256,3 +256,121 @@ func TestConfig_Sanitized_EmptyPasswordsStayEmpty(t *testing.T) {
 		t.Errorf("mot de passe vide devrait rester vide, reçu %v", s["frigate_password"])
 	}
 }
+
+// --- HasFrigate ---
+
+func TestConfig_HasFrigate_True(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:      "http://frigate:5000",
+		FrigateUser:     "admin",
+		FrigatePassword: "secret",
+	}
+	if !cfg.HasFrigate() {
+		t.Error("devrait avoir Frigate quand URL + user + password sont remplis")
+	}
+}
+
+func TestConfig_HasFrigate_False_MissingURL(t *testing.T) {
+	cfg := &config.Config{
+		FrigateUser:     "admin",
+		FrigatePassword: "secret",
+	}
+	if cfg.HasFrigate() {
+		t.Error("ne devrait PAS avoir Frigate sans URL")
+	}
+}
+
+func TestConfig_HasFrigate_False_MissingUser(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:      "http://frigate:5000",
+		FrigatePassword: "secret",
+	}
+	if cfg.HasFrigate() {
+		t.Error("ne devrait PAS avoir Frigate sans user")
+	}
+}
+
+func TestConfig_HasFrigate_False_MissingPassword(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:  "http://frigate:5000",
+		FrigateUser: "admin",
+	}
+	if cfg.HasFrigate() {
+		t.Error("ne devrait PAS avoir Frigate sans password")
+	}
+}
+
+// --- SetMediaBaseURL ---
+
+func TestConfig_SetMediaBaseURL_SansMediaBaseURLExplicite_UtiliseIngress(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:      "http://frigate:5000",
+		FrigateUser:     "admin",
+		FrigatePassword: "secret",
+		APIPort:         5555,
+	}
+	cfg.SetMediaBaseURL("https://ha.example.com/ingress/abc")
+	if cfg.MediaBaseURL != "https://ha.example.com/ingress/abc" {
+		t.Errorf("MediaBaseURL attendu 'https://ha.example.com/ingress/abc', reçu '%s'", cfg.MediaBaseURL)
+	}
+}
+
+func TestConfig_SetMediaBaseURL_SansIngress_UtiliseFallbackLocalhost(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:      "http://frigate:5000",
+		FrigateUser:     "admin",
+		FrigatePassword: "secret",
+		APIPort:         5555,
+	}
+	cfg.SetMediaBaseURL("")
+	if cfg.MediaBaseURL != "http://localhost:5555" {
+		t.Errorf("MediaBaseURL attendu 'http://localhost:5555', reçu '%s'", cfg.MediaBaseURL)
+	}
+}
+
+func TestConfig_SetMediaBaseURL_URLExpliciteConservee(t *testing.T) {
+	cfg := &config.Config{
+		FrigateURL:      "http://frigate:5000",
+		FrigateUser:     "admin",
+		FrigatePassword: "secret",
+		MediaBaseURL:    "https://mon-domaine.fr",
+		APIPort:         5555,
+	}
+	cfg.SetMediaBaseURL("https://ha.example.com/ingress/abc")
+	if cfg.MediaBaseURL != "https://mon-domaine.fr" {
+		t.Errorf("MediaBaseURL explicite devrait être conservée, reçu '%s'", cfg.MediaBaseURL)
+	}
+}
+
+func TestConfig_SetMediaBaseURL_SansFrigate_IgnoreAppel(t *testing.T) {
+	cfg := &config.Config{
+		// Frigate non configuré
+		APIPort: 5555,
+	}
+	cfg.SetMediaBaseURL("https://ha.example.com/ingress/abc")
+	if cfg.MediaBaseURL != "" {
+		t.Errorf("sans Frigate, MediaBaseURL devrait rester vide, reçu '%s'", cfg.MediaBaseURL)
+	}
+}
+
+// --- applyEnvOverrides : chemins manquants ---
+
+func TestLoad_EnvOverrides_FrigateCredentials(t *testing.T) {
+	path := writeTestFile(t, `{
+        "mqtt_broker_url": "tcp://localhost:1883"
+    }`)
+
+	t.Setenv("FRIGATE_USER", "env_frigate_user")
+	t.Setenv("FRIGATE_PASSWORD", "env_frigate_pass")
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if cfg.FrigateUser != "env_frigate_user" {
+		t.Errorf("FrigateUser attendu 'env_frigate_user', reçu '%s'", cfg.FrigateUser)
+	}
+	if cfg.FrigatePassword != "env_frigate_pass" {
+		t.Errorf("FrigatePassword attendu 'env_frigate_pass', reçu '%s'", cfg.FrigatePassword)
+	}
+}

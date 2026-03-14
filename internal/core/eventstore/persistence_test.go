@@ -96,3 +96,56 @@ func TestPersistence_DisabledByDefault(t *testing.T) {
 	_, err := os.Stat(path)
 	assert.True(t, os.IsNotExist(err))
 }
+
+func TestPersistence_AtomicWrite_NoTempFilesRemaining(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "events.json")
+
+	store := New(10)
+	store.EnablePersistence(path)
+	store.Add(EventRecord{ReviewID: "r1", Camera: "cam", Severity: "alert"})
+
+	// Vérifier qu'aucun fichier .tmp ne reste
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	for _, e := range entries {
+		assert.NotContains(t, e.Name(), ".tmp", "fichier temporaire non nettoyé: %s", e.Name())
+	}
+}
+
+func TestPersistence_PersistLocked_EchecSiDossierNonAccessible(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("test de permissions ignoré si root")
+	}
+	dir := t.TempDir()
+
+	// Créer d'abord le fichier avec du contenu valide
+	path := filepath.Join(dir, "events.json")
+	store := New(10)
+	store.EnablePersistence(path)
+	store.Add(EventRecord{ReviewID: "r1", Camera: "cam"})
+
+	// Vérifier que le fichier a bien été créé
+	_, err := os.Stat(path)
+	require.NoError(t, err)
+
+	// Maintenant rendre le répertoire non-accessible en écriture
+	require.NoError(t, os.Chmod(dir, 0555))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0755) })
+
+	// Tenter d'écrire à nouveau : l'erreur est loguée, pas retournée par Add
+	store.Add(EventRecord{ReviewID: "r2", Camera: "cam2"})
+	// Le store contient bien les 2 events en mémoire
+	assert.Equal(t, 2, store.Len())
+}
+
+func TestPersistence_Load_EchecSiFichierEstUnDossier(t *testing.T) {
+	dir := t.TempDir()
+	// Créer un dossier avec le même nom que le fichier attendu
+	fakeFile := filepath.Join(dir, "events.json")
+	require.NoError(t, os.Mkdir(fakeFile, 0755))
+
+	store := New(10)
+	err := store.Load(fakeFile)
+	assert.Error(t, err, "lire un répertoire comme fichier doit retourner une erreur")
+}

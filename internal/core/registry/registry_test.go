@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"frigate-event-manager/internal/domain"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -179,6 +181,115 @@ func TestPersistence_AtomicWrite(t *testing.T) {
 	}
 }
 
+func TestPersistence_LoadCorruptedFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	err := os.WriteFile(path, []byte("not valid json"), 0600)
+	require.NoError(t, err)
+
+	r := New(path)
+	err = r.Load()
+	assert.Error(t, err, "JSON corrompu doit retourner une erreur")
+}
+
+func TestPersistence_LoadReadError(t *testing.T) {
+	// Tester via un répertoire avec le même nom que le fichier attendu
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "state.json")
+	require.NoError(t, os.Mkdir(subDir, 0755))
+
+	// statePath pointe sur un répertoire, pas un fichier → erreur de lecture
+	r := New(subDir)
+	err := r.Load()
+	assert.Error(t, err, "lire un répertoire comme fichier doit retourner une erreur")
+}
+
+func TestPersistence_PersistLocked_WriteFailure(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("test de permissions ignoré si root")
+	}
+	dir := t.TempDir()
+	// Rendre le répertoire non-accessible en écriture
+	require.NoError(t, os.Chmod(dir, 0555))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0755) })
+
+	path := filepath.Join(dir, "state.json")
+	r := New(path)
+	// RecordEvent appelle persistLocked — l'erreur est loguée mais pas propagée
+	// On vérifie que le fichier n'existe pas (écriture impossible)
+	r.RecordEvent("cam1", "alert", []string{"person"})
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err), "le fichier ne doit pas exister si le dossier est en lecture seule")
+}
+
+func TestCamera_Unknown(t *testing.T) {
+	r := New(tempStatePath(t))
+	_, ok := r.Camera("inconnue")
+	assert.False(t, ok)
+}
+
+func TestSetEnabled_NotifiesListener(t *testing.T) {
+	r := New(tempStatePath(t))
+	spy := &spyListener{}
+	r.AddListener(spy)
+	r.RecordEvent("garage", "detection", []string{"car"})
+
+	// Réinitialiser l'espion après l'ajout initial
+	spy.updated = nil
+
+	err := r.SetEnabled("garage", false)
+	require.NoError(t, err)
+	assert.Len(t, spy.updated, 1, "SetEnabled doit notifier les listeners")
+	assert.False(t, spy.updated[0].Enabled)
+}
+
+// --- tests Handler ---
+
+func TestHandler_NewHandler(t *testing.T) {
+	r := New(tempStatePath(t))
+	h := NewHandler(r)
+	assert.NotNil(t, h)
+}
+
+func TestHandler_HandleEvent_NouvelleCamera(t *testing.T) {
+	r := New(tempStatePath(t))
+	h := NewHandler(r)
+
+	// Importer le package domain via une structure inline conforme
+	// Le domaine est dans le même module — on utilise le type directement
+	err := h.HandleEvent(frigatePayload("jardin", "alert", []string{"person"}))
+	require.NoError(t, err)
+
+	cam, ok := r.Camera("jardin")
+	assert.True(t, ok)
+	assert.Equal(t, "alert", cam.LastSeverity)
+	assert.Equal(t, []string{"person"}, cam.LastObjects)
+}
+
+func TestHandler_HandleEvent_CameraVide(t *testing.T) {
+	r := New(tempStatePath(t))
+	h := NewHandler(r)
+
+	err := h.HandleEvent(frigatePayload("", "alert", []string{"person"}))
+	require.NoError(t, err)
+	assert.Empty(t, r.Cameras(), "caméra vide ignorée")
+}
+
+func TestHandler_HandleEvent_PlusieursEvenements(t *testing.T) {
+	r := New(tempStatePath(t))
+	h := NewHandler(r)
+
+	require.NoError(t, h.HandleEvent(frigatePayload("jardin", "detection", []string{"cat"})))
+	require.NoError(t, h.HandleEvent(frigatePayload("jardin", "alert", []string{"person"})))
+	require.NoError(t, h.HandleEvent(frigatePayload("garage", "detection", []string{"car"})))
+
+	assert.Len(t, r.Cameras(), 2)
+	cam, ok := r.Camera("jardin")
+	assert.True(t, ok)
+	assert.Equal(t, "alert", cam.LastSeverity)
+	assert.Equal(t, 2, cam.EventCount24h)
+}
+
 // --- spy ---
 
 type spyListener struct {
@@ -192,4 +303,19 @@ func (s *spyListener) OnCameraAdded(cam CameraState) {
 
 func (s *spyListener) OnCameraUpdated(cam CameraState) {
 	s.updated = append(s.updated, cam)
+}
+
+// frigatePayload construit un FrigatePayload minimal pour les tests du Handler.
+func frigatePayload(camera, severity string, objects []string) domain.FrigatePayload {
+	return domain.FrigatePayload{
+		Type: "new",
+		After: domain.EventState{
+			ID:       "test-review-id",
+			Camera:   camera,
+			Severity: severity,
+			Data: domain.EventData{
+				Objects: objects,
+			},
+		},
+	}
 }
