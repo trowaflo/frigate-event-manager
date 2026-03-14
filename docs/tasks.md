@@ -7,6 +7,7 @@
 ## Blackboard Actif
 
 ### T-310 | Implémenter ZoneFilter, LabelFilter, TimeFilter + champs config + champs domaine
+
 - Status: DONE
 - Owner: feature-architect
 - Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go, internal/domain/event.go, internal/adapter/config/config.go, cmd/addon/main.go
@@ -27,6 +28,7 @@
     Ajouter les nouveaux champs dans Config.Sanitized().
 
 ### T-311 | Review T-310 — ZoneFilter, LabelFilter, TimeFilter
+
 - Status: DONE
 - Owner: code-evaluator
 - Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go, internal/domain/event.go, internal/adapter/config/config.go, cmd/addon/main.go
@@ -36,6 +38,7 @@
 - Notes: Review des 3 filtres et du wiring. Vérifier convention liste vide = tout accepter, injection clock pour TimeFilter, logique ZoneMulti + ZoneOrderEnforced.
 
 ### T-312 | Tests — ZoneFilter, LabelFilter, TimeFilter (coverage >=80%)
+
 - Status: DONE
 - Owner: quality-guard
 - Scope: internal/core/filter/zone_test.go, internal/core/filter/label_test.go, internal/core/filter/time_test.go
@@ -49,6 +52,7 @@
     Utiliser testify/assert + testify/require. Pattern newEvent() helper similaire à severity_test.go.
 
 ### T-313 | Simplification — ZoneFilter, LabelFilter, TimeFilter
+
 - Status: DONE
 - Owner: code-simplifier
 - Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go

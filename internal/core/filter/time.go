@@ -33,8 +33,5 @@ func (f *TimeFilter) IsSatisfied(_ domain.EventState) bool {
 		return true
 	}
 	currentHour := f.clock().UTC().Hour()
-	if slices.Contains(f.disabledHours, currentHour) {
-		return false
-	}
-	return true
+	return !slices.Contains(f.disabledHours, currentHour)
 }

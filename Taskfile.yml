@@ -135,6 +135,16 @@ tasks:
           echo "Review republie ! L'addon devrait le traiter."
     silent: true
 
+  lint:go:
+    desc: Vérifie la qualité du code Go (golangci-lint)
+    cmds:
+      - golangci-lint run ./...
+
+  lint:md:
+    desc: Vérifie le style des fichiers Markdown (markdownlint-cli2)
+    cmds:
+      - markdownlint-cli2 '**/*.md'
+
   build:
     desc: Build l'image Docker en local
     cmds:

@@ -42,7 +42,11 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 5. **Spawner** les agents en parallèle quand leurs scopes sont indépendants
 6. **Surveiller** les locks : TTL 10 minutes — FORCE_UNLOCK si dépassé
 7. **Arbitrer** conflits de lock (règle FIFO : premier timestamp gagne)
-8. **Vérifier** `go build ./...` + `go test ./... -count=1` avant PR
+8. **Vérifier** avant PR :
+   - `go build ./...`
+   - `go test ./... -count=1`
+   - `golangci-lint run ./...`
+   - `markdownlint-cli2 '**/*.md'`
 9. **Créer PR** via `gh` — jamais merger main sans validation humaine
 
 ## Pipeline obligatoire — toute feature suit ces 4 étapes
@@ -69,6 +73,7 @@ Pour les tâches non-Go (frontend, sre-cloud), adapter le pipeline en remplaçan
 
 ```text
 ### T-XXX | [Titre]
+
 - Status: TODO
 - Owner: [agent]
 - Scope: [fichiers]
