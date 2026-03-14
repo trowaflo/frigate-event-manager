@@ -222,7 +222,7 @@ graph TD
 ## Persistence
 
 | Fichier | Contenu | Quand |
-|---------|---------|-------|
+| --- | --- | --- |
 | `/data/options.json` | Configuration utilisateur (MQTT, Frigate, filtres...) | Lu au boot, genere par HA |
 | `/data/state.json` | Cameras decouvertes, prefs on/off, derniers events | Lu au boot, ecrit a chaque event |
 

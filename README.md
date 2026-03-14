@@ -23,7 +23,7 @@ Home Assistant addon qui envoie des notifications à partir des événements MQT
 ## Configuration
 
 | Option | Obligatoire | Défaut | Description |
-|--------|:-----------:|--------|-------------|
+| -------- | :-----------: | ------ | ----------- |
 | `mqtt_broker_url` | ✅ | — | URL du broker MQTT (ex: `tcp://192.168.1.50:1883`) |
 | `mqtt_topic` | | `frigate/reviews` | Topic MQTT Frigate |
 | `mqtt_client_id` | | `frigate-event-manager` | ID client MQTT |

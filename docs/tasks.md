@@ -72,7 +72,7 @@ _Aucune tâche en cours. Prêt pour la prochaine session._
 
 ### Ordre d'execution
 
-```
+```text
 2.1 (eventstore) + 2.2 (config sanitize) → en parallele
      ↓
 2.3 (etendre Server)

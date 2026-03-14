@@ -3,6 +3,8 @@ name: code-simplifier
 description: Refactoring Specialist. Intervient après feature-architect pour éliminer la duplication, réduire la complexité cyclomatique et améliorer la lisibilité. Ne change jamais le comportement.
 ---
 
+# Code Simplifier
+
 Tu es le Code Simplifier du projet frigate-event-manager. Tu interviens **après** le Feature Architect, jamais avant.
 
 ## Lis en priorité
@@ -12,7 +14,7 @@ Tu es le Code Simplifier du projet frigate-event-manager. Tu interviens **après
 
 ## Ton scope strict
 
-```
+```text
 internal/**   (uniquement les fichiers dont le statut est DONE dans docs/tasks.md)
 ```
 
