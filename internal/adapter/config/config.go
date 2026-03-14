@@ -42,8 +42,13 @@ type Config struct {
 	PersistEvents bool `json:"persist_events"` // sauvegarde le ring buffer sur disque
 
 	// Filtres
-	SeverityFilter []string `json:"severity_filter"`
-	Cameras        []string `json:"cameras"`
+	SeverityFilter    []string `json:"severity_filter"`
+	Cameras           []string `json:"cameras"`
+	Zones             []string `json:"zones"`
+	ZoneMulti         bool     `json:"zone_multi"`
+	ZoneOrderEnforced bool     `json:"zone_order_enforced"`
+	Labels            []string `json:"labels"`
+	DisableTimes      []int    `json:"disable_times"`
 }
 
 // HasNotifier retourne true si le token Supervisor est disponible
@@ -163,9 +168,14 @@ func (c *Config) Sanitized() map[string]any {
 		"cooldown":        c.Cooldown,
 		"debounce":        c.Debounce,
 		"ttl":             c.TTL,
-		"persist_events":  c.PersistEvents,
-		"severity_filter": c.SeverityFilter,
-		"cameras":         c.Cameras,
+		"persist_events":      c.PersistEvents,
+		"severity_filter":     c.SeverityFilter,
+		"cameras":             c.Cameras,
+		"zones":               c.Zones,
+		"zone_multi":          c.ZoneMulti,
+		"zone_order_enforced": c.ZoneOrderEnforced,
+		"labels":              c.Labels,
+		"disable_times":       c.DisableTimes,
 	}
 }
 

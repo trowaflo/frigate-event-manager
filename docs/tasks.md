@@ -6,7 +6,56 @@
 
 ## Blackboard Actif
 
-_Aucune tâche en cours. Prêt pour la prochaine session._
+### T-310 | Implémenter ZoneFilter, LabelFilter, TimeFilter + champs config + champs domaine
+- Status: DONE
+- Owner: feature-architect
+- Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go, internal/domain/event.go, internal/adapter/config/config.go, cmd/addon/main.go
+- Locks: —
+- Depends: —
+- Blocks: T-311, T-312
+- Notes: |
+    Domaine : ajouter CurrentZones []string et EnteredZones []string à EventState.
+    Config : ajouter Zones []string, ZoneMulti bool, ZoneOrderEnforced bool, Labels []string, DisableTimes []int.
+    ZoneFilter : zones: [jardin, entree], zone_multi: true (toutes requises), zone_order_enforced: true.
+      Source : after.CurrentZones + after.EnteredZones. Liste vide = tout accepter.
+      ZoneMulti=false -> au moins une zone match. ZoneMulti=true -> toutes les zones config présentes.
+      ZoneOrderEnforced=true -> l ordre de after.EnteredZones doit correspondre à zones config.
+    LabelFilter : labels: [person, car, dog]. Source : after.Data.Objects. Liste vide = tout accepter.
+    TimeFilter : disable_times: [0,1,2,3,4,5,22,23] (heures UTC). Évalué à chaque événement.
+      Injecter une clock func (func() time.Time) pour testabilité. Liste vide = tout accepter.
+    Wiring main.go : brancher les 3 filtres dans NewFilterChain après SeverityFilter.
+    Ajouter les nouveaux champs dans Config.Sanitized().
+
+### T-311 | Review T-310 — ZoneFilter, LabelFilter, TimeFilter
+- Status: DONE
+- Owner: code-evaluator
+- Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go, internal/domain/event.go, internal/adapter/config/config.go, cmd/addon/main.go
+- Locks: —
+- Depends: T-310
+- Blocks: T-313
+- Notes: Review des 3 filtres et du wiring. Vérifier convention liste vide = tout accepter, injection clock pour TimeFilter, logique ZoneMulti + ZoneOrderEnforced.
+
+### T-312 | Tests — ZoneFilter, LabelFilter, TimeFilter (coverage >=80%)
+- Status: DONE
+- Owner: quality-guard
+- Scope: internal/core/filter/zone_test.go, internal/core/filter/label_test.go, internal/core/filter/time_test.go
+- Locks: —
+- Depends: T-310
+- Blocks: T-313
+- Notes: |
+    ZoneFilter : liste vide, zone_multi=false (au moins une), zone_multi=true (toutes), zone_order_enforced, zones non présentes.
+    LabelFilter : liste vide, label présent, label absent, multi-labels.
+    TimeFilter : heure dans disable_times (bloquée), heure hors disable_times (passée), liste vide, injection clock mock.
+    Utiliser testify/assert + testify/require. Pattern newEvent() helper similaire à severity_test.go.
+
+### T-313 | Simplification — ZoneFilter, LabelFilter, TimeFilter
+- Status: DONE
+- Owner: code-simplifier
+- Scope: internal/core/filter/zone.go, internal/core/filter/label.go, internal/core/filter/time.go
+- Locks: —
+- Depends: T-311, T-312
+- Blocks: —
+- Notes: DRY sur les patterns répétitifs entre les 3 filtres. Pas d over-engineering.
 
 <!--
 ### T-XXX | [Titre]
@@ -108,17 +157,17 @@ _Aucune tâche en cours. Prêt pour la prochaine session._
 
 Le `FilterChain` est prêt architecturalement — il suffit d'implémenter les filtres et de les brancher dans `main.go`.
 
-- [ ] **ZoneFilter** — filtrer par zone(s) Frigate
+- [x] **ZoneFilter** — filtrer par zone(s) Frigate
   - Config : `zones: [jardin, entree]`, `zone_multi: true` (toutes requises), `zone_order_enforced: true`
   - Source : `after.CurrentZones` + `after.EnteredZones` dans le payload
   - Liste vide = tout accepter (convention existante)
 
-- [ ] **LabelFilter** — filtrer par objet détecté
+- [x] **LabelFilter** — filtrer par objet détecté
   - Config : `labels: [person, car, dog]`
   - Source : `after.Data.Objects`
   - Liste vide = tout accepter
 
-- [ ] **TimeFilter** — plages horaires de silence
+- [x] **TimeFilter** — plages horaires de silence
   - Config : `disable_times: [0,1,2,3,4,5,22,23]` (heures UTC)
   - Évalué à chaque événement, pas au boot
 

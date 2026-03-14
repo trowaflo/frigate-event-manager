@@ -12,13 +12,15 @@ type FrigatePayload struct {
 
 // EventState représente l'état d'un review Frigate à un instant T.
 type EventState struct {
-    ID        string   `json:"id"`
-    Camera    string   `json:"camera"`
-    StartTime float64  `json:"start_time"`
-    EndTime   *float64 `json:"end_time"` // nil = événement en cours
-    Severity  string   `json:"severity"`
-    ThumbPath string   `json:"thumb_path"`
-    Data      EventData `json:"data"`
+    ID           string    `json:"id"`
+    Camera       string    `json:"camera"`
+    StartTime    float64   `json:"start_time"`
+    EndTime      *float64  `json:"end_time"` // nil = événement en cours
+    Severity     string    `json:"severity"`
+    ThumbPath    string    `json:"thumb_path"`
+    Data         EventData `json:"data"`
+    CurrentZones []string  `json:"current_zones"` // zones actuellement occupées
+    EnteredZones []string  `json:"entered_zones"` // zones traversées depuis le début
 }
 
 // EventData contient les données de détection associées au review.

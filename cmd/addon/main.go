@@ -121,6 +121,9 @@ func main() {
 	// --- Processor + MQTT subscriber ---
 	chain := filter.NewFilterChain(
 		filter.NewSeverityFilter(cfg.SeverityFilter),
+		filter.NewZoneFilter(cfg.Zones, cfg.ZoneMulti, cfg.ZoneOrderEnforced),
+		filter.NewLabelFilter(cfg.Labels),
+		filter.NewTimeFilter(cfg.DisableTimes, nil),
 	)
 	proc := processor.NewProcessor(chain, multi)
 	msgHandler := mqttadapter.NewMessageHandler(proc)
