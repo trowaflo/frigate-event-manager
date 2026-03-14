@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"frigate-event-manager/internal/adapter/config"
@@ -178,7 +179,9 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	severity := r.URL.Query().Get("severity")
 	limit := 50 // défaut
 	if l := r.URL.Query().Get("limit"); l != "" {
-		_, _ = fmt.Sscanf(l, "%d", &limit)
+		if n, err := strconv.Atoi(l); err == nil && n >= 1 && n <= 200 {
+			limit = n
+		}
 	}
 	s.writeJSON(w, s.eventStore.List(limit, severity))
 }
