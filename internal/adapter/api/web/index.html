@@ -215,8 +215,9 @@ async function loadDashboard() {
 
 // --- Events ---
 async function loadEvents(severity) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === (severity === 'alert' ? 'Alerts' : severity === 'detection' ? 'Detections' : 'Tous'));
+  });
   try {
     const path = '/api/events-list' + (severity ? '?severity=' + severity : '');
     const events = await api(path);
