@@ -6,233 +6,6 @@
 
 ## Blackboard Actif
 
-### T-400 | Prérequis — Merger Go → main + créer branche Python
-
-- Status: DONE
-- Owner: humain
-- Scope: git
-- Locks: —
-- Depends: —
-- Blocks: T-401
-- Notes: |
-    Merger la branche Claude-review dans main (--no-ff) pour snapshot du code Go.
-    Créer la branche `feat/python-migration`.
-    Aucune tâche suivante ne démarre avant que T-400 soit DONE.
-
-### T-401 | Nettoyage — Supprimer les fichiers Go et résidus
-
-- Status: DONE
-- Owner: sre-cloud
-- Scope: racine du repo
-- Locks: —
-- Depends: T-400
-- Blocks: T-410
-- Notes: |
-    Supprimer : internal/, cmd/, go.mod, go.sum, Dockerfile, Taskfile.yml,
-    coverage.out, .devcontainer/, config/, maquette/, dev/.
-    Supprimer fichiers racine Go/infra : config.yaml, docker-bake.hcl,
-    kics-config.json, release-please-config.json, renovate.json5.
-    Supprimer docs obsolètes : BLUEPRINT_FRIGATE_ANALYSIS.md, Besoin.md.
-    Garder : custom_components/, hacs.json, .claude/, docs/, .github/, .gitignore,
-    .markdownlint.json, README.md.
-    Mettre à jour .gitignore.
-
-### T-402 | Infra — Adapter CI/CD et Taskfile pour Python
-
-- Status: DONE
-- Owner: sre-cloud
-- Scope: .github/workflows/validation.yml, Taskfile.yml (nouveau)
-- Locks: —
-- Depends: T-401
-- Blocks: T-410
-- Notes: |
-    validation.yml : remplacer jobs Go (golangci-lint, hadolint, addon-lint, docker build)
-    par pytest + coverage ≥80%, ruff (lint Python), markdownlint (inchangé).
-    Nouveau Taskfile.yml : task test (pytest + coverage), task lint (ruff + markdownlint).
-    Pas de task dev ni task build (plus de Docker).
-
-### T-410 | Squelette + config flow complet
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-401, T-402
-- Blocks: T-411, T-412
-- Notes: |
-    Réécrire config_flow.py : formulaire complet avec tous les champs de config
-    (MQTT broker URL, port, username, password, topic, notify_target,
-    severity_filter, zones, labels, disable_times, cooldown).
-    Mettre à jour strings.json + translations/fr.json avec tous les labels.
-    Mettre à jour manifest.json (dependencies: mqtt).
-    `__init__.py` : PLATFORMS, async_setup_entry, async_unload_entry.
-    const.py : toutes les constantes (DOMAIN, CONF_*, DEFAULTS).
-
-### T-411 | Review T-410
-
-- Status: DONE
-- Owner: reviewer
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-410
-- Blocks: T-413
-- Notes: |
-    REVIEW_OK. Points non-bloquants pour T-413 :
-    1. config_flow.py L57 : check cooldown<0 redondant avec vol.Range(min=0) — branche morte à supprimer
-    2. __init__.py L32 : utiliser CONF_MQTT_TOPIC au lieu de la string littérale "mqtt_topic"
-
-### T-412 | Tests T-410
-
-- Status: DONE
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-410
-- Blocks: T-413
-- Notes: Utiliser pytest-homeassistant-custom-component. Config flow : happy path + erreurs de connexion.
-
-### T-413 | Simplification T-410
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-411, T-412
-- Blocks: T-420
-- Notes: —
-
-### T-420 | Coordinator MQTT — subscribe + parse payload Frigate
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/coordinator.py
-- Locks: —
-- Depends: T-413
-- Blocks: T-421, T-422
-- Notes: |
-    CONTEXT REVIEWER (issues BLOCKING à corriger) :
-    1. coordinator.py actuel utilise aiohttp vers /api/cameras de l'addon Go — à supprimer entièrement.
-    2. __init__.py appelle coordinator.async_config_entry_first_refresh() — incompatible avec MQTT push.
-       Remplacer par un coordinator sans polling (update_interval=None) + démarrage MQTT dans async_setup.
-    3. switch.py utilise entry.data["url"] (KeyError car la clé n'existe plus) et aiohttp PATCH — à corriger.
-    4. sensor.py attend cam["name"], cam["last_severity"], cam["last_objects"], cam["event_count_24h"] —
-       la shape de coordinator.data doit être cohérente avec ces clés (ou sensor.py doit être adapté).
-
-    SPEC T-420 :
-    Utiliser hass.components.mqtt.async_subscribe (intégration MQTT native HA).
-    Souscrire à frigate/reviews (ou topic configuré via CONF_MQTT_TOPIC).
-    Parser le payload JSON → dataclass FrigateEvent (type, camera, severity, objects,
-    zones, score, thumb_path, review_id, start_time, end_time).
-    Gérer reconnexion automatique (HA MQTT s'en charge).
-    Exposer coordinator.data : dict[str, CameraState] — clé = camera_name.
-    CameraState expose : name, last_severity, last_objects, event_count_24h, last_event_time, enabled.
-    coordinator.async_start() souscrit au topic MQTT + stocke l'unsubscribe callback.
-    coordinator.async_stop() appelle l'unsubscribe callback.
-    __init__.py : remplacer async_config_entry_first_refresh() par coordinator.async_start().
-    async_unload_entry : appeler coordinator.async_stop() avant async_unload_platforms().
-    switch.py : remplacer aiohttp PATCH par coordinator.set_camera_enabled(cam_name, enabled).
-    Ne pas modifier sensor.py (T-480 s'en chargera), mais s'assurer que coordinator.data
-    est itérable comme liste de dicts avec les clés "name", "last_severity", "last_objects",
-    "event_count_24h" pour préserver la compatibilité avec l'existant.
-
-### T-421 | Review T-420
-
-- Status: REVIEW_OK
-- Owner: reviewer
-- Security: SECURITY_OK
-- Scope: custom_components/frigate_event_manager/coordinator.py
-- Locks: —
-- Depends: T-420
-- Blocks: T-423
-- Notes: |
-    REVIEW_OK — aucune issue bloquante. Issues MINOR pour T-423 (code-simplifier) :
-    1. coordinator.py _parse_event L95 : float(score) peut lever ValueError si score est une string
-       non-numérique (ex: "N/A"). Entourer d'un try/except ou utiliser une conversion sécurisée.
-    2. coordinator.py _parse_event L99 : end_time non converti en float — inconsistance avec start_time.
-    3. coordinator.py set_camera_enabled L143-144 et _handle_mqtt_message L210-211 : _sync_data()
-       avant async_set_updated_data() est redondant (async_set_updated_data met déjà à jour self.data).
-       Supprimer _sync_data() ou redéfinir le pattern.
-    4. event_count_24h croît indéfiniment (pas de fenêtre glissante). Nom trompeur.
-       Acceptable pour T-420, à corriger en T-450 (EventStore) ou T-480.
-    5. hass.components.mqtt.async_subscribe : API deprecated en HA >= 2023.x.
-       Migrer vers `from homeassistant.components.mqtt import async_subscribe` en T-423.
-    __init__.py : conforme spec T-420. switch.py : conforme spec T-420 (zéro aiohttp, zéro KeyError).
-
-### T-422 | Tests T-420
-
-- Status: IN_REVIEW
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-420
-- Blocks: T-423
-- Notes: |
-    Fichier : tests/test_coordinator.py (44 tests)
-    Couvre : _parse_event (16), CameraState (3), _handle_mqtt_message (11),
-    set_camera_enabled (6), async_start/stop (5), _async_update_data (2).
-    Mock MQTT : object.__new__ + MagicMock(spec=HomeAssistant) pour async_start/stop.
-    Tests avec fixture hass HA pour les chemins à chaud (_handle_mqtt_message, set_camera_enabled).
-    Coverage attendu ≥80% — valider avec : pytest tests/test_coordinator.py --cov=custom_components/frigate_event_manager/coordinator --cov-report=term-missing
-
-### T-423 | Simplification T-420
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/coordinator.py
-- Locks: —
-- Depends: T-421, T-422
-- Blocks: T-430
-- Notes: |
-    1. _to_float() helper : conversion sécurisée float avec try/except ValueError/TypeError.
-       Appliqué à score, start_time, end_time (end_time harmonisé avec start_time).
-    2. _sync_data() supprimé : remplacé par _cameras_as_list() qui retourne la liste
-       sans muter self.data. async_set_updated_data(_cameras_as_list()) en appel unique.
-    3. mqtt.async_subscribe(hass, topic, cb) : migration API HA >= 2023.x.
-       Tests async_start adaptés via patch() sur le symbole importé.
-
-### T-430 | Filtres — ZoneFilter, LabelFilter, TimeFilter
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/filter.py
-- Locks: —
-- Depends: T-423
-- Blocks: T-431, T-432
-- Notes: |
-    filter.py créé avec : protocole Filter, ZoneFilter, LabelFilter, TimeFilter, FilterChain.
-    Convention liste vide = tout accepter respectée sur les 3 filtres.
-    ZoneFilter : zone_multi (toutes requises) + zone_order_enforced (sous-séquence via iter).
-    LabelFilter : au moins un objet match (set intersection).
-    TimeFilter : clock injectable (défaut datetime.now), disabled_hours list[int].
-    FilterChain : all() avec court-circuit dès le premier refus.
-    FrigateEvent importé depuis .coordinator.
-
-### T-431 | Review T-430
-
-- Status: APPROVED
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/filter.py
-- Locks: —
-- Depends: T-430
-- Blocks: T-433
-- Notes: |
-    APPROVED — aucune issue bloquante. Issue MINOR pour T-433 (code-simplifier) :
-    1. filter.py L135 : datetime.now sans timezone explicite.
-       Si HA tourne avec TZ=UTC et que l'utilisateur configure des disabled_hours
-       en heure locale, le filtre sera décalé. Envisager datetime.now().astimezone()
-       ou documenter l'hypothèse "heure locale du serveur HA".
-    Points vérifiés OK :
-    - Convention liste vide = tout accepter : conforme sur ZoneFilter, LabelFilter, TimeFilter.
-    - zone_order_enforced : sous-séquence ordonnée via iter() correcte.
-    - LabelFilter : any() garantit "au moins un match".
-    - TimeFilter : clock injectable conforme, .hour correct.
-    - FilterChain : all() avec court-circuit natif Python.
-    - Typage : tous les imports utilisés, annotations cohérentes.
-    - Robustesse : event.zones et event.objects garantis list[str] non-None
-      par le coordinator (L112-113) et les dataclass defaults.
-
 ### T-432 | Tests T-430
 
 - Status: TODO
@@ -251,54 +24,10 @@
 - Locks: —
 - Depends: T-431, T-432
 - Blocks: T-440
-- Notes: —
-
-### T-440 | Registry — état caméras en mémoire
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/registry.py
-- Locks: —
-- Depends: T-433
-- Blocks: T-441, T-442
 - Notes: |
-    Dict camera_name → CameraState (enabled, last_severity, last_objects,
-    event_count_24h, last_event_time).
-    Persistence dans hass.config.path("frigate_em_state.json") (pas /data/).
-    Écriture atomique (tmp + rename).
-    Auto-découverte des nouvelles caméras (enabled=True par défaut).
-    CameraState et FrigateEvent importés depuis .coordinator (pas de redéfinition).
-    I/O disque déléguées à hass.async_add_executor_job (pas de dépendance aiofiles).
-
-### T-441 | Review T-440
-
-- Status: REVIEW_OK
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/registry.py
-- Locks: —
-- Depends: T-440
-- Blocks: T-443
-- Notes: |
-    REVIEW_OK — aucune issue bloquante. Issues MINOR pour T-443 (code-simplifier) :
-    1. registry.py _read_state L202 : int(cam_data.get("event_count_24h") or 0) non protégé
-       contre une valeur JSON de type string non-numérique (ex: "abc" → ValueError non attrapé).
-       Utiliser _to_float() ou un try/except int() local, comme le fait coordinator.py.
-    2. registry.py _read_state L201 : list(cam_data.get("last_objects") or []) — si la valeur
-       JSON est une string (ex: "person"), list("person") retourne ["p","e","r","s","o","n"].
-       Préférer une vérification isinstance avant list().
-    Points vérifiés OK :
-    - Auto-découverte enabled=True : get() crée CameraState(name=) avec default enabled=True (coordinator.py L50). Conforme.
-    - Persistence hass.config.path("frigate_em_state.json") : L43 conforme, pas de /data/.
-    - Écriture atomique : _write_atomic() via tmp + os.replace() (POSIX atomique). Conforme.
-    - Fichier absent : os.path.isfile() → return silencieux log DEBUG. Conforme.
-    - JSON corrompu : except (OSError, json.JSONDecodeError) → return log ERROR. Conforme.
-    - Format invalide (non-dict racine) : isinstance(raw, dict) check. Conforme.
-    - Entrée caméra invalide : isinstance(cam_data, dict) + continue. Conforme.
-    - async_add_executor_job : async_save() L118 et async_load() L126. Conforme.
-    - Pas de redéfinition CameraState/FrigateEvent : importés depuis .coordinator L17. Conforme.
-    - event_count_24h sur type="new" uniquement : update() L74-76. Conforme.
+    Issue MINOR de T-431 à traiter :
+    1. filter.py : datetime.now sans timezone explicite.
+       Documenter l'hypothèse "heure locale du serveur HA via .astimezone()".
 
 ### T-442 | Tests T-440
 
@@ -320,64 +49,6 @@
 - Blocks: T-450
 - Notes: —
 
-### T-450 | Event Store — ring buffer événements
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/event_store.py
-- Locks: —
-- Depends: T-443
-- Blocks: T-451, T-452
-- Notes: |
-    collections.deque(maxlen=200).
-    EventRecord : camera, severity, objects, zones, timestamp, thumb_path.
-    Méthodes : add(), list(limit, severity), stats() → events_24h, alerts_24h.
-    add() : timestamp = start_time si > 0.0, sinon time.time() (fallback robuste).
-    list() : reversed(deque) + filtre severity par générateur + slice limit.
-    stats() : fenêtre glissante time.time() - 86400 (corrige issue T-421 point 4).
-
-### T-451 | Review T-450
-
-- Status: REVIEW_OK
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/event_store.py
-- Locks: —
-- Depends: T-450
-- Blocks: T-453
-- Notes: |
-    REVIEW_OK — aucune issue bloquante. Issue MINOR pour T-453 (code-simplifier) :
-    1. event_store.py L82 : list(candidats)[:limit] matérialise tous les résultats filtrés
-       en mémoire avant le slice. Remplacer par list(itertools.islice(candidats, limit))
-       pour éviter l'allocation inutile (négligeable sur maxlen=200, mais plus idiomatique).
-    Points vérifiés OK :
-    - list() : reversed(deque) correct (plus récent en tête), filtre severity via generator
-      avant slice, convention severity=None=tout accepter conforme.
-    - stats() : seuil time.time()-86400 correct (fenêtre glissante 24h), events_24h et
-      alerts_24h compteurs indépendants, severity=="alert" isolé du compteur global.
-    - add() : copies défensives list(event.objects) et list(event.zones) présentes,
-      fallback timestamp (start_time > 0.0 sinon time.time()) conforme spec T-450.
-    - Imports : 5 imports, tous utilisés, aucun superflu.
-    - FrigateEvent importé depuis .coordinator (pas de redéfinition de dataclass).
-
-### T-452 | Tests T-450
-
-- Status: IN_REVIEW
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-450
-- Blocks: T-453
-- Notes: |
-    Fichier : tests/test_event_store.py (31 tests, 6 classes)
-    Couvre : add() (6), list() sans filtre (5), list(severity=) (6),
-    stats() (7), ring buffer maxlen (3), EventRecord dataclass (1),
-    timestamp fallback start_time=0.0, copies défensives objects/zones.
-    Mock : patch("...event_store.time.time") pour contrôler la fenêtre 24h.
-    Coverage attendu ≥80% — valider avec :
-    pytest tests/test_event_store.py -v --cov=custom_components/frigate_event_manager/event_store --cov-report=term-missing
-
 ### T-453 | Simplification T-450
 
 - Status: TODO
@@ -386,42 +57,9 @@
 - Locks: —
 - Depends: T-451, T-452
 - Blocks: T-460
-- Notes: —
-
-### T-460 | Throttler — anti-spam par caméra
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/throttle.py
-- Locks: —
-- Depends: T-453
-- Blocks: T-461, T-462
 - Notes: |
-    Cooldown configurable par caméra (défaut : 60s).
-    Dict camera_name → last_notified_time.
-    Méthode should_notify(camera, now) → bool.
-    Clock injectable pour les tests.
-
-### T-461 | Review T-460
-
-- Status: APPROVED
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/throttle.py
-- Locks: —
-- Depends: T-460
-- Blocks: T-463
-- Notes: |
-    APPROVED — aucune issue. Tous les critères vérifiés :
-    1. should_notify() read-only : dict.get() sans insertion, aucune mutation. Conforme.
-    2. record() seul point de mutation : _last_notified[camera] = instant en L82 uniquement. Conforme.
-    3. Première notification → True : guard `if derniere is None` correct (dict.get() → None si absent). Conforme.
-    4. now=0.0 non-falsy : test `is not None` (L62, L81), pas de test booléen. 0.0 epoch correctement traité. Conforme.
-    5. Clock injectable : Callable[[], float] = time.time, utilisé via self._clock(). Conforme.
-    6. Cooldown expiré → True, non expiré → False : `>=` inclusif en L69, sémantique correcte. Conforme.
-    7. Caméras indépendantes : dict[str, float] avec clé = camera_name, isolation totale. Conforme.
-    Qualité : CC max=2, 0 magic number contextuel problématique, 0 log, 0 secret, typage complet.
+    Issue MINOR de T-451 à traiter :
+    1. event_store.py L82 : `list(candidats)[:limit]` → remplacer par list(itertools.islice(candidats, limit)).
 
 ### T-462 | Tests T-460
 
@@ -433,188 +71,21 @@
 - Blocks: T-463
 - Notes: —
 
-### T-463 | Simplification T-460
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/throttle.py
-- Locks: —
-- Depends: T-461, T-462
-- Blocks: T-470
-- Notes: —
-
-### T-470 | Notifier — notifications HA Companion
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/notifier.py
-- Locks: —
-- Depends: T-463
-- Blocks: T-471, T-472
-- Notes: |
-    hass.services.async_call("notify", notify_target, {...}).
-    Message : caméra, sévérité, objets détectés.
-    Image : URL Frigate (snapshot ou clip).
-    Support : tag (collapse), actions (boutons HA Companion), critical (bypass DND).
-    html.escape() sur tous les champs dynamiques.
-
-### T-471 | Review T-470
-
-- Status: APPROVED
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/notifier.py
-- Locks: —
-- Depends: T-470
-- Blocks: T-473
-- Notes: |
-    APPROVED — aucune issue bloquante.
-    Points vérifiés OK :
-    - html.escape() : camera (L53), severity (L54), objects (L55), review_id (L73),
-      tag utilise camera_safe déjà échappée (L67). Conforme.
-    - data.tag : présent inconditionnellement dans le bloc data (L67). Conforme.
-    - data.push.sound.critical : conditionnel sur `event.severity == "alert"` (L85).
-      Bloc push absent pour severity="detection". Conforme.
-    - data.image : absent si thumb_url vide — guard `if thumb_url:` en L81. Conforme.
-    - Gestion d'erreur async_call : try/except Exception (L107-118), log ERROR avec
-      cible + message, exception non re-levée. # noqa: BLE001 justifié. Conforme.
-    - Secrets dans les logs : notify_target = nom de service (ex: "mobile_app_iphone"),
-      camera et severity = champs métier non sensibles. Aucun token/password loggué. Conforme.
-    Observation non-bloquante (MINOR pour T-473) :
-    1. notifier.py L82 : thumb_url injecté dans data["image"] sans html.escape().
-       Acceptable car transmis au client push natif (pas rendu HTML), mais
-       une validation de format URL (startswith http) renforcerait la robustesse.
-
-### T-472 | Tests T-470
-
-- Status: IN_REVIEW
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-470
-- Blocks: T-473
-- Notes: |
-    Fichier : tests/test_notifier.py (34 tests, 8 classes)
-    Couvre : async_call arguments (6), html.escape (6), critical alert (5),
-    thumb_url (4), tag (3), actions review_id (2), exception catchée (4),
-    objects vide/multiples (2).
-    Coverage attendu ≥80% (analyse statique : tous les chemins couverts) — valider avec :
-    pytest tests/test_notifier.py --cov=custom_components/frigate_event_manager/notifier --cov-report=term-missing
-
-### T-473 | Simplification T-470
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/notifier.py
-- Locks: —
-- Depends: T-471, T-472
-- Blocks: T-480
-- Notes: |
-    Guard URL ajouté sur thumb_url (L82) : startswith(("http://", "https://")).
-    Valeur non-URL → _LOGGER.warning + rejet (clé "image" absente du payload).
-    Valeur vide → comportement inchangé (guard `if thumb_url:` externe préservé).
-    test_thumb_url_avec_chemin_relatif adapté en test_thumb_url_avec_chemin_relatif_rejete.
-    test_thumb_url_https_accepte ajouté (35 tests au total, +1 net).
-
-### T-480 | Entités HA — sensor, switch, binary_sensor
-
-- Status: DONE
-- Owner: python-architect
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-473
-- Blocks: T-481, T-482
-- Notes: |
-    sensor.py : conforme spec (last_severity, last_object, event_count_24h) — aucun changement requis.
-    switch.py : conforme spec (notifications on/off, set_camera_enabled) — aucun changement requis.
-    binary_sensor.py : créé. FrigateMotionSensor, unique_id fem_{cam}_motion,
-    device_class=MOTION, is_on=cam["motion"], has_entity_name=True.
-    __init__.py : binary_sensor déjà dans PLATFORMS — aucun changement requis.
-
-### T-481 | Review T-480
-
-- Status: APPROVED
-- Owner: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-480
-- Blocks: T-483
-- Notes: |
-    APPROVED — aucune issue bloquante.
-    Points vérifiés OK :
-    - CoordinatorEntity + has_entity_name=True : présent sur les 3 fichiers (sensor.py L46,
-      switch.py L35, binary_sensor.py L43). Conforme.
-    - unique_id format fem_{cam}_{key} : sensor.py L61 dynamique via key param,
-      switch.py L46 "notifications", binary_sensor.py L56 "motion". Conforme.
-    - binary_sensor device_class=MOTION : BinarySensorDeviceClass.MOTION en L44.
-      Import correct depuis homeassistant.components.binary_sensor. Conforme.
-    - switch is_on lit coordinator.data : boucle sur coordinator.data or [] L51-54. Conforme.
-    - switch async_turn_on/off appelle set_camera_enabled : L58 et L62. Conforme.
-      Rafraîchissement HA garanti par async_set_updated_data dans le coordinator. Conforme.
-    - sensor last_object extra_state_attributes avec all_objects : L90-91. Conforme.
-    - Robustesse coordinator.data vide ou caméra absente : guards "or []" dans les 3
-      async_setup_entry + _camera_data retourne {} + is_on retourne valeur par défaut. Conforme.
-    - Cohérence avec CameraState.as_dict() : toutes les clés accédées (name, last_severity,
-      last_objects, event_count_24h, motion, enabled) présentes dans le dict sérialisé. Conforme.
-    Issue MINOR pour T-483 (observation, non-bloquant) :
-    1. Découverte dynamique des entités absente : si coordinator.data est vide au
-       chargement de la plateforme, aucune entité n'est créée. Les caméras découvertes
-       après le démarrage via MQTT ne génèrent pas de nouvelles entités HA sans reload.
-       Limitation architecturale connue — à traiter dans une tâche dédiée (ex: T-484)
-       si la découverte dynamique est souhaitée (async_add_entities appelé depuis le
-       callback MQTT du coordinator).
-
-### T-482 | Tests T-480
-
-- Status: IN_REVIEW
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-480
-- Blocks: T-483
-- Notes: |
-    Fichier : tests/test_entities.py (44 tests, 5 classes)
-    Couvre : FrigateLastSeveritySensor (8), FrigateLastObjectSensor (9),
-    FrigateEventCountSensor (7), FrigateNotificationSwitch (12), FrigateMotionSensor (9).
-    Mock : CoordinatorEntity.__init__ patché no-op, coordinator MagicMock avec .data liste de dicts.
-    Cas couverts : nominal, camera inconnue, data vide, data None, plusieurs caméras,
-    async_turn_on/off avec kwargs, unique_id, device_class MOTION.
-    Coverage attendu ≥80% — valider avec :
-    pytest tests/test_entities.py -v
-      --cov=custom_components/frigate_event_manager/sensor
-      --cov=custom_components/frigate_event_manager/switch
-      --cov=custom_components/frigate_event_manager/binary_sensor
-      --cov-report=term-missing
-
-### T-483 | Simplification T-480
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/
-- Locks: —
-- Depends: T-481, T-482
-- Blocks: T-490
-- Notes: |
-    Docstring ajoutée sur async_setup_entry des 3 fichiers (sensor.py, switch.py,
-    binary_sensor.py) : comportement "aucune entité si coordinator.data vide au
-    démarrage" documenté explicitement, mention reload nécessaire, référence T-484
-    pour la découverte dynamique future. Aucun changement de comportement observable.
-
 ### T-490 | Docs — README + architecture.md + tasks.md
 
-- Status: TODO
+- Status: DONE
 - Owner: reviewer
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: README.md, docs/architecture.md, docs/tasks.md
 - Locks: —
 - Depends: T-483
 - Blocks: T-499
 - Notes: |
-    README.md : réécrire entièrement (installation HACS, configuration, entités disponibles).
-    docs/architecture.md : réécrire (Python asyncio, flux MQTT → filtres → throttler → notifier → entités).
-    docs/tasks.md : archiver les phases Go, repartir propre après migration.
+    README.md : réécrit entièrement (HACS, config flow, entités par caméra, unique_ids, prérequis MQTT).
+    docs/architecture.md : réécrit pour l'architecture Python (Mermaid à jour, plus de mention Go).
+    docs/tasks.md : tâches DONE archivées, blackboard allégé aux tâches actives uniquement.
 
 ### T-499 | PR finale — migration Python
 
@@ -643,6 +114,215 @@
 
 ---
 
+## Archive — Migration Python (tâches DONE)
+
+> Toutes les tâches ci-dessous sont terminées et validées.
+> Elles sont conservées ici pour traçabilité.
+
+### T-400 | Prérequis — Merger Go → main + créer branche Python
+
+- Status: DONE
+- Owner: humain
+- Notes: |
+    Branche Claude-review mergée dans main (--no-ff).
+    Branche `feat/python-migration` créée.
+
+### T-401 | Nettoyage — Supprimer les fichiers Go et résidus
+
+- Status: DONE
+- Owner: sre-cloud
+- Notes: |
+    Supprimé : internal/, cmd/, go.mod, go.sum, Dockerfile, Taskfile.yml,
+    coverage.out, .devcontainer/, config/, maquette/, dev/.
+    Supprimé fichiers racine Go/infra : config.yaml, docker-bake.hcl, etc.
+    Conservé : custom_components/, hacs.json, .claude/, docs/, .github/.
+
+### T-402 | Infra — Adapter CI/CD et Taskfile pour Python
+
+- Status: DONE
+- Owner: sre-cloud
+- Notes: |
+    validation.yml : pytest + coverage ≥80%, ruff, markdownlint.
+    Nouveau Taskfile.yml : task test (pytest + coverage), task lint (ruff + markdownlint).
+
+### T-410 | Squelette + config flow complet
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    config_flow.py, strings.json, translations/fr.json, manifest.json,
+    `__init__.py`, const.py créés et fonctionnels.
+
+### T-411 | Review T-410
+
+- Status: DONE
+- Owner: reviewer
+- Notes: REVIEW_OK. Issues non-bloquantes corrigées en T-413.
+
+### T-412 | Tests T-410
+
+- Status: DONE
+- Owner: quality-guard
+
+### T-413 | Simplification T-410
+
+- Status: DONE
+- Owner: code-simplifier
+
+### T-420 | Coordinator MQTT — subscribe + parse payload Frigate
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    coordinator.py : MQTT push via intégration native HA.
+    FrigateEvent + CameraState dataclasses.
+    _parse_event, _to_float, _cameras_as_list.
+    async_start / async_stop.
+
+### T-421 | Review T-420
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: REVIEW_OK. Issues MINOR corrigées en T-423.
+
+### T-422 | Tests T-420
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_coordinator.py — 44 tests.
+
+### T-423 | Simplification T-420
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: |
+    _to_float() helper, _sync_data() supprimé, migration mqtt.async_subscribe API ≥2023.x.
+
+### T-430 | Filtres — ZoneFilter, LabelFilter, TimeFilter
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    filter.py créé : Filter (protocole), ZoneFilter, LabelFilter, TimeFilter, FilterChain.
+    Convention liste vide = tout accepter sur les 3 filtres.
+
+### T-431 | Review T-430
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: APPROVED. Issue MINOR datetime timezone documentée (corrigée partiellement en T-433).
+
+### T-440 | Registry — état caméras en mémoire
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    registry.py : CameraRegistry, persistence atomique JSON, auto-découverte enabled=True.
+
+### T-441 | Review T-440
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: REVIEW_OK. Issues MINOR corrigées en T-443.
+
+### T-450 | Event Store — ring buffer événements
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    event_store.py : deque(maxlen=200), EventRecord, add(), list(), stats().
+
+### T-451 | Review T-450
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: REVIEW_OK. Issue MINOR islice corrigée en T-453.
+
+### T-452 | Tests T-450
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_event_store.py — 31 tests.
+
+### T-460 | Throttler — anti-spam par caméra
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    throttle.py : Throttler, cooldown configurable, clock injectable, should_notify / record.
+
+### T-461 | Review T-460
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: APPROVED — aucune issue.
+
+### T-463 | Simplification T-460
+
+- Status: DONE
+- Owner: code-simplifier
+
+### T-470 | Notifier — notifications HA Companion
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    notifier.py : HANotifier, html.escape sur tous les champs, tag, actions,
+    critical iOS, guard URL thumb_url (startswith http).
+
+### T-471 | Review T-470
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: APPROVED. Issue MINOR thumb_url validation ajoutée en T-473.
+
+### T-472 | Tests T-470
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_notifier.py — 35 tests.
+
+### T-473 | Simplification T-470
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: Guard URL ajouté, test adapté.
+
+### T-480 | Entités HA — sensor, switch, binary_sensor
+
+- Status: DONE
+- Owner: python-architect
+- Notes: |
+    sensor.py (3 sensors), switch.py, binary_sensor.py (FrigateMotionSensor).
+    Tous : has_entity_name=True, unique_id fem_{cam}_{key}, CoordinatorEntity.
+
+### T-481 | Review T-480
+
+- Status: DONE
+- Owner: reviewer
+- Security: SECURITY_OK
+- Notes: APPROVED. Limitation découverte dynamique documentée, T-484 prévu.
+
+### T-482 | Tests T-480
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_entities.py — 44 tests.
+
+### T-483 | Simplification T-480
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: Docstrings ajoutées sur async_setup_entry des 3 fichiers.
+
+---
+
 ## Archive — Phases Go (référence)
 
 > Code Go archivé sur la branche `main` après merge de `Claude-review`.
@@ -661,7 +341,7 @@
 - [x] 2.2 Config.Sanitized()
 - [x] 2.3–2.7 Serveur HTTP + SPA + API Management
 
-### Phase 3 : Filtres (PARTIELLEMENT FAIT en Go — à traduire Python)
+### Phase 3 : Filtres (PARTIELLEMENT FAIT en Go — traduits Python)
 
 - [x] ZoneFilter, LabelFilter, TimeFilter (Go → T-430)
 - [ ] ScoreFilter (abandonné)
@@ -669,4 +349,4 @@
 ### Phases 4–5 : Différenciation + HACS (REMPLACÉES par migration Python)
 
 > Toutes les fonctionnalités prévues (multi-canal, présence, services HA, entités natives)
-> seront implémentées directement dans l'intégration Python.
+> sont implémentées directement dans l'intégration Python.
