@@ -435,7 +435,7 @@
 
 ### T-463 | Simplification T-460
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/throttle.py
 - Locks: —
