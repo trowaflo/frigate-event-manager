@@ -322,7 +322,7 @@
 
 ### T-450 | Event Store — ring buffer événements
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/event_store.py
 - Locks: —
@@ -332,6 +332,9 @@
     collections.deque(maxlen=200).
     EventRecord : camera, severity, objects, zones, timestamp, thumb_path.
     Méthodes : add(), list(limit, severity), stats() → events_24h, alerts_24h.
+    add() : timestamp = start_time si > 0.0, sinon time.time() (fallback robuste).
+    list() : reversed(deque) + filtre severity par générateur + slice limit.
+    stats() : fenêtre glissante time.time() - 86400 (corrige issue T-421 point 4).
 
 ### T-451 | Review T-450
 
