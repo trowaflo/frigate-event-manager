@@ -338,23 +338,45 @@
 
 ### T-451 | Review T-450
 
-- Status: TODO
+- Status: REVIEW_OK
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/event_store.py
 - Locks: —
 - Depends: T-450
 - Blocks: T-453
-- Notes: —
+- Notes: |
+    REVIEW_OK — aucune issue bloquante. Issue MINOR pour T-453 (code-simplifier) :
+    1. event_store.py L82 : list(candidats)[:limit] matérialise tous les résultats filtrés
+       en mémoire avant le slice. Remplacer par list(itertools.islice(candidats, limit))
+       pour éviter l'allocation inutile (négligeable sur maxlen=200, mais plus idiomatique).
+    Points vérifiés OK :
+    - list() : reversed(deque) correct (plus récent en tête), filtre severity via generator
+      avant slice, convention severity=None=tout accepter conforme.
+    - stats() : seuil time.time()-86400 correct (fenêtre glissante 24h), events_24h et
+      alerts_24h compteurs indépendants, severity=="alert" isolé du compteur global.
+    - add() : copies défensives list(event.objects) et list(event.zones) présentes,
+      fallback timestamp (start_time > 0.0 sinon time.time()) conforme spec T-450.
+    - Imports : 5 imports, tous utilisés, aucun superflu.
+    - FrigateEvent importé depuis .coordinator (pas de redéfinition de dataclass).
 
 ### T-452 | Tests T-450
 
-- Status: TODO
+- Status: IN_REVIEW
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
 - Depends: T-450
 - Blocks: T-453
-- Notes: —
+- Notes: |
+    Fichier : tests/test_event_store.py (31 tests, 6 classes)
+    Couvre : add() (6), list() sans filtre (5), list(severity=) (6),
+    stats() (7), ring buffer maxlen (3), EventRecord dataclass (1),
+    timestamp fallback start_time=0.0, copies défensives objects/zones.
+    Mock : patch("...event_store.time.time") pour contrôler la fenêtre 24h.
+    Coverage attendu ≥80% — valider avec :
+    pytest tests/test_event_store.py -v --cov=custom_components/frigate_event_manager/event_store --cov-report=term-missing
 
 ### T-453 | Simplification T-450
 
