@@ -137,49 +137,75 @@
 
 ### T-421 | Review T-420
 
-- Status: TODO
+- Status: REVIEW_OK
 - Owner: reviewer
+- Security: SECURITY_OK
 - Scope: custom_components/frigate_event_manager/coordinator.py
 - Locks: —
 - Depends: T-420
 - Blocks: T-423
-- Notes: —
+- Notes: |
+    REVIEW_OK — aucune issue bloquante. Issues MINOR pour T-423 (code-simplifier) :
+    1. coordinator.py _parse_event L95 : float(score) peut lever ValueError si score est une string
+       non-numérique (ex: "N/A"). Entourer d'un try/except ou utiliser une conversion sécurisée.
+    2. coordinator.py _parse_event L99 : end_time non converti en float — inconsistance avec start_time.
+    3. coordinator.py set_camera_enabled L143-144 et _handle_mqtt_message L210-211 : _sync_data()
+       avant async_set_updated_data() est redondant (async_set_updated_data met déjà à jour self.data).
+       Supprimer _sync_data() ou redéfinir le pattern.
+    4. event_count_24h croît indéfiniment (pas de fenêtre glissante). Nom trompeur.
+       Acceptable pour T-420, à corriger en T-450 (EventStore) ou T-480.
+    5. hass.components.mqtt.async_subscribe : API deprecated en HA >= 2023.x.
+       Migrer vers `from homeassistant.components.mqtt import async_subscribe` en T-423.
+    __init__.py : conforme spec T-420. switch.py : conforme spec T-420 (zéro aiohttp, zéro KeyError).
 
 ### T-422 | Tests T-420
 
-- Status: TODO
+- Status: IN_REVIEW
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
 - Depends: T-420
 - Blocks: T-423
-- Notes: Mocker hass.components.mqtt. Tester parsing payload valide et invalide.
+- Notes: |
+    Fichier : tests/test_coordinator.py (44 tests)
+    Couvre : _parse_event (16), CameraState (3), _handle_mqtt_message (11),
+    set_camera_enabled (6), async_start/stop (5), _async_update_data (2).
+    Mock MQTT : object.__new__ + MagicMock(spec=HomeAssistant) pour async_start/stop.
+    Tests avec fixture hass HA pour les chemins à chaud (_handle_mqtt_message, set_camera_enabled).
+    Coverage attendu ≥80% — valider avec : pytest tests/test_coordinator.py --cov=custom_components/frigate_event_manager/coordinator --cov-report=term-missing
 
 ### T-423 | Simplification T-420
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/coordinator.py
 - Locks: —
 - Depends: T-421, T-422
 - Blocks: T-430
-- Notes: —
+- Notes: |
+    1. _to_float() helper : conversion sécurisée float avec try/except ValueError/TypeError.
+       Appliqué à score, start_time, end_time (end_time harmonisé avec start_time).
+    2. _sync_data() supprimé : remplacé par _cameras_as_list() qui retourne la liste
+       sans muter self.data. async_set_updated_data(_cameras_as_list()) en appel unique.
+    3. mqtt.async_subscribe(hass, topic, cb) : migration API HA >= 2023.x.
+       Tests async_start adaptés via patch() sur le symbole importé.
 
 ### T-430 | Filtres — ZoneFilter, LabelFilter, TimeFilter
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/filter.py
 - Locks: —
 - Depends: T-423
 - Blocks: T-431, T-432
 - Notes: |
-    Traduire les 3 filtres Go existants en Python.
-    Convention : liste vide = tout accepter.
-    ZoneFilter : zone_multi (toutes requises) + zone_order_enforced (sous-séquence ordonnée).
-    LabelFilter : au moins un objet match.
-    TimeFilter : clock injectable pour les tests.
-    Le coordinator applique la FilterChain avant de mettre à jour coordinator.data.
+    filter.py créé avec : protocole Filter, ZoneFilter, LabelFilter, TimeFilter, FilterChain.
+    Convention liste vide = tout accepter respectée sur les 3 filtres.
+    ZoneFilter : zone_multi (toutes requises) + zone_order_enforced (sous-séquence via iter).
+    LabelFilter : au moins un objet match (set intersection).
+    TimeFilter : clock injectable (défaut datetime.now), disabled_hours list[int].
+    FilterChain : all() avec court-circuit dès le premier refus.
+    FrigateEvent importé depuis .coordinator.
 
 ### T-431 | Review T-430
 
