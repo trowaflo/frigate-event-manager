@@ -1,17 +1,21 @@
+# Système
 .DS_Store
 .decrypted~*
 settings.local.json
 
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.venv/
+venv/
+
+# Tests & coverage
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.out
+
+# Outils
 .ruff_cache/
 dist/
 *.egg-info/
-.venv/
-venv/
-coverage.out
