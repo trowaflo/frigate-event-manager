@@ -22,6 +22,28 @@ _LOGGER = logging.getLogger(__name__)
 _STATE_FILENAME = "frigate_em_state.json"
 
 
+def _to_int(value: object, default: int = 0) -> int:
+    """Convertit ``value`` en int de manière sécurisée.
+
+    Retourne ``default`` si la conversion échoue (string non-numérique, None…).
+    """
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_list(value: object) -> list[str]:
+    """Retourne ``value`` si c'est déjà une liste, sinon une liste vide.
+
+    Évite que ``list("person")`` retourne ``['p','e','r','s','o','n']``
+    lorsque le JSON persiste une string à la place d'un tableau.
+    """
+    if isinstance(value, list):
+        return list(value)
+    return []
+
+
 class CameraRegistry:
     """Registre en mémoire des états de caméras Frigate.
 
@@ -198,8 +220,8 @@ class CameraRegistry:
             self._cameras[name] = CameraState(
                 name=str(cam_data.get("name", name)),
                 last_severity=cam_data.get("last_severity"),
-                last_objects=list(cam_data.get("last_objects") or []),
-                event_count_24h=int(cam_data.get("event_count_24h") or 0),
+                last_objects=_safe_list(cam_data.get("last_objects")),
+                event_count_24h=_to_int(cam_data.get("event_count_24h")),
                 last_event_time=cam_data.get("last_event_time"),
                 motion=bool(cam_data.get("motion", False)),
                 enabled=bool(cam_data.get("enabled", True)),
