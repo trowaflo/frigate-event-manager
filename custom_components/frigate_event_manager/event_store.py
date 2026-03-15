@@ -7,6 +7,7 @@ le buffer est reconstruit au redémarrage via les messages MQTT.
 
 from __future__ import annotations
 
+import itertools
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -79,7 +80,7 @@ class EventStore:
         if severity is not None:
             candidats = (r for r in candidats if r.severity == severity)
 
-        return list(candidats)[:limit]
+        return list(itertools.islice(candidats, limit))
 
     def stats(self) -> dict[str, int]:
         """Calcule des statistiques sur les événements des dernières 24h.
