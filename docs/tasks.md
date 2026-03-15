@@ -8,7 +8,7 @@
 
 ### T-400 | Prérequis — Merger Go → main + créer branche Python
 
-- Status: TODO
+- Status: DONE
 - Owner: humain
 - Scope: git
 - Locks: —
@@ -21,7 +21,7 @@
 
 ### T-401 | Nettoyage — Supprimer les fichiers Go et résidus
 
-- Status: TODO
+- Status: IN_PROGRESS
 - Owner: sre-cloud
 - Scope: racine du repo
 - Locks: —

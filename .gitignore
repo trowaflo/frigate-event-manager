@@ -1,9 +1,16 @@
-*.tfstate
 .DS_Store
-.terraform*
 .decrypted~*
-.ansible
-dev/
 settings.local.json
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+dist/
+*.egg-info/
+.venv/
+venv/
