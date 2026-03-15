@@ -7,11 +7,11 @@ argument-hint: "[composant]"
 
 # Architecture
 
-L'architecture est documentee dans CLAUDE.md (section Architecture) et `docs/architecture.md`.
+L'architecture est documentee dans `docs/architecture.md`.
 
 ## Comment repondre
 
 1. Lis `docs/architecture.md` pour les diagrammes Mermaid complets
-2. Si $ARGUMENTS mentionne un composant, lis le code source correspondant dans `internal/`
+2. Si $ARGUMENTS mentionne un composant, lis le code source correspondant dans `custom_components/frigate_event_manager/`
 3. Explique avec des termes simples — l'utilisateur n'est pas developpeur
 4. Utilise des analogies du quotidien quand c'est utile

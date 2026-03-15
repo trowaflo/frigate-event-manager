@@ -7,16 +7,16 @@ argument-hint: "[nom] [description]"
 
 # Ajouter un Filtre
 
-Un filtre impl `filter.Filter` (methode `IsSatisfied`). Chaine AND : tous doivent passer.
+Un filtre herite du protocole `Filter` de `custom_components/frigate_event_manager/filter.py` (methode `apply(event: FrigateEvent) -> bool`). Chaine AND : tous doivent passer.
 
 ## Etapes
 
-1. **Creer** `internal/core/filter/$0.go`. Modele : `severity.go`. Regle : liste vide = tout passe.
-2. **Tester** `internal/core/filter/$0_test.go` — vide, match, no-match.
-3. **Brancher** dans `cmd/addon/main.go` : ajouter dans `NewFilterChain(...)`.
-4. **Config** : champ dans `config.go` + option dans `config.yaml`.
-5. **Verifier** : `go test ./internal/core/filter/ -v` && `go test ./... -count=1`
+1. **Creer** la classe dans `custom_components/frigate_event_manager/filter.py` (etendre le fichier existant). Modele : `ZoneFilter` ou `LabelFilter`. Regle : liste vide = tout passe.
+2. **Tester** dans `tests/test_filter.py` — cas vide, match, no-match.
+3. **Brancher** dans le coordinateur ou le point d'entree adequat : ajouter dans la `FilterChain(...)`.
+4. **Config** si necessaire : champ dans `config_flow.py` + option dans `custom_components/frigate_event_manager/const.py`.
+5. **Verifier** : `.venv/bin/pytest tests/test_filter.py -v`
 
-## Champs filtrables (EventState)
+## Champs filtrables (FrigateEvent)
 
-`Camera`, `Severity`, `Data.Objects[]`, `Data.Zones[]`, `Data.SubLabels[]`, `Data.Audio[]`
+`camera`, `label`, `zones`, `objects`, `score`, `top_score`, `after`, `before`

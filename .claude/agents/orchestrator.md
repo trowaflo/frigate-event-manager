@@ -44,10 +44,9 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 6. **Surveiller** les locks : TTL 10 minutes — FORCE_UNLOCK si dépassé
 7. **Arbitrer** conflits de lock (règle FIFO : premier timestamp gagne)
 8. **Vérifier** avant PR :
-   - `go build ./...`
-   - `go test ./... -count=1`
-   - `golangci-lint run ./...`
-   - `markdownlint-cli2 '**/*.md'`
+   - `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-fail-under=80 -q`
+   - `.venv/bin/ruff check custom_components/`
+   - `markdownlint-cli2 '**/*.md' '!.venv/**'`
 9. **Créer PR** via `gh` — jamais merger main sans validation humaine
 
 ## Pipeline obligatoire — toute feature suit ces 4 étapes
@@ -55,10 +54,10 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 **Pour chaque demande d'implémentation, créer systématiquement ce bloc de 4 tâches :**
 
 ```text
-T-XXX   | [Feature] — implémentation   → go-architect
-T-XXX+1 | [Feature] — review           → reviewer       (dépend T-XXX)
-T-XXX+2 | [Feature] — tests            → quality-guard  (dépend T-XXX)
-T-XXX+3 | [Feature] — simplification   → code-simplifier (dépend T-XXX+1, T-XXX+2)
+T-XXX   | [Feature] — implémentation   → python-architect
+T-XXX+1 | [Feature] — review           → reviewer         (dépend T-XXX)
+T-XXX+2 | [Feature] — tests            → quality-guard    (dépend T-XXX)
+T-XXX+3 | [Feature] — simplification   → code-simplifier  (dépend T-XXX+1, T-XXX+2)
 ```
 
 **La PR ne peut être créée qu'une fois T-XXX+3 DONE.**
@@ -66,9 +65,9 @@ T-XXX+3 | [Feature] — simplification   → code-simplifier (dépend T-XXX+1, T
 - T-XXX+1 et T-XXX+2 peuvent démarrer en parallèle dès T-XXX DONE
 - T-XXX+3 attend les deux
 - Si le reviewer émet REVIEW_NEEDED BLOCKING → HITL avant de continuer
-- Si quality-guard émet REJECTED → go-architect reprend avant T-XXX+3
+- Si quality-guard émet REJECTED → python-architect reprend avant T-XXX+3
 
-Pour les tâches non-Go (frontend, sre-cloud), adapter le pipeline en remplaçant go-architect par l'agent concerné. Le reviewer et quality-guard s'appliquent toujours.
+Pour les tâches frontend ou sre-cloud, remplacer python-architect par l'agent concerné. Le reviewer et quality-guard s'appliquent toujours.
 
 ## Format Blackboard (docs/tasks.md)
 

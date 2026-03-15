@@ -7,18 +7,18 @@ argument-hint: "[nom] [description]"
 
 # Ajouter un Handler
 
-Un handler impl `ports.EventHandler` et recoit les events Frigate filtres.
+Un handler Python recoit les evenements Frigate filtres et execute une action (notification, log, integration...).
 
 ## Etapes
 
-1. **Creer** `internal/adapter/$0/handler.go` — struct + `HandleEvent()`. Modele : `debughandler/handler.go`
-2. **Tester** `internal/adapter/$0/handler_test.go` — cas nominal + erreur. Modele : `debughandler/handler_test.go`
-3. **Brancher** dans `cmd/addon/main.go` : `multi.Add("$0", ...)`. Wrapper avec `throttle.New()` si besoin.
-4. **Config** si necessaire : champs dans `config.go` + options dans `config.yaml`
-5. **Verifier** : `go build ./...` && `go test ./... -count=1`
+1. **Creer** la classe handler dans `custom_components/frigate_event_manager/` — methode `handle(event: FrigateEvent)`. Modele : `notifier.py`
+2. **Tester** dans `tests/test_$0.py` — cas nominal + erreur.
+3. **Brancher** dans le coordinateur (`coordinator.py`) : enregistrer le handler dans la boucle de traitement. Wrapper avec `throttle.py` si besoin.
+4. **Config** si necessaire : champs dans `config_flow.py` + constantes dans `const.py`
+5. **Verifier** : `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q`
 
 ## Regles
 
-- Ne jamais bloquer les autres handlers (retourner erreur, pas panic)
-- Imports : uniquement `domain` et `core/ports`, jamais d'autres adapters
-- Utiliser `ports.MediaSigner` pour les URLs media
+- Ne jamais lever d'exception non geree (logger l'erreur, ne pas bloquer les autres handlers)
+- Imports : uniquement depuis `custom_components/frigate_event_manager/`, jamais d'imports circulaires
+- Utiliser le coordinateur HA pour acceder aux donnees et aux services Home Assistant

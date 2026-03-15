@@ -14,3 +14,4 @@ dist/
 *.egg-info/
 .venv/
 venv/
+coverage.out

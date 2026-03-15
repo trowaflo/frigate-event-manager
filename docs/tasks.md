@@ -6,87 +6,6 @@
 
 ## Blackboard Actif
 
-### T-432 | Tests T-430
-
-- Status: DONE
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-430
-- Blocks: T-433
-- Notes: Reprendre les cas de tests Go (zone_multi, order_enforced, clock mock).
-
-### T-433 | Simplification T-430
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/filter.py
-- Locks: —
-- Depends: T-431, T-432
-- Blocks: T-440
-- Notes: |
-    Issue MINOR de T-431 à traiter :
-    1. filter.py : datetime.now sans timezone explicite.
-       Documenter l'hypothèse "heure locale du serveur HA via .astimezone()".
-
-### T-442 | Tests T-440
-
-- Status: DONE
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-440
-- Blocks: T-443
-- Notes: —
-
-### T-443 | Simplification T-440
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/registry.py
-- Locks: —
-- Depends: T-441, T-442
-- Blocks: T-450
-- Notes: —
-
-### T-453 | Simplification T-450
-
-- Status: DONE
-- Owner: code-simplifier
-- Scope: custom_components/frigate_event_manager/event_store.py
-- Locks: —
-- Depends: T-451, T-452
-- Blocks: T-460
-- Notes: |
-    Issue MINOR de T-451 à traiter :
-    1. event_store.py L82 : `list(candidats)[:limit]` → remplacer par list(itertools.islice(candidats, limit)).
-
-### T-462 | Tests T-460
-
-- Status: DONE
-- Owner: quality-guard
-- Scope: tests/
-- Locks: —
-- Depends: T-460
-- Blocks: T-463
-- Notes: —
-
-### T-490 | Docs — README + architecture.md + tasks.md
-
-- Status: DONE
-- Owner: reviewer
-- Reviewer: reviewer
-- Security: SECURITY_OK
-- Doc: SYNCED
-- Scope: README.md, docs/architecture.md, docs/tasks.md
-- Locks: —
-- Depends: T-483
-- Blocks: T-499
-- Notes: |
-    README.md : réécrit entièrement (HACS, config flow, entités par caméra, unique_ids, prérequis MQTT).
-    docs/architecture.md : réécrit pour l'architecture Python (Mermaid à jour, plus de mention Go).
-    docs/tasks.md : tâches DONE archivées, blackboard allégé aux tâches actives uniquement.
-
 ### T-499 | PR finale — migration Python
 
 - Status: TODO
@@ -199,6 +118,18 @@
 - Notes: |
     _to_float() helper, _sync_data() supprimé, migration mqtt.async_subscribe API ≥2023.x.
 
+### T-432 | Tests T-430
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_filter.py — 62 tests, 100% coverage.
+
+### T-433 | Simplification T-430
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: TimeFilter clock aware timezone locale (.astimezone()).
+
 ### T-430 | Filtres — ZoneFilter, LabelFilter, TimeFilter
 
 - Status: DONE
@@ -228,6 +159,18 @@
 - Security: SECURITY_OK
 - Notes: REVIEW_OK. Issues MINOR corrigées en T-443.
 
+### T-442 | Tests T-440
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_registry.py — 45 tests, 97% coverage.
+
+### T-443 | Simplification T-440
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: _to_int() et _safe_list() helpers pour désérialisation JSON robuste.
+
 ### T-450 | Event Store — ring buffer événements
 
 - Status: DONE
@@ -246,7 +189,13 @@
 
 - Status: DONE
 - Owner: quality-guard
-- Notes: tests/test_event_store.py — 31 tests.
+- Notes: tests/test_event_store.py — 28 tests, 100% coverage.
+
+### T-453 | Simplification T-450
+
+- Status: DONE
+- Owner: code-simplifier
+- Notes: islice pour limit sans allocation complète.
 
 ### T-460 | Throttler — anti-spam par caméra
 
@@ -266,6 +215,18 @@
 
 - Status: DONE
 - Owner: code-simplifier
+
+### T-462 | Tests T-460
+
+- Status: DONE
+- Owner: quality-guard
+- Notes: tests/test_throttle.py — 28 tests, 100% coverage.
+
+### T-490 | Docs — README + architecture.md + tasks.md
+
+- Status: DONE
+- Owner: reviewer
+- Notes: README HACS, architecture Python Mermaid, blackboard nettoyé.
 
 ### T-470 | Notifier — notifications HA Companion
 
