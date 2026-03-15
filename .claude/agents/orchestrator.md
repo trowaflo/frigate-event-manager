@@ -27,6 +27,7 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 | Besoin | Agent à spawner |
 | --- | --- |
 | Code Go métier (domain, core, adapter) | `go-architect` |
+| Code Python / integration HA HACS | `python-architect` |
 | Fichiers de test `*_test.go` | `quality-guard` |
 | Refactoring / DRY | `code-simplifier` |
 | Review qualité + sécurité + doc | `reviewer` |
@@ -149,8 +150,9 @@ Si rien à capitaliser → ne rien faire. Ne pas créer de fichiers inutiles.
 | Agent | Pour quoi |
 | --- | --- |
 | `go-architect` | Logique métier Go, nouveaux composants, architecture hexagonale |
-| `reviewer` | Review qualité + sécurité + sync doc (après go-architect) |
-| `quality-guard` | Tests et coverage ≥80% (après go-architect) |
-| `code-simplifier` | Refactoring et DRY (après reviewer + quality-guard) |
+| `python-architect` | Intégration HA HACS, entités, coordinators, config flows |
+| `reviewer` | Review qualité + sécurité + sync doc (Go et Python) |
+| `quality-guard` | Tests et coverage ≥80% |
+| `code-simplifier` | Refactoring et DRY |
 | `frontend-designer` | UI/UX maquette/ et SPA |
 | `sre-cloud` | Dockerfile, CI/CD, Taskfile |

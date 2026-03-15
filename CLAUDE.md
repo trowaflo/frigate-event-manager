@@ -84,13 +84,14 @@ Utiliser les subagents generalement pour garder le contexte principal propre :
 | --- | --- |
 | `orchestrator` | Chef d'equipe — decompose, assigne, cree les PRs |
 | `go-architect` | Code Go metier, architecture hexagonale |
-| `reviewer` | Review qualite + securite + sync doc (apres go-architect) |
+| `python-architect` | Integration HA HACS, entites, coordinators, config flows |
+| `reviewer` | Review qualite + securite + sync doc (Go et Python) |
 | `quality-guard` | Tests et coverage ≥80% |
 | `code-simplifier` | Refactoring DRY (apres reviewer + quality-guard) |
 | `frontend-designer` | Maquettes HTML interactives `maquette/` |
 | `sre-cloud` | Dockerfile, CI/CD, Taskfile |
 
-**Pipeline obligatoire** (toute feature) : implement (go-architect) → review + tests (parallele) → simplify → PR.
+**Pipeline obligatoire** (toute feature) : implement (go-architect ou python-architect) → review + tests (parallele) → simplify → PR.
 
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
