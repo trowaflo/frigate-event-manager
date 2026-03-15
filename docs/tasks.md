@@ -8,7 +8,7 @@
 
 ### T-432 | Tests T-430
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
@@ -18,7 +18,7 @@
 
 ### T-433 | Simplification T-430
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/filter.py
 - Locks: —
@@ -31,7 +31,7 @@
 
 ### T-442 | Tests T-440
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
@@ -41,7 +41,7 @@
 
 ### T-443 | Simplification T-440
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/registry.py
 - Locks: —
@@ -51,7 +51,7 @@
 
 ### T-453 | Simplification T-450
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/event_store.py
 - Locks: —
@@ -63,7 +63,7 @@
 
 ### T-462 | Tests T-460
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
