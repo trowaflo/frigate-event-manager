@@ -11,7 +11,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import CONF_MQTT_TOPIC, DOMAIN
 from .coordinator import FrigateEventManagerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    _LOGGER.debug("Frigate Event Manager initialisé (topic: %s)", entry.data.get("mqtt_topic"))
+    _LOGGER.debug("Frigate Event Manager initialisé (topic: %s)", entry.data.get(CONF_MQTT_TOPIC))
     return True
 
 

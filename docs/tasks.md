@@ -93,7 +93,7 @@
 
 ### T-413 | Simplification T-410
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/
 - Locks: —

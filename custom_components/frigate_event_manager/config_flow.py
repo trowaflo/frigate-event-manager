@@ -54,13 +54,10 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            if user_input.get(CONF_COOLDOWN, 0) < 0:
-                errors[CONF_COOLDOWN] = "cooldown_invalid"
-            else:
-                return self.async_create_entry(
-                    title="Frigate Event Manager",
-                    data=user_input,
-                )
+            return self.async_create_entry(
+                title="Frigate Event Manager",
+                data=user_input,
+            )
 
         return self.async_show_form(
             step_id="user",
