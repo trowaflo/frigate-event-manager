@@ -3,3 +3,7 @@
 .terraform*
 .decrypted~*
 .ansible
+dev/
+settings.local.json
+__pycache__/
+*.pyc

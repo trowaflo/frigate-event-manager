@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base href="/">
+<title>Frigate Event Manager</title>
+<style>body{background:#0d1117;color:#c9d1d9;font-family:-apple-system,sans-serif;margin:0}
+.app{display:flex;height:100vh}
+.sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column}
+.sidebar-header{padding:20px 16px 12px;border-bottom:1px solid #30363d}
+.sidebar-header h1{font-size:14px;font-weight:700;color:#58a6ff;letter-spacing:.5px;margin:0}
+.sidebar-header small{font-size:11px;color:#8b949e}
+.sidebar nav{flex:1;padding:8px 0}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;color:#8b949e;text-decoration:none;transition:all .15s}
+.sidebar nav a:hover{background:#21262d;color:#c9d1d9}
+.sidebar nav a.active{background:#21262d;color:#58a6ff;border-left:3px solid #58a6ff}
+.sidebar-footer{padding:12px 16px;border-top:1px solid #30363d;font-size:11px;color:#8b949e}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:48px;background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:center;padding:0 24px;justify-content:space-between}
+.topbar h2{font-size:15px;font-weight:600;margin:0}
+.topbar .status{display:flex;align-items:center;gap:6px;font-size:12px;color:#3fb950}
+.topbar .dot{width:8px;height:8px;border-radius:50%;background:#3fb950;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.content{flex:1;overflow-y:auto;padding:24px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+.stat-card .label{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-card .value{font-size:28px;font-weight:700}
+.stat-card .sub{font-size:11px;color:#8b949e;margin-top:2px}
+.section-title{font-size:14px;font-weight:600;margin-bottom:12px}
+.camera-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px}
+.camera-card{background:#161b22;border:1px solid #30363d;border-radius:10px;overflow:hidden;transition:border-color .2s}
+.camera-card:hover{border-color:#2980b9}
+.camera-info{padding:12px}
+.camera-name{font-size:14px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.camera-meta{font-size:11px;color:#8b949e;display:flex;gap:12px}
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase}
+.badge-alert{background:#ef5350;color:#fff}
+.badge-detection{background:#ffa726;color:#000}
+.badge-idle{background:#333;color:#8b949e}
+.toggle{position:relative;width:36px;height:20px;cursor:pointer;display:inline-block}
+.toggle input{display:none}
+.toggle .slider{position:absolute;inset:0;background:#333;border-radius:10px;transition:.2s;border:1px solid #444}
+.toggle .slider::before{content:'';position:absolute;width:14px;height:14px;border-radius:50%;left:2px;top:2px;background:#8b949e;transition:.2s}
+.toggle input:checked+.slider{background:#2980b9;border-color:#58a6ff}
+.toggle input:checked+.slider::before{transform:translateX(16px);background:#fff}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:1px solid #30363d}
+td{padding:10px 12px;border-bottom:1px solid #30363d;font-size:13px}
+tr:hover td{background:#161b22}
+.severity{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.settings-section{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;margin-bottom:16px}
+.settings-section h3{font-size:13px;font-weight:600;margin-bottom:12px;color:#58a6ff;margin-top:0}
+.form-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.form-row label{font-size:12px;color:#8b949e;width:160px;flex-shrink:0}
+.form-row input,.form-row select{flex:1;padding:6px 10px;background:#21262d;border:1px solid #30363d;border-radius:5px;color:#c9d1d9;font-size:13px}
+.form-row input:focus{outline:none;border-color:#58a6ff}
+.page{display:none}.page.visible{display:block}
+.tab-bar{display:flex;gap:2px;margin-bottom:16px;background:#161b22;border-radius:8px;padding:3px;border:1px solid #30363d;width:fit-content}
+.tab-btn{padding:6px 14px;border-radius:6px;font-size:12px;border:none;background:none;color:#8b949e;cursor:pointer}
+.tab-btn.active{background:#21262d;color:#58a6ff}
+.loading{text-align:center;padding:40px;color:#8b949e}
+.chip-list{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid #30363d;background:#21262d}
+.chip.active{background:#2980b9;border-color:#58a6ff;color:#fff}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>FRIGATE EVENT<br>MANAGER</h1>
+      <small>Addon</small>
+    </div>
+    <nav>
+      <a href="#" class="active" data-page="dashboard">Dashboard</a>
+      <a href="#" data-page="events">Events</a>
+      <a href="#" data-page="cameras">Cameras</a>
+      <a href="#" data-page="settings">Settings</a>
+    </nav>
+    <div class="sidebar-footer" id="sidebar-status">
+      Chargement...
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h2 id="page-title">Dashboard</h2>
+      <div class="status"><span class="dot"></span> <span id="mqtt-status">...</span></div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page visible" id="page-dashboard">
+        <div class="stats-row" id="stats-row">
+          <div class="stat-card"><div class="label">Events (24h)</div><div class="value" id="stat-events">-</div></div>
+          <div class="stat-card"><div class="label">Alerts</div><div class="value" id="stat-alerts" style="color:#ef5350">-</div></div>
+          <div class="stat-card"><div class="label">Cameras actives</div><div class="value" id="stat-cameras">-</div></div>
+          <div class="stat-card"><div class="label">Detections</div><div class="value" id="stat-detections" style="color:#ffa726">-</div></div>
+        </div>
+        <div class="section-title">Cameras</div>
+        <div class="camera-grid" id="camera-grid"><div class="loading">Chargement...</div></div>
+      </div>
+
+      <!-- EVENTS -->
+      <div class="page" id="page-events">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="loadEvents('')">Tous</button>
+          <button class="tab-btn" onclick="loadEvents('alert')">Alerts</button>
+          <button class="tab-btn" onclick="loadEvents('detection')">Detections</button>
+        </div>
+        <table>
+          <thead><tr><th>Heure</th><th>Camera</th><th>Severity</th><th>Objets</th><th>Zones</th></tr></thead>
+          <tbody id="events-body"><tr><td colspan="5" class="loading">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- CAMERAS -->
+      <div class="page" id="page-cameras">
+        <p style="font-size:12px;color:#8b949e;margin-bottom:16px">
+          Cameras auto-decouvertes via MQTT. Toutes activees par defaut.
+        </p>
+        <table>
+          <thead><tr><th>Camera</th><th>Statut</th><th>Dernier event</th><th>Events (24h)</th><th>Notifications</th></tr></thead>
+          <tbody id="cameras-body"><tr><td colspan="5" class="loading">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div id="settings-content"><div class="loading">Chargement...</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = document.querySelector('base').href.replace(/\/$/, '');
+
+// --- Navigation ---
+document.querySelectorAll('.sidebar nav a').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.sidebar nav a').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    const page = link.dataset.page;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
+    document.getElementById('page-' + page).classList.add('visible');
+    document.getElementById('page-title').textContent = page.charAt(0).toUpperCase() + page.slice(1);
+    if (page === 'dashboard') loadDashboard();
+    if (page === 'events') loadEvents('');
+    if (page === 'cameras') loadCameras();
+    if (page === 'settings') loadSettings();
+  });
+});
+
+// --- API helpers ---
+async function api(path) {
+  const resp = await fetch(BASE + path);
+  if (!resp.ok) throw new Error(resp.statusText);
+  return resp.json();
+}
+
+async function apiPatch(path, body) {
+  const resp = await fetch(BASE + path, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(resp.statusText);
+  return resp.json();
+}
+
+// --- Dashboard ---
+async function loadDashboard() {
+  try {
+    const [stats, cameras] = await Promise.all([api('/api/stats'), api('/api/cameras')]);
+    document.getElementById('stat-events').textContent = stats.events_24h;
+    document.getElementById('stat-alerts').textContent = stats.alerts_24h;
+    document.getElementById('stat-detections').textContent = stats.detections_24h;
+    document.getElementById('stat-cameras').textContent = stats.active_cameras + ' / ' + stats.total_cameras;
+
+    const grid = document.getElementById('camera-grid');
+    if (!cameras || cameras.length === 0) {
+      grid.innerHTML = '<div class="loading">Aucune camera decouverte. En attente d\'evenements MQTT...</div>';
+      return;
+    }
+    grid.innerHTML = cameras.map(cam => {
+      const badgeClass = cam.last_severity === 'alert' ? 'badge-alert' : cam.last_severity === 'detection' ? 'badge-detection' : 'badge-idle';
+      const severity = cam.last_severity || 'idle';
+      const objects = (cam.last_objects || []).join(', ') || '-';
+      const time = cam.last_event_time ? timeAgo(cam.last_event_time) : '-';
+      return `<div class="camera-card" style="${cam.enabled ? '' : 'opacity:.5'}">
+        <div class="camera-info">
+          <div class="camera-name">
+            ${cam.name}
+            <label class="toggle"><input type="checkbox" ${cam.enabled ? 'checked' : ''} onchange="toggleCam('${cam.name}',this.checked)"><span class="slider"></span></label>
+          </div>
+          <div class="camera-meta">
+            <span class="badge ${badgeClass}">${severity}</span>
+            <span>${objects}</span>
+            <span>${cam.event_count_24h} events</span>
+            <span>${time}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadDashboard', e);
+  }
+}
+
+// --- Events ---
+async function loadEvents(severity) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === (severity === 'alert' ? 'Alerts' : severity === 'detection' ? 'Detections' : 'Tous'));
+  });
+  try {
+    const path = '/api/events-list' + (severity ? '?severity=' + severity : '');
+    const events = await api(path);
+    const body = document.getElementById('events-body');
+    if (!events || events.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="loading">Aucun evenement.</td></tr>';
+      return;
+    }
+    body.innerHTML = events.map(ev => {
+      const sClass = ev.severity === 'alert' ? 'background:#ef5350;color:#fff' : 'background:#ffa726;color:#000';
+      const time = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-';
+      return `<tr>
+        <td>${time}</td>
+        <td>${ev.camera}</td>
+        <td><span class="severity" style="${sClass}">${ev.severity}</span></td>
+        <td>${(ev.objects||[]).join(', ')}</td>
+        <td>${(ev.zones||[]).join(', ')}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadEvents', e);
+  }
+}
+
+// --- Cameras ---
+async function loadCameras() {
+  try {
+    const cameras = await api('/api/cameras');
+    const body = document.getElementById('cameras-body');
+    if (!cameras || cameras.length === 0) {
+      body.innerHTML = '<tr><td colspan="5" class="loading">Aucune camera decouverte.</td></tr>';
+      return;
+    }
+    body.innerHTML = cameras.map(cam => {
+      const time = cam.last_event_time ? timeAgo(cam.last_event_time) : '-';
+      return `<tr>
+        <td><strong>${cam.name}</strong></td>
+        <td style="color:#3fb950">en ligne</td>
+        <td>${time}</td>
+        <td>${cam.event_count_24h}</td>
+        <td><label class="toggle"><input type="checkbox" ${cam.enabled ? 'checked' : ''} onchange="toggleCam('${cam.name}',this.checked)"><span class="slider"></span></label></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadCameras', e);
+  }
+}
+
+// --- Settings ---
+async function loadSettings() {
+  try {
+    const cfg = await api('/api/config');
+    const container = document.getElementById('settings-content');
+    const sections = {
+      'MQTT': ['mqtt_broker_url', 'mqtt_topic', 'mqtt_client_id', 'mqtt_username', 'mqtt_password'],
+      'Frigate': ['frigate_url', 'frigate_user', 'frigate_password', 'media_base_url'],
+      'Notifications': ['notify_service', 'cooldown', 'debounce', 'ttl', 'presign_ttl'],
+      'Filtres': ['severity_filter', 'cameras']
+    };
+    let html = '';
+    for (const [title, fields] of Object.entries(sections)) {
+      html += `<div class="settings-section"><h3>${title}</h3>`;
+      for (const f of fields) {
+        const val = cfg[f];
+        const display = Array.isArray(val) ? (val.length ? val.join(', ') : '(tous)') : (val || '-');
+        html += `<div class="form-row"><label>${f}</label><input value="${display}" readonly style="opacity:.7"></div>`;
+      }
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    console.error('loadSettings', e);
+  }
+}
+
+// --- Toggle camera ---
+async function toggleCam(name, enabled) {
+  try {
+    await apiPatch('/api/cameras/' + name, {enabled});
+  } catch (e) {
+    console.error('toggleCam', e);
+    alert('Erreur: ' + e.message);
+  }
+}
+
+// --- Utils ---
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'maintenant';
+  if (mins < 60) return mins + ' min';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return hours + 'h';
+  return Math.floor(hours / 24) + 'j';
+}
+
+// --- Init ---
+loadDashboard();
+document.getElementById('mqtt-status').textContent = 'connecte';
+document.getElementById('sidebar-status').textContent = 'MQTT: connecte\nFrigate: ok';
+setInterval(loadDashboard, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frigate Event Manager — Architecture</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --orange: #d29922;
+  --red: #f85149;
+  --purple: #bc8cff;
+  --cyan: #39d2c0;
+  --pink: #f778ba;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); overflow-x:hidden; }
+
+/* Navigation */
+.nav { position:sticky; top:0; z-index:50; background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; height:48px; gap:8px; }
+.nav h1 { font-size:14px; font-weight:600; color:var(--blue); margin-right:24px; }
+.nav-btn { padding:6px 14px; border-radius:6px; font-size:12px; border:1px solid var(--border); background:none; color:var(--text-muted); cursor:pointer; transition:all .15s; }
+.nav-btn:hover { border-color:var(--blue); color:var(--blue); }
+.nav-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.nav .spacer { flex:1; }
+.legend { display:flex; gap:12px; font-size:11px; color:var(--text-muted); }
+.legend-item { display:flex; align-items:center; gap:4px; }
+.legend-dot { width:10px; height:10px; border-radius:3px; }
+
+/* Views */
+.view { display:none; padding:24px; }
+.view.active { display:block; }
+
+/* SVG diagrams */
+svg { width:100%; }
+svg text { font-family: -apple-system, 'Segoe UI', sans-serif; }
+
+/* Detail panels */
+.detail-panel {
+  position:fixed; right:-500px; top:48px; bottom:0; width:480px;
+  background:var(--surface); border-left:1px solid var(--border);
+  transition:right .3s ease; z-index:40; overflow-y:auto; padding:24px;
+}
+.detail-panel.open { right:0; }
+.detail-close { position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer; }
+.detail-title { font-size:18px; font-weight:600; margin-bottom:4px; }
+.detail-subtitle { font-size:12px; color:var(--text-muted); margin-bottom:16px; }
+.detail-section { margin-bottom:16px; }
+.detail-section h4 { font-size:12px; color:var(--blue); text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }
+.detail-section ul { list-style:none; }
+.detail-section li { font-size:13px; padding:4px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+.detail-section li:last-child { border:none; }
+.tag { padding:2px 6px; border-radius:3px; font-size:10px; font-weight:600; }
+.tag-interface { background:rgba(188,140,255,.15); color:var(--purple); }
+.tag-struct { background:rgba(88,166,255,.15); color:var(--blue); }
+.tag-func { background:rgba(63,185,80,.15); color:var(--green); }
+.tag-field { background:rgba(210,153,34,.15); color:var(--orange); }
+.code-block { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:12px; font-family:'SF Mono',Menlo,monospace; font-size:12px; color:var(--text); overflow-x:auto; margin-top:8px; white-space:pre; }
+.dep-arrow { color:var(--cyan); margin-right:4px; }
+
+/* Clickable boxes in SVG */
+.clickable { cursor:pointer; }
+.clickable:hover rect, .clickable:hover path { filter:brightness(1.3); }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <h1>FRIGATE EVENT MANAGER</h1>
+  <button class="nav-btn active" onclick="showView('overview')">Vue d'ensemble</button>
+  <button class="nav-btn" onclick="showView('dataflow')">Flux de donnees</button>
+  <button class="nav-btn" onclick="showView('core')">Core (metier)</button>
+  <button class="nav-btn" onclick="showView('adapters')">Adapters</button>
+  <button class="nav-btn" onclick="showView('mqtt')">MQTT Discovery</button>
+  <button class="nav-btn" onclick="showView('startup')">Demarrage</button>
+  <span class="spacer"></span>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Struct</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div> Interface</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Adapter</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Donnees</div>
+  </div>
+</div>
+
+<!-- ==================== VUE D'ENSEMBLE ==================== -->
+<div class="view active" id="view-overview">
+<svg viewBox="0 0 1100 700" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background layers -->
+  <!-- External -->
+  <rect x="20" y="20" width="1060" height="660" rx="12" fill="none" stroke="#30363d" stroke-dasharray="6,4"/>
+  <text x="40" y="45" fill="#8b949e" font-size="11" font-weight="600">SYSTEME COMPLET</text>
+
+  <!-- Domain layer -->
+  <rect x="400" y="60" width="300" height="60" rx="8" fill="#d2992215" stroke="#d29922" stroke-width="1.5"/>
+  <text x="550" y="85" fill="#d29922" font-size="12" font-weight="600" text-anchor="middle">DOMAIN</text>
+  <text x="550" y="102" fill="#8b949e" font-size="10" text-anchor="middle">FrigatePayload, EventState, EventData</text>
+
+  <!-- Core layer -->
+  <rect x="140" y="150" width="820" height="220" rx="10" fill="#21262d" stroke="#30363d"/>
+  <text x="160" y="175" fill="#58a6ff" font-size="12" font-weight="700">CORE (logique metier)</text>
+
+  <!-- Ports -->
+  <g class="clickable" onclick="showDetail('ports')">
+    <rect x="160" y="190" width="160" height="80" rx="6" fill="#bc8cff15" stroke="#bc8cff"/>
+    <text x="240" y="215" fill="#bc8cff" font-size="11" font-weight="600" text-anchor="middle">PORTS (interfaces)</text>
+    <text x="240" y="232" fill="#8b949e" font-size="9" text-anchor="middle">EventProcessor</text>
+    <text x="240" y="244" fill="#8b949e" font-size="9" text-anchor="middle">EventHandler</text>
+    <text x="240" y="256" fill="#8b949e" font-size="9" text-anchor="middle">MediaSigner</text>
+  </g>
+
+  <!-- Processor -->
+  <g class="clickable" onclick="showDetail('processor')">
+    <rect x="350" y="190" width="130" height="55" rx="6" fill="#58a6ff15" stroke="#58a6ff"/>
+    <text x="415" y="215" fill="#58a6ff" font-size="11" font-weight="600" text-anchor="middle">Processor</text>
+    <text x="415" y="232" fill="#8b949e" font-size="9" text-anchor="middle">filtre + dispatch</text>
+  </g>
+
+  <!-- FilterChain -->
+  <g class="clickable" onclick="showDetail('filter')">
+    <rect x="510" y="190" width="130" height="55" rx="6" fill="#58a6ff15" stroke="#58a6ff"/>
+    <text x="575" y="215" fill="#58a6ff" font-size="11" font-weight="600" text-anchor="middle">FilterChain</text>
+    <text x="575" y="232" fill="#8b949e" font-size="9" text-anchor="middle">SeverityFilter</text>
+  </g>
+
+  <!-- Multi Handler -->
+  <g class="clickable" onclick="showDetail('multi')">
+    <rect x="670" y="190" width="130" height="55" rx="6" fill="#58a6ff15" stroke="#58a6ff"/>
+    <text x="735" y="215" fill="#58a6ff" font-size="11" font-weight="600" text-anchor="middle">Multi Handler</text>
+    <text x="735" y="232" fill="#8b949e" font-size="9" text-anchor="middle">dispatch N handlers</text>
+  </g>
+
+  <!-- Handlers inside core -->
+  <g class="clickable" onclick="showDetail('registry')">
+    <rect x="350" y="270" width="120" height="45" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="410" y="293" fill="#3fb950" font-size="10" font-weight="600" text-anchor="middle">Registry</text>
+    <text x="410" y="305" fill="#8b949e" font-size="8" text-anchor="middle">cameras + persistence</text>
+  </g>
+
+  <g class="clickable" onclick="showDetail('throttle')">
+    <rect x="500" y="270" width="100" height="45" rx="6" fill="#58a6ff15" stroke="#58a6ff"/>
+    <text x="550" y="293" fill="#58a6ff" font-size="10" font-weight="600" text-anchor="middle">Throttle</text>
+    <text x="550" y="305" fill="#8b949e" font-size="8" text-anchor="middle">anti-spam</text>
+  </g>
+
+  <!-- Adapter layer -->
+  <rect x="40" y="400" width="1020" height="260" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="60" y="425" fill="#3fb950" font-size="12" font-weight="700">ADAPTERS (monde exterieur)</text>
+
+  <!-- MQTT Subscriber -->
+  <g class="clickable" onclick="showDetail('mqtt')">
+    <rect x="60" y="440" width="150" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="135" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">MQTT Subscriber</text>
+    <text x="135" y="480" fill="#8b949e" font-size="9" text-anchor="middle">connexion + ecoute</text>
+    <text x="135" y="492" fill="#8b949e" font-size="9" text-anchor="middle">frigate/reviews</text>
+  </g>
+
+  <!-- MQTT Discovery -->
+  <g class="clickable" onclick="showDetail('discovery')">
+    <rect x="230" y="440" width="150" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="305" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">MQTT Discovery</text>
+    <text x="305" y="480" fill="#8b949e" font-size="9" text-anchor="middle">publish entites HA</text>
+    <text x="305" y="492" fill="#8b949e" font-size="9" text-anchor="middle">homeassistant/sensor/...</text>
+  </g>
+
+  <!-- Config -->
+  <g class="clickable" onclick="showDetail('config')">
+    <rect x="400" y="440" width="120" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="460" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">Config</text>
+    <text x="460" y="480" fill="#8b949e" font-size="9" text-anchor="middle">options.json</text>
+    <text x="460" y="492" fill="#8b949e" font-size="9" text-anchor="middle">+ env overrides</text>
+  </g>
+
+  <!-- Frigate Client -->
+  <g class="clickable" onclick="showDetail('frigate')">
+    <rect x="540" y="440" width="120" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="600" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">Frigate Client</text>
+    <text x="600" y="480" fill="#8b949e" font-size="9" text-anchor="middle">HTTP + JWT auth</text>
+    <text x="600" y="492" fill="#8b949e" font-size="9" text-anchor="middle">proxy media</text>
+  </g>
+
+  <!-- API Server -->
+  <g class="clickable" onclick="showDetail('api')">
+    <rect x="680" y="440" width="120" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="740" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">API Server</text>
+    <text x="740" y="480" fill="#8b949e" font-size="9" text-anchor="middle">presigned URLs</text>
+    <text x="740" y="492" fill="#8b949e" font-size="9" text-anchor="middle">:5555</text>
+  </g>
+
+  <!-- HA Notifier -->
+  <g class="clickable" onclick="showDetail('notifier')">
+    <rect x="820" y="440" width="120" height="65" rx="6" fill="#3fb95015" stroke="#3fb950"/>
+    <text x="880" y="465" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">HA Notifier</text>
+    <text x="880" y="480" fill="#8b949e" font-size="9" text-anchor="middle">notifications</text>
+    <text x="880" y="492" fill="#8b949e" font-size="9" text-anchor="middle">persistent / iOS</text>
+  </g>
+
+  <!-- Debug Handler -->
+  <rect x="60" y="520" width="150" height="40" rx="6" fill="#3fb95015" stroke="#3fb950" stroke-dasharray="4,3"/>
+  <text x="135" y="544" fill="#3fb950" font-size="10" font-weight="500" text-anchor="middle">Debug Handler (logs)</text>
+
+  <!-- Supervisor -->
+  <rect x="230" y="520" width="150" height="40" rx="6" fill="#3fb95015" stroke="#3fb950" stroke-dasharray="4,3"/>
+  <text x="305" y="544" fill="#3fb950" font-size="10" font-weight="500" text-anchor="middle">Supervisor Client</text>
+
+  <!-- External systems -->
+  <rect x="60" y="590" width="120" height="50" rx="6" fill="#f8514915" stroke="#f85149"/>
+  <text x="120" y="615" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">MQTT Broker</text>
+  <text x="120" y="630" fill="#8b949e" font-size="9" text-anchor="middle">Mosquitto</text>
+
+  <rect x="280" y="590" width="120" height="50" rx="6" fill="#f8514915" stroke="#f85149"/>
+  <text x="340" y="615" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">Home Assistant</text>
+  <text x="340" y="630" fill="#8b949e" font-size="9" text-anchor="middle">Supervisor</text>
+
+  <rect x="500" y="590" width="120" height="50" rx="6" fill="#f8514915" stroke="#f85149"/>
+  <text x="560" y="615" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">Frigate NVR</text>
+  <text x="560" y="630" fill="#8b949e" font-size="9" text-anchor="middle">API + media</text>
+
+  <rect x="720" y="590" width="120" height="50" rx="6" fill="#f8514915" stroke="#f85149"/>
+  <text x="780" y="615" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">Navigateur</text>
+  <text x="780" y="630" fill="#8b949e" font-size="9" text-anchor="middle">ingress / presign</text>
+
+  <!-- Arrows -->
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrowgreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3fb950"/>
+    </marker>
+    <marker id="arrowred" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f85149"/>
+    </marker>
+  </defs>
+
+  <!-- MQTT Broker -> Subscriber -->
+  <line x1="120" y1="590" x2="135" y2="510" stroke="#f85149" stroke-width="1.5" marker-end="url(#arrowred)"/>
+  <!-- Subscriber -> Processor (through core) -->
+  <line x1="135" y1="440" x2="415" y2="250" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <!-- Processor -> Filter -->
+  <line x1="480" y1="217" x2="510" y2="217" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <!-- Processor -> Multi -->
+  <line x1="640" y1="217" x2="670" y2="217" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <!-- Multi -> Registry -->
+  <line x1="700" y1="245" x2="470" y2="280" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowgreen)"/>
+  <!-- Multi -> Throttle -> Notifier -->
+  <line x1="735" y1="245" x2="550" y2="270" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <!-- Registry -> Discovery -->
+  <line x1="410" y1="315" x2="305" y2="440" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowgreen)"/>
+  <!-- Discovery -> MQTT Broker -->
+  <line x1="230" y1="480" x2="180" y2="600" stroke="#3fb950" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowgreen)"/>
+  <!-- Notifier -> HA -->
+  <line x1="880" y1="505" x2="400" y2="600" stroke="#3fb950" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowgreen)"/>
+  <!-- API -> Frigate -->
+  <line x1="740" y1="505" x2="600" y2="590" stroke="#3fb950" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowgreen)"/>
+  <!-- API -> Browser -->
+  <line x1="780" y1="505" x2="780" y2="590" stroke="#3fb950" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowgreen)"/>
+
+  <!-- Persistence -->
+  <rect x="900" y="280" width="50" height="30" rx="4" fill="#d2992215" stroke="#d29922" stroke-dasharray="3,3"/>
+  <text x="925" y="299" fill="#d29922" font-size="9" font-weight="500" text-anchor="middle">/data</text>
+  <line x1="470" y1="292" x2="900" y2="295" stroke="#d29922" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
+</svg>
+<p style="text-align:center;color:var(--text-muted);font-size:12px;margin-top:8px">Clique sur un composant pour voir le detail</p>
+</div>
+
+<!-- ==================== FLUX DE DONNEES ==================== -->
+<div class="view" id="view-dataflow">
+<svg viewBox="0 0 1100 750" xmlns="http://www.w3.org/2000/svg">
+  <text x="40" y="30" fill="#58a6ff" font-size="16" font-weight="700">Flux de donnees : de l'evenement MQTT a la notification</text>
+
+  <!-- Step 1: MQTT message arrives -->
+  <rect x="50" y="60" width="200" height="70" rx="8" fill="#f8514915" stroke="#f85149"/>
+  <text x="150" y="85" fill="#f85149" font-size="12" font-weight="600" text-anchor="middle">1. Broker MQTT</text>
+  <text x="150" y="100" fill="#8b949e" font-size="10" text-anchor="middle">frigate/reviews</text>
+  <text x="150" y="114" fill="#8b949e" font-size="9" text-anchor="middle">{"type":"new","after":{...}}</text>
+
+  <line x1="150" y1="130" x2="150" y2="160" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Step 2: Subscriber receives -->
+  <rect x="50" y="160" width="200" height="55" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="150" y="185" fill="#3fb950" font-size="12" font-weight="600" text-anchor="middle">2. Subscriber</text>
+  <text x="150" y="200" fill="#8b949e" font-size="10" text-anchor="middle">recoit les bytes bruts</text>
+
+  <line x1="150" y1="215" x2="150" y2="245" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Step 3: MessageHandler parses -->
+  <rect x="50" y="245" width="200" height="55" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="150" y="270" fill="#3fb950" font-size="12" font-weight="600" text-anchor="middle">3. MessageHandler</text>
+  <text x="150" y="285" fill="#8b949e" font-size="10" text-anchor="middle">JSON -> domain.FrigatePayload</text>
+
+  <line x1="150" y1="300" x2="150" y2="330" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Step 4: Processor filters -->
+  <rect x="50" y="330" width="200" height="70" rx="8" fill="#58a6ff15" stroke="#58a6ff"/>
+  <text x="150" y="355" fill="#58a6ff" font-size="12" font-weight="600" text-anchor="middle">4. Processor</text>
+  <text x="150" y="372" fill="#8b949e" font-size="10" text-anchor="middle">valide type (new/update/end)</text>
+  <text x="150" y="386" fill="#8b949e" font-size="10" text-anchor="middle">passe dans FilterChain</text>
+
+  <!-- Filter detail box -->
+  <rect x="300" y="340" width="200" height="50" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="4,3"/>
+  <text x="400" y="362" fill="#58a6ff" font-size="10" text-anchor="middle">SeverityFilter</text>
+  <text x="400" y="376" fill="#8b949e" font-size="9" text-anchor="middle">severity in [alert, detection] ?</text>
+  <line x1="250" y1="365" x2="300" y2="365" stroke="#58a6ff" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <line x1="150" y1="400" x2="150" y2="430" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Step 5: Multi Handler dispatches -->
+  <rect x="50" y="430" width="200" height="55" rx="8" fill="#58a6ff15" stroke="#58a6ff"/>
+  <text x="150" y="455" fill="#58a6ff" font-size="12" font-weight="600" text-anchor="middle">5. Multi Handler</text>
+  <text x="150" y="470" fill="#8b949e" font-size="10" text-anchor="middle">dispatch a tous les handlers</text>
+
+  <!-- Three arrows fan out -->
+  <line x1="100" y1="485" x2="100" y2="530" stroke="#3fb950" stroke-width="2" marker-end="url(#arrowgreen)"/>
+  <line x1="150" y1="485" x2="400" y2="530" stroke="#3fb950" stroke-width="2" marker-end="url(#arrowgreen)"/>
+  <line x1="200" y1="485" x2="700" y2="530" stroke="#3fb950" stroke-width="2" marker-end="url(#arrowgreen)"/>
+
+  <!-- Handler A: Registry -->
+  <rect x="20" y="530" width="170" height="70" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="105" y="555" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">5a. Registry Handler</text>
+  <text x="105" y="572" fill="#8b949e" font-size="9" text-anchor="middle">RecordEvent(camera,</text>
+  <text x="105" y="584" fill="#8b949e" font-size="9" text-anchor="middle">severity, objects)</text>
+
+  <!-- Registry -> Discovery -->
+  <line x1="105" y1="600" x2="105" y2="640" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowgreen)"/>
+  <rect x="20" y="640" width="170" height="55" rx="6" fill="#3fb95010" stroke="#3fb950" stroke-dasharray="4,3"/>
+  <text x="105" y="662" fill="#3fb950" font-size="10" text-anchor="middle">MQTT Discovery</text>
+  <text x="105" y="678" fill="#8b949e" font-size="9" text-anchor="middle">-> homeassistant/sensor/...</text>
+
+  <!-- Registry -> state.json -->
+  <rect x="210" y="560" width="80" height="30" rx="4" fill="#d2992215" stroke="#d29922" stroke-dasharray="3,3"/>
+  <text x="250" y="579" fill="#d29922" font-size="9" text-anchor="middle">state.json</text>
+  <line x1="190" y1="565" x2="210" y2="572" stroke="#d29922" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Handler B: Debug -->
+  <rect x="320" y="530" width="170" height="70" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="405" y="555" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">5b. Debug Handler</text>
+  <text x="405" y="572" fill="#8b949e" font-size="9" text-anchor="middle">log event details</text>
+  <text x="405" y="584" fill="#8b949e" font-size="9" text-anchor="middle">+ presigned URLs media</text>
+
+  <!-- Handler C: Throttle + Notifier -->
+  <rect x="620" y="530" width="170" height="50" rx="8" fill="#58a6ff15" stroke="#58a6ff"/>
+  <text x="705" y="555" fill="#58a6ff" font-size="11" font-weight="600" text-anchor="middle">5c. Throttler</text>
+  <text x="705" y="570" fill="#8b949e" font-size="9" text-anchor="middle">cooldown 30s / debounce 5s</text>
+
+  <line x1="705" y1="580" x2="705" y2="610" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="730" y="600" fill="#f85149" font-size="9">bloque si trop frequent</text>
+
+  <rect x="620" y="610" width="170" height="60" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="705" y="635" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">HA Notifier</text>
+  <text x="705" y="650" fill="#8b949e" font-size="9" text-anchor="middle">POST /api/services/notify/*</text>
+  <text x="705" y="662" fill="#8b949e" font-size="9" text-anchor="middle">image: presigned URL snapshot</text>
+
+  <!-- Final: HA + phone -->
+  <line x1="705" y1="670" x2="705" y2="710" stroke="#f85149" stroke-width="1.5" marker-end="url(#arrowred)"/>
+  <rect x="630" y="710" width="150" height="30" rx="6" fill="#f8514915" stroke="#f85149"/>
+  <text x="705" y="730" fill="#f85149" font-size="11" font-weight="500" text-anchor="middle">Home Assistant / iOS</text>
+
+  <!-- Annotation: parallel -->
+  <rect x="840" y="530" width="220" height="80" rx="8" fill="none" stroke="#d29922" stroke-dasharray="4,3"/>
+  <text x="860" y="555" fill="#d29922" font-size="11" font-weight="600">Point cle :</text>
+  <text x="860" y="572" fill="#8b949e" font-size="10">Les 3 handlers sont independants.</text>
+  <text x="860" y="586" fill="#8b949e" font-size="10">Si un echoue, les autres continuent.</text>
+  <text x="860" y="600" fill="#8b949e" font-size="10">Les erreurs sont loguees, pas propagees.</text>
+</svg>
+</div>
+
+<!-- ==================== CORE ==================== -->
+<div class="view" id="view-core">
+<svg viewBox="0 0 1100 600" xmlns="http://www.w3.org/2000/svg">
+  <text x="40" y="30" fill="#58a6ff" font-size="16" font-weight="700">Core : logique metier (sans dependance externe)</text>
+
+  <!-- Ports box -->
+  <rect x="40" y="60" width="300" height="200" rx="10" fill="#bc8cff08" stroke="#bc8cff"/>
+  <text x="60" y="85" fill="#bc8cff" font-size="13" font-weight="700">core/ports</text>
+  <text x="60" y="105" fill="#8b949e" font-size="10">Interfaces = contrats entre couches</text>
+
+  <rect x="60" y="120" width="260" height="35" rx="4" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="70" y="140" fill="#bc8cff" font-size="11" font-weight="500">EventProcessor</text>
+  <text x="250" y="140" fill="#8b949e" font-size="9" text-anchor="end">ProcessEvent(payload) error</text>
+
+  <rect x="60" y="165" width="260" height="35" rx="4" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="70" y="185" fill="#bc8cff" font-size="11" font-weight="500">EventHandler</text>
+  <text x="250" y="185" fill="#8b949e" font-size="9" text-anchor="end">HandleEvent(payload) error</text>
+
+  <rect x="60" y="210" width="260" height="35" rx="4" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="70" y="230" fill="#bc8cff" font-size="11" font-weight="500">MediaSigner</text>
+  <text x="250" y="230" fill="#8b949e" font-size="9" text-anchor="end">SignURL(path) string</text>
+
+  <!-- Processor -->
+  <rect x="400" y="60" width="280" height="120" rx="10" fill="#58a6ff08" stroke="#58a6ff"/>
+  <text x="420" y="85" fill="#58a6ff" font-size="13" font-weight="700">core/processor</text>
+  <text x="420" y="105" fill="#8b949e" font-size="10">Cerveau : recoit, filtre, dispatch</text>
+  <rect x="420" y="115" width="240" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="430" y="132" fill="#58a6ff" font-size="10">impl EventProcessor</text>
+  <rect x="420" y="145" width="240" height="25" rx="4" fill="#d2992210"/>
+  <text x="430" y="162" fill="#d29922" font-size="10">utilise FilterChain + EventHandler</text>
+
+  <!-- Filter -->
+  <rect x="400" y="210" width="280" height="130" rx="10" fill="#58a6ff08" stroke="#58a6ff"/>
+  <text x="420" y="235" fill="#58a6ff" font-size="13" font-weight="700">core/filter</text>
+  <text x="420" y="255" fill="#8b949e" font-size="10">Chaine de filtres (logique AND)</text>
+
+  <rect x="420" y="265" width="240" height="25" rx="4" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="430" y="282" fill="#bc8cff" font-size="10">interface Filter : IsSatisfied(event) bool</text>
+
+  <rect x="420" y="300" width="240" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="430" y="317" fill="#58a6ff" font-size="10">SeverityFilter : severity in allowed[]</text>
+
+  <!-- Handler Multi -->
+  <rect x="740" y="60" width="320" height="130" rx="10" fill="#58a6ff08" stroke="#58a6ff"/>
+  <text x="760" y="85" fill="#58a6ff" font-size="13" font-weight="700">core/handler</text>
+  <text x="760" y="105" fill="#8b949e" font-size="10">Multi : dispatch a N handlers en parallele</text>
+  <rect x="760" y="115" width="280" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="770" y="132" fill="#58a6ff" font-size="10">impl EventHandler</text>
+  <rect x="760" y="145" width="280" height="35" rx="4" fill="#3fb95010"/>
+  <text x="770" y="162" fill="#3fb950" font-size="10">Add("registry", registryHandler)</text>
+  <text x="770" y="174" fill="#3fb950" font-size="10">Add("debug", debugHandler)</text>
+
+  <!-- Throttle -->
+  <rect x="740" y="210" width="320" height="100" rx="10" fill="#58a6ff08" stroke="#58a6ff"/>
+  <text x="760" y="235" fill="#58a6ff" font-size="13" font-weight="700">core/throttle</text>
+  <text x="760" y="255" fill="#8b949e" font-size="10">Decorateur anti-spam (wraps EventHandler)</text>
+  <rect x="760" y="265" width="280" height="35" rx="4" fill="#d2992210"/>
+  <text x="770" y="282" fill="#d29922" font-size="10">cooldown: entre events differents (30s)</text>
+  <text x="770" y="294" fill="#d29922" font-size="10">debounce: entre updates meme event (5s)</text>
+
+  <!-- Registry -->
+  <rect x="40" y="370" width="640" height="210" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="60" y="395" fill="#3fb950" font-size="13" font-weight="700">core/registry</text>
+  <text x="60" y="415" fill="#8b949e" font-size="10">Etat des cameras decouvertes + persistence /data/state.json</text>
+
+  <rect x="60" y="430" width="200" height="130" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="3,3"/>
+  <text x="70" y="450" fill="#58a6ff" font-size="11" font-weight="600">CameraState</text>
+  <text x="70" y="468" fill="#8b949e" font-size="9">Name: string</text>
+  <text x="70" y="480" fill="#8b949e" font-size="9">Enabled: bool</text>
+  <text x="70" y="492" fill="#8b949e" font-size="9">LastSeverity: string</text>
+  <text x="70" y="504" fill="#8b949e" font-size="9">LastObjects: []string</text>
+  <text x="70" y="516" fill="#8b949e" font-size="9">EventCount24h: int</text>
+  <text x="70" y="528" fill="#8b949e" font-size="9">FirstSeen / LastEventTime</text>
+
+  <rect x="280" y="430" width="200" height="80" rx="6" fill="#3fb95010"/>
+  <text x="290" y="450" fill="#3fb950" font-size="11" font-weight="600">Registry</text>
+  <text x="290" y="468" fill="#8b949e" font-size="9">RecordEvent(camera, sev, objects)</text>
+  <text x="290" y="480" fill="#8b949e" font-size="9">SetEnabled(camera, bool)</text>
+  <text x="290" y="492" fill="#8b949e" font-size="9">Cameras() / Camera(name)</text>
+  <text x="290" y="504" fill="#8b949e" font-size="9">Load() / persist -> state.json</text>
+
+  <rect x="280" y="520" width="200" height="45" rx="6" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="290" y="540" fill="#bc8cff" font-size="11" font-weight="500">Listener (interface)</text>
+  <text x="290" y="555" fill="#8b949e" font-size="9">OnCameraAdded / OnCameraUpdated</text>
+
+  <rect x="500" y="430" width="160" height="45" rx="6" fill="#58a6ff10"/>
+  <text x="510" y="450" fill="#58a6ff" font-size="11" font-weight="600">Handler</text>
+  <text x="510" y="466" fill="#8b949e" font-size="9">impl EventHandler -> RecordEvent</text>
+
+  <!-- Arrow: Processor -> Filter -->
+  <line x1="540" y1="180" x2="540" y2="210" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <!-- Arrow: Processor -> Multi -->
+  <line x1="680" y1="120" x2="740" y2="120" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+</svg>
+</div>
+
+<!-- ==================== ADAPTERS ==================== -->
+<div class="view" id="view-adapters">
+<svg viewBox="0 0 1100 550" xmlns="http://www.w3.org/2000/svg">
+  <text x="40" y="30" fill="#3fb950" font-size="16" font-weight="700">Adapters : connexion au monde exterieur</text>
+  <text x="40" y="50" fill="#8b949e" font-size="11">Chaque adapter communique avec un systeme externe via les interfaces (ports) du Core</text>
+
+  <!-- MQTT -->
+  <rect x="40" y="70" width="300" height="180" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="60" y="95" fill="#3fb950" font-size="13" font-weight="700">adapter/mqtt</text>
+  <text x="60" y="115" fill="#8b949e" font-size="10">Connexion au broker MQTT</text>
+
+  <rect x="60" y="125" width="260" height="30" rx="4" fill="#58a6ff10"/>
+  <text x="70" y="145" fill="#58a6ff" font-size="10" font-weight="500">Subscriber</text>
+  <text x="310" y="145" fill="#8b949e" font-size="9" text-anchor="end">Connect() / Wait() / Start()</text>
+
+  <rect x="60" y="162" width="260" height="30" rx="4" fill="#58a6ff10"/>
+  <text x="70" y="182" fill="#58a6ff" font-size="10" font-weight="500">MessageHandler</text>
+  <text x="310" y="182" fill="#8b949e" font-size="9" text-anchor="end">Handle(bytes) -> ProcessEvent</text>
+
+  <rect x="60" y="200" width="260" height="25" rx="4" fill="#bc8cff10" stroke="#bc8cff" stroke-dasharray="3,3"/>
+  <text x="70" y="217" fill="#bc8cff" font-size="10">CommandHandler: HandleCommand(topic, payload)</text>
+
+  <!-- MQTT Discovery -->
+  <rect x="40" y="270" width="300" height="170" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="60" y="295" fill="#3fb950" font-size="13" font-weight="700">adapter/mqttdiscovery</text>
+  <text x="60" y="315" fill="#8b949e" font-size="10">Publie entites HA via MQTT Discovery</text>
+
+  <rect x="60" y="325" width="260" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="70" y="342" fill="#58a6ff" font-size="10">Publisher (impl registry.Listener)</text>
+
+  <rect x="60" y="357" width="260" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="70" y="374" fill="#58a6ff" font-size="10">SwitchCommandHandler (impl CommandHandler)</text>
+
+  <rect x="60" y="390" width="260" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="70" y="407" fill="#58a6ff" font-size="10">AutopahoAdapter (impl MQTTPublisher)</text>
+
+  <!-- Frigate -->
+  <rect x="380" y="70" width="300" height="130" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="400" y="95" fill="#3fb950" font-size="13" font-weight="700">adapter/frigate</text>
+  <text x="400" y="115" fill="#8b949e" font-size="10">Client HTTP pour l'API Frigate</text>
+
+  <rect x="400" y="125" width="260" height="30" rx="4" fill="#58a6ff10"/>
+  <text x="410" y="145" fill="#58a6ff" font-size="10" font-weight="500">Client</text>
+  <text x="650" y="145" fill="#8b949e" font-size="9" text-anchor="end">JWT login + cookie auth + retry 401</text>
+
+  <rect x="400" y="162" width="260" height="25" rx="4" fill="#d2992210"/>
+  <text x="410" y="180" fill="#d29922" font-size="10">Do(req) / Get(path) / BaseURL()</text>
+
+  <!-- API -->
+  <rect x="380" y="220" width="300" height="130" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="400" y="245" fill="#3fb950" font-size="13" font-weight="700">adapter/api</text>
+  <text x="400" y="265" fill="#8b949e" font-size="10">Serveur HTTP proxy + presigned URLs</text>
+
+  <rect x="400" y="275" width="260" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="410" y="292" fill="#58a6ff" font-size="10">Server : /api/events/*/clip.mp4, /snapshot.jpg</text>
+
+  <rect x="400" y="307" width="260" height="30" rx="4" fill="#58a6ff10"/>
+  <text x="410" y="322" fill="#58a6ff" font-size="10" font-weight="500">Signer (impl MediaSigner)</text>
+  <text x="650" y="332" fill="#8b949e" font-size="9" text-anchor="end">HMAC-SHA256 + rotation cles</text>
+
+  <!-- HA Notifier -->
+  <rect x="720" y="70" width="340" height="130" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="740" y="95" fill="#3fb950" font-size="13" font-weight="700">adapter/homeassistant</text>
+  <text x="740" y="115" fill="#8b949e" font-size="10">Notifications via API REST HA</text>
+
+  <rect x="740" y="125" width="300" height="30" rx="4" fill="#58a6ff10"/>
+  <text x="750" y="145" fill="#58a6ff" font-size="10" font-weight="500">Notifier (impl EventHandler)</text>
+
+  <rect x="740" y="162" width="300" height="25" rx="4" fill="#d2992210"/>
+  <text x="750" y="180" fill="#d29922" font-size="10">POST /api/services/notify/{service} + presign URLs</text>
+
+  <!-- Debug -->
+  <rect x="720" y="220" width="340" height="80" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="740" y="245" fill="#3fb950" font-size="13" font-weight="700">adapter/debughandler</text>
+  <rect x="740" y="255" width="300" height="25" rx="4" fill="#58a6ff10"/>
+  <text x="750" y="272" fill="#58a6ff" font-size="10">Handler (impl EventHandler) : log + presigned URLs</text>
+
+  <!-- Config -->
+  <rect x="720" y="320" width="340" height="80" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="740" y="345" fill="#3fb950" font-size="13" font-weight="700">adapter/config</text>
+  <rect x="740" y="355" width="300" height="25" rx="4" fill="#d2992210"/>
+  <text x="750" y="372" fill="#d29922" font-size="10">Load(options.json) + env overrides + defaults + validate</text>
+
+  <!-- Supervisor -->
+  <rect x="720" y="420" width="340" height="80" rx="10" fill="#3fb95008" stroke="#3fb950"/>
+  <text x="740" y="445" fill="#3fb950" font-size="13" font-weight="700">adapter/supervisor</text>
+  <rect x="740" y="455" width="300" height="25" rx="4" fill="#d2992210"/>
+  <text x="750" y="472" fill="#d29922" font-size="10">FetchIngressInfo() : external_url + ingress_path</text>
+</svg>
+</div>
+
+<!-- ==================== MQTT DISCOVERY ==================== -->
+<div class="view" id="view-mqtt">
+<svg viewBox="0 0 1100 650" xmlns="http://www.w3.org/2000/svg">
+  <text x="40" y="30" fill="#3fb950" font-size="16" font-weight="700">MQTT Discovery : creation d'entites Home Assistant</text>
+  <text x="40" y="50" fill="#8b949e" font-size="11">L'addon publie sur des topics speciaux que HA ecoute pour creer automatiquement des entites</text>
+
+  <!-- Evenement arrive -->
+  <rect x="40" y="80" width="180" height="50" rx="8" fill="#f8514915" stroke="#f85149"/>
+  <text x="130" y="105" fill="#f85149" font-size="11" font-weight="600" text-anchor="middle">Evenement MQTT</text>
+  <text x="130" y="120" fill="#8b949e" font-size="9" text-anchor="middle">camera: jardin_nord</text>
+
+  <line x1="130" y1="130" x2="130" y2="160" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Registry -->
+  <rect x="40" y="160" width="180" height="60" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="130" y="185" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">Registry</text>
+  <text x="130" y="200" fill="#8b949e" font-size="9" text-anchor="middle">RecordEvent() -> notify listeners</text>
+
+  <line x1="130" y1="220" x2="130" y2="250" stroke="#3fb950" stroke-width="1.5" marker-end="url(#arrowgreen)"/>
+
+  <!-- Publisher -->
+  <rect x="40" y="250" width="180" height="60" rx="8" fill="#3fb95015" stroke="#3fb950"/>
+  <text x="130" y="275" fill="#3fb950" font-size="11" font-weight="600" text-anchor="middle">Publisher</text>
+  <text x="130" y="290" fill="#8b949e" font-size="9" text-anchor="middle">OnCameraAdded / Updated</text>
+
+  <!-- Topics published -->
+  <line x1="220" y1="270" x2="350" y2="100" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="220" y1="275" x2="350" y2="180" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="220" y1="280" x2="350" y2="260" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="220" y1="285" x2="350" y2="340" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="220" y1="290" x2="350" y2="420" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Config topics (retain=true) -->
+  <text x="370" y="70" fill="#58a6ff" font-size="12" font-weight="600">Topics Discovery (config, retain=true)</text>
+
+  <rect x="350" y="80" width="550" height="55" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="3,3"/>
+  <text x="365" y="100" fill="#58a6ff" font-size="11" font-weight="500">homeassistant/sensor/fem_jardin_nord_last_alert/config</text>
+  <text x="365" y="120" fill="#8b949e" font-size="9">{"name":"Derniere alerte","unique_id":"fem_jardin_nord_last_alert","device_class":"timestamp","device":{...}}</text>
+
+  <rect x="350" y="160" width="550" height="55" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="3,3"/>
+  <text x="365" y="180" fill="#58a6ff" font-size="11" font-weight="500">homeassistant/sensor/fem_jardin_nord_last_object/config</text>
+  <text x="365" y="200" fill="#8b949e" font-size="9">{"name":"Dernier objet detecte","unique_id":"fem_jardin_nord_last_object","icon":"mdi:eye",...}</text>
+
+  <rect x="350" y="240" width="550" height="55" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="3,3"/>
+  <text x="365" y="260" fill="#58a6ff" font-size="11" font-weight="500">homeassistant/sensor/fem_jardin_nord_event_count/config</text>
+  <text x="365" y="280" fill="#8b949e" font-size="9">{"name":"Evenements (24h)","state_class":"measurement","icon":"mdi:counter",...}</text>
+
+  <rect x="350" y="320" width="550" height="55" rx="6" fill="#58a6ff08" stroke="#58a6ff" stroke-dasharray="3,3"/>
+  <text x="365" y="340" fill="#58a6ff" font-size="11" font-weight="500">homeassistant/sensor/fem_jardin_nord_severity/config</text>
+  <text x="365" y="360" fill="#8b949e" font-size="9">{"name":"Severite","icon":"mdi:shield-alert",...}</text>
+
+  <rect x="350" y="400" width="550" height="55" rx="6" fill="#3fb95008" stroke="#3fb950" stroke-dasharray="3,3"/>
+  <text x="365" y="420" fill="#3fb950" font-size="11" font-weight="500">homeassistant/switch/fem_jardin_nord_notifications/config</text>
+  <text x="365" y="440" fill="#8b949e" font-size="9">{"name":"Notifications","command_topic":"fem/fem/jardin_nord/notifications/set","payload_on":"ON",...}</text>
+
+  <!-- State topics -->
+  <text x="370" y="490" fill="#d29922" font-size="12" font-weight="600">Topics State (valeurs, retain=true)</text>
+
+  <rect x="350" y="500" width="700" height="120" rx="6" fill="#d2992208" stroke="#d29922" stroke-dasharray="3,3"/>
+  <text x="365" y="520" fill="#d29922" font-size="10" font-weight="500">fem/fem/jardin_nord/last_alert</text>
+  <text x="700" y="520" fill="#8b949e" font-size="10">2025-01-01T14:32:00+00:00</text>
+  <text x="365" y="540" fill="#d29922" font-size="10" font-weight="500">fem/fem/jardin_nord/last_object</text>
+  <text x="700" y="540" fill="#8b949e" font-size="10">person</text>
+  <text x="365" y="560" fill="#d29922" font-size="10" font-weight="500">fem/fem/jardin_nord/event_count</text>
+  <text x="700" y="560" fill="#8b949e" font-size="10">23</text>
+  <text x="365" y="580" fill="#d29922" font-size="10" font-weight="500">fem/fem/jardin_nord/severity</text>
+  <text x="700" y="580" fill="#8b949e" font-size="10">alert</text>
+  <text x="365" y="600" fill="#d29922" font-size="10" font-weight="500">fem/fem/jardin_nord/notifications</text>
+  <text x="700" y="600" fill="#8b949e" font-size="10">ON</text>
+
+  <!-- Command flow (reverse) -->
+  <text x="40" y="350" fill="#f778ba" font-size="12" font-weight="600">Commande (switch)</text>
+  <rect x="40" y="360" width="260" height="75" rx="8" fill="#f778ba08" stroke="#f778ba" stroke-dasharray="3,3"/>
+  <text x="55" y="380" fill="#f778ba" font-size="10">HA envoie sur :</text>
+  <text x="55" y="396" fill="#8b949e" font-size="10">fem/fem/jardin_nord/notifications/set</text>
+  <text x="55" y="412" fill="#8b949e" font-size="10">payload: "OFF"</text>
+  <text x="55" y="425" fill="#f778ba" font-size="9">-> SwitchCommandHandler -> Registry.SetEnabled</text>
+</svg>
+</div>
+
+<!-- ==================== DEMARRAGE ==================== -->
+<div class="view" id="view-startup">
+<svg viewBox="0 0 800 750" xmlns="http://www.w3.org/2000/svg">
+  <text x="40" y="30" fill="#58a6ff" font-size="16" font-weight="700">Sequence de demarrage (cmd/addon/main.go)</text>
+
+  <!-- Steps -->
+  <g>
+    <rect x="40" y="55" width="700" height="40" rx="6" fill="#3fb95010" stroke="#3fb950"/>
+    <text x="55" y="75" fill="#3fb950" font-size="11" font-weight="600">1.</text>
+    <text x="80" y="75" fill="#c9d1d9" font-size="11">Config.Load("/data/options.json") + env overrides (SUPERVISOR_TOKEN, MQTT_PASSWORD...)</text>
+  </g>
+
+  <g>
+    <rect x="40" y="105" width="700" height="50" rx="6" fill="#3fb95010" stroke="#3fb950"/>
+    <text x="55" y="128" fill="#3fb950" font-size="11" font-weight="600">2.</text>
+    <text x="80" y="122" fill="#c9d1d9" font-size="11">Registry.New("/data/state.json") + Load()</text>
+    <text x="80" y="140" fill="#8b949e" font-size="10">Restaure les cameras decouvertes + prefs on/off du precedent demarrage</text>
+  </g>
+
+  <g>
+    <rect x="40" y="165" width="700" height="50" rx="6" fill="#3fb95010" stroke="#3fb950"/>
+    <text x="55" y="188" fill="#3fb950" font-size="11" font-weight="600">3.</text>
+    <text x="80" y="182" fill="#c9d1d9" font-size="11">Supervisor.FetchIngressInfo(token)</text>
+    <text x="80" y="200" fill="#8b949e" font-size="10">Resout l'URL externe HA + ingress path pour les presigned URLs</text>
+  </g>
+
+  <g>
+    <rect x="40" y="225" width="700" height="50" rx="6" fill="#58a6ff10" stroke="#58a6ff"/>
+    <text x="55" y="248" fill="#58a6ff" font-size="11" font-weight="600">4.</text>
+    <text x="80" y="242" fill="#c9d1d9" font-size="11">Frigate Client + Signer + API Server (si configure)</text>
+    <text x="80" y="260" fill="#8b949e" font-size="10">Client HTTP avec auth JWT, signer HMAC-SHA256, serveur proxy :5555</text>
+  </g>
+
+  <g>
+    <rect x="40" y="285" width="700" height="90" rx="6" fill="#58a6ff10" stroke="#58a6ff"/>
+    <text x="55" y="308" fill="#58a6ff" font-size="11" font-weight="600">5.</text>
+    <text x="80" y="308" fill="#c9d1d9" font-size="11">Construction du pipeline de handlers</text>
+    <text x="80" y="328" fill="#8b949e" font-size="10">Multi Handler</text>
+    <text x="80" y="345" fill="#d29922" font-size="10">  +-- "registry" : Registry.Handler (alimente le registry)</text>
+    <text x="80" y="358" fill="#d29922" font-size="10">  +-- "debug"    : DebugHandler (log + media URLs)</text>
+    <text x="80" y="371" fill="#d29922" font-size="10">  +-- "notifier" : Throttle -> HA Notifier (si configure)</text>
+  </g>
+
+  <g>
+    <rect x="40" y="385" width="700" height="50" rx="6" fill="#58a6ff10" stroke="#58a6ff"/>
+    <text x="55" y="408" fill="#58a6ff" font-size="11" font-weight="600">6.</text>
+    <text x="80" y="402" fill="#c9d1d9" font-size="11">FilterChain(SeverityFilter) -> Processor -> MessageHandler</text>
+    <text x="80" y="420" fill="#8b949e" font-size="10">Pipeline complet: bytes MQTT -> JSON parse -> filtre -> dispatch handlers</text>
+  </g>
+
+  <g>
+    <rect x="40" y="445" width="700" height="50" rx="6" fill="#3fb95010" stroke="#3fb950"/>
+    <text x="55" y="468" fill="#3fb950" font-size="11" font-weight="600">7.</text>
+    <text x="80" y="462" fill="#c9d1d9" font-size="11">MQTT Subscriber + SwitchCommandHandler</text>
+    <text x="80" y="480" fill="#8b949e" font-size="10">Configure le handler de commandes pour les switchs notifications</text>
+  </g>
+
+  <g>
+    <rect x="40" y="505" width="700" height="40" rx="6" fill="#f8514910" stroke="#f85149"/>
+    <text x="55" y="528" fill="#f85149" font-size="11" font-weight="600">8.</text>
+    <text x="80" y="528" fill="#c9d1d9" font-size="11">subscriber.Connect(ctx) — connexion au broker + abonnement topics</text>
+  </g>
+
+  <g>
+    <rect x="40" y="555" width="700" height="60" rx="6" fill="#3fb95010" stroke="#3fb950"/>
+    <text x="55" y="578" fill="#3fb950" font-size="11" font-weight="600">9.</text>
+    <text x="80" y="572" fill="#c9d1d9" font-size="11">MQTT Discovery : init Publisher + PublishAll(cameras)</text>
+    <text x="80" y="590" fill="#8b949e" font-size="10">Publie les configs + states de toutes les cameras connues</text>
+    <text x="80" y="605" fill="#8b949e" font-size="10">Enregistre le publisher comme listener du registry pour les futures cameras</text>
+  </g>
+
+  <g>
+    <rect x="40" y="625" width="700" height="40" rx="6" fill="#f8514910" stroke="#f85149"/>
+    <text x="55" y="648" fill="#f85149" font-size="11" font-weight="600">10.</text>
+    <text x="85" y="648" fill="#c9d1d9" font-size="11">subscriber.Wait(ctx) — BLOQUANT jusqu'a SIGINT/SIGTERM</text>
+  </g>
+
+  <g>
+    <rect x="40" y="675" width="700" height="40" rx="6" fill="#8b949e10" stroke="#8b949e"/>
+    <text x="55" y="698" fill="#8b949e" font-size="11" font-weight="600">11.</text>
+    <text x="85" y="698" fill="#c9d1d9" font-size="11">Cleanup : signer.Stop() -> arret propre</text>
+  </g>
+</svg>
+</div>
+
+<!-- ==================== DETAIL PANEL ==================== -->
+<div class="detail-panel" id="detail-panel">
+  <button class="detail-close" onclick="closeDetail()">&times;</button>
+  <div id="detail-content"></div>
+</div>
+
+<script>
+// Navigation
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  closeDetail();
+}
+
+// Detail panel
+const details = {
+  ports: {
+    title: 'core/ports',
+    subtitle: 'internal/core/ports/event.go',
+    sections: [
+      { title: 'Role', content: 'Les ports sont les interfaces qui definissent les contrats entre le Core et les Adapters. Le Core ne connait que ces interfaces, jamais les implementations concretes.' },
+      { title: 'Interfaces', items: [
+        { tag: 'interface', name: 'EventProcessor', desc: 'Port ENTREE : les adapters envoient des events au Core' },
+        { tag: 'interface', name: 'EventHandler', desc: 'Port SORTIE : le Core declenche des actions (notif, log...)' },
+        { tag: 'interface', name: 'MediaSigner', desc: 'Genere des presigned URLs pour les media Frigate' },
+      ]},
+      { title: 'Implementations', items: [
+        { tag: 'struct', name: 'Processor', desc: 'impl EventProcessor' },
+        { tag: 'struct', name: 'Multi, Throttler, Registry.Handler, HA Notifier, Debug', desc: 'impl EventHandler' },
+        { tag: 'struct', name: 'api.Signer', desc: 'impl MediaSigner' },
+      ]},
+      { title: 'Code', code: 'type EventProcessor interface {\n  ProcessEvent(payload domain.FrigatePayload) error\n}\n\ntype EventHandler interface {\n  HandleEvent(payload domain.FrigatePayload) error\n}\n\ntype MediaSigner interface {\n  SignURL(path string) string\n}' }
+    ]
+  },
+  processor: {
+    title: 'core/processor',
+    subtitle: 'internal/core/processor/processor.go',
+    sections: [
+      { title: 'Role', content: 'Le cerveau de l\'application. Recoit un evenement, le passe dans la chaine de filtres, et si tout passe, dispatch au handler.' },
+      { title: 'Champs', items: [
+        { tag: 'field', name: 'filters *FilterChain', desc: 'Chaine de filtres (AND logic)' },
+        { tag: 'field', name: 'handler EventHandler', desc: 'Handler de sortie (Multi)' },
+      ]},
+      { title: 'Logique', code: 'func ProcessEvent(payload):\n  1. type != new/update/end ? -> ignore\n  2. !filters.IsSatisfied(after) ? -> ignore\n  3. handler.HandleEvent(payload)' }
+    ]
+  },
+  filter: {
+    title: 'core/filter',
+    subtitle: 'internal/core/filter/',
+    sections: [
+      { title: 'Role', content: 'Chaine de filtres evaluee en AND. Tous les filtres doivent passer pour que l\'event continue. Chaine vide = tout passe.' },
+      { title: 'Filtres actuels', items: [
+        { tag: 'struct', name: 'SeverityFilter', desc: 'Accepte si severity in [alert, detection]' },
+      ]},
+      { title: 'Filtres futurs prevus', items: [
+        { tag: 'interface', name: 'CameraFilter', desc: 'Filtrer par nom de camera' },
+        { tag: 'interface', name: 'ObjectFilter', desc: 'Filtrer par type d\'objet (person, car...)' },
+        { tag: 'interface', name: 'ZoneFilter', desc: 'Filtrer par zone Frigate' },
+      ]}
+    ]
+  },
+  multi: {
+    title: 'core/handler (Multi)',
+    subtitle: 'internal/core/handler/multi.go',
+    sections: [
+      { title: 'Role', content: 'Dispatch un event a N handlers independants. Si un handler echoue, les autres continuent. Les erreurs sont loguees mais jamais propagees.' },
+      { title: 'Handlers enregistres', items: [
+        { tag: 'struct', name: '"registry" -> Registry.Handler', desc: 'Alimente le registre de cameras' },
+        { tag: 'struct', name: '"debug" -> DebugHandler', desc: 'Log les events + media URLs' },
+        { tag: 'struct', name: '"notifier" -> Throttle(Notifier)', desc: 'Notification HA (si configure)' },
+      ]},
+      { title: 'Code', code: 'for _, h := range handlers {\n  if err := h.HandleEvent(payload); err != nil {\n    log.Error("handler en erreur", err)\n    // continue ! pas de return\n  }\n}' }
+    ]
+  },
+  registry: {
+    title: 'core/registry',
+    subtitle: 'internal/core/registry/',
+    sections: [
+      { title: 'Role', content: 'Stocke les cameras decouvertes automatiquement. Persiste dans /data/state.json. Notifie les listeners (MQTT Discovery) a chaque changement.' },
+      { title: 'CameraState', items: [
+        { tag: 'field', name: 'Name', desc: 'Nom de la camera (ex: jardin_nord)' },
+        { tag: 'field', name: 'Enabled', desc: 'Notifications actives (defaut: true)' },
+        { tag: 'field', name: 'LastSeverity', desc: 'alert / detection' },
+        { tag: 'field', name: 'LastObjects', desc: '["person", "car", ...]' },
+        { tag: 'field', name: 'EventCount24h', desc: 'Compteur glissant 24h' },
+      ]},
+      { title: 'Methodes', items: [
+        { tag: 'func', name: 'RecordEvent(camera, severity, objects)', desc: 'Enregistre un event, cree la camera si nouvelle' },
+        { tag: 'func', name: 'SetEnabled(camera, bool)', desc: 'Toggle notifications' },
+        { tag: 'func', name: 'Load() / persist()', desc: 'Charge/sauve depuis state.json' },
+      ]},
+      { title: 'Persistence', content: 'Ecriture atomique : fichier tmp + rename. Restauration au boot. Premier demarrage = fichier absent = OK.' }
+    ]
+  },
+  throttle: {
+    title: 'core/throttle',
+    subtitle: 'internal/core/throttle/throttle.go',
+    sections: [
+      { title: 'Role', content: 'Decorateur anti-spam. Wraps un EventHandler pour limiter la frequence des notifications. Pattern Decorator : meme interface, comportement enrichi.' },
+      { title: 'Parametres', items: [
+        { tag: 'field', name: 'cooldown (30s)', desc: 'Delai min entre events DIFFERENTS sur la meme camera' },
+        { tag: 'field', name: 'debounce (5s)', desc: 'Delai min entre updates du MEME event' },
+        { tag: 'field', name: 'ttl (30min)', desc: 'Nettoyage des events abandonnes' },
+      ]},
+      { title: 'Regles', code: 'type "end" ? -> toujours passer + cleanup\nevent connu ? -> check debounce\nevent nouveau ? -> check cooldown camera\ntrop frequent ? -> silently drop' }
+    ]
+  },
+  mqtt: {
+    title: 'adapter/mqtt',
+    subtitle: 'internal/adapter/mqtt/',
+    sections: [
+      { title: 'Role', content: 'Connexion au broker MQTT (autopaho). Ecoute frigate/reviews + topics de commande. Transforme les bytes en domain objects.' },
+      { title: 'Composants', items: [
+        { tag: 'struct', name: 'Subscriber', desc: 'Connexion, auto-reconnect, subscribe' },
+        { tag: 'struct', name: 'MessageHandler', desc: 'JSON parse -> ProcessEvent()' },
+        { tag: 'interface', name: 'CommandHandler', desc: 'Pour les commandes (switch ON/OFF)' },
+      ]},
+      { title: 'Topics ecoutes', items: [
+        { tag: 'field', name: 'frigate/reviews', desc: 'Events Frigate (principal)' },
+        { tag: 'field', name: 'fem/fem/+/notifications/set', desc: 'Commandes switch (si configure)' },
+      ]},
+      { title: 'Nouveaute : Connect + Wait', content: 'Start() splitte en Connect() (non-bloquant) + Wait() (bloquant). Permet d\'initialiser le MQTT Discovery entre les deux.' }
+    ]
+  },
+  discovery: {
+    title: 'adapter/mqttdiscovery',
+    subtitle: 'internal/adapter/mqttdiscovery/',
+    sections: [
+      { title: 'Role', content: 'Publie les entites HA via le protocole MQTT Discovery. HA cree automatiquement sensors + switch pour chaque camera.' },
+      { title: 'Composants', items: [
+        { tag: 'struct', name: 'Publisher', desc: 'Publie configs + states (impl Listener)' },
+        { tag: 'struct', name: 'AutopahoAdapter', desc: 'Bridge autopaho -> MQTTPublisher' },
+        { tag: 'struct', name: 'SwitchCommandHandler', desc: 'Gere ON/OFF (impl CommandHandler)' },
+      ]},
+      { title: 'Entites par camera', items: [
+        { tag: 'field', name: 'sensor.fem_{cam}_last_alert', desc: 'Timestamp derniere alerte' },
+        { tag: 'field', name: 'sensor.fem_{cam}_last_object', desc: 'Dernier objet (person, car...)' },
+        { tag: 'field', name: 'sensor.fem_{cam}_event_count', desc: 'Compteur 24h' },
+        { tag: 'field', name: 'sensor.fem_{cam}_severity', desc: 'alert / detection / idle' },
+        { tag: 'field', name: 'switch.fem_{cam}_notifications', desc: 'ON/OFF (commandable)' },
+      ]}
+    ]
+  },
+  config: {
+    title: 'adapter/config',
+    subtitle: 'internal/adapter/config/config.go',
+    sections: [
+      { title: 'Role', content: 'Charge la configuration depuis /data/options.json, applique les defauts et les overrides d\'env vars.' },
+      { title: 'Priorite', content: 'Fichier JSON > Variables d\'env > Defauts hardcodes' },
+      { title: 'Champs principaux', items: [
+        { tag: 'field', name: 'MQTTBrokerURL', desc: 'Adresse du broker (obligatoire)' },
+        { tag: 'field', name: 'FrigateURL/User/Password', desc: 'Connexion Frigate (optionnel)' },
+        { tag: 'field', name: 'HAToken', desc: 'SUPERVISOR_TOKEN (env, jamais dans le fichier)' },
+        { tag: 'field', name: 'NotifyService', desc: 'Service de notification HA' },
+        { tag: 'field', name: 'MediaBaseURL', desc: 'Auto-resolu : ingress URL > localhost' },
+      ]}
+    ]
+  },
+  frigate: {
+    title: 'adapter/frigate',
+    subtitle: 'internal/adapter/frigate/client.go',
+    sections: [
+      { title: 'Role', content: 'Client HTTP pour l\'API Frigate. Gere l\'authentification JWT avec login cookie, auto-retry sur 401.' },
+      { title: 'Flux auth', code: 'POST /api/login -> cookie frigate_token\nGET /api/events/... + cookie\n401 ? -> re-login + retry (1 fois)' }
+    ]
+  },
+  api: {
+    title: 'adapter/api',
+    subtitle: 'internal/adapter/api/',
+    sections: [
+      { title: 'Role', content: 'Serveur HTTP qui proxy les requetes media vers Frigate. Les URLs sont protegees par des presigned URLs (HMAC-SHA256).' },
+      { title: 'Routes', items: [
+        { tag: 'func', name: '/api/events/{id}/clip.mp4', desc: 'Proxy clip video (presigned)' },
+        { tag: 'func', name: '/api/events/{id}/snapshot.jpg', desc: 'Proxy snapshot (presigned)' },
+        { tag: 'func', name: '/api/review/{id}/preview', desc: 'Proxy preview review (presigned)' },
+        { tag: 'func', name: '/health', desc: 'Health check (public)' },
+      ]},
+      { title: 'Signer', content: 'HMAC-SHA256 avec rotation de cles. 3 cles actives pour eviter les race conditions. URL: baseURL + path + ?exp=TIMESTAMP&sig=HMAC' }
+    ]
+  },
+  notifier: {
+    title: 'adapter/homeassistant',
+    subtitle: 'internal/adapter/homeassistant/notifier.go',
+    sections: [
+      { title: 'Role', content: 'Envoie des notifications via l\'API REST de Home Assistant.' },
+      { title: 'Payload', code: 'POST /api/services/notify/{service}\n{\n  "title": "Camera — alert",\n  "message": "person, car (zone)",\n  "data": {\n    "tag": review_id,\n    "group": camera,\n    "image": presigned_snapshot_url,\n    "clickAction": presigned_clip_url\n  }\n}' }
+    ]
+  }
+};
+
+function showDetail(key) {
+  const d = details[key];
+  if (!d) return;
+  let html = `<div class="detail-title">${d.title}</div>`;
+  html += `<div class="detail-subtitle">${d.subtitle}</div>`;
+  d.sections.forEach(s => {
+    html += '<div class="detail-section">';
+    html += `<h4>${s.title}</h4>`;
+    if (s.content) html += `<p style="font-size:13px;color:var(--text);line-height:1.5">${s.content}</p>`;
+    if (s.items) {
+      html += '<ul>';
+      s.items.forEach(i => {
+        const tagClass = i.tag === 'interface' ? 'tag-interface' : i.tag === 'struct' ? 'tag-struct' : i.tag === 'func' ? 'tag-func' : 'tag-field';
+        html += `<li><span class="tag ${tagClass}">${i.tag}</span><strong>${i.name}</strong><span style="color:var(--text-muted);font-size:11px;margin-left:auto">${i.desc}</span></li>`;
+      });
+      html += '</ul>';
+    }
+    if (s.code) html += `<div class="code-block">${s.code}</div>`;
+    html += '</div>';
+  });
+  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frigate Event Manager — Option B: HACS Integration</title>
+<style>
+  :root {
+    --ha-bg: #1c1c1c;
+    --ha-card: #262626;
+    --ha-card-border: #333;
+    --ha-primary: #03a9f4;
+    --ha-accent: #ff9800;
+    --ha-text: #e0e0e0;
+    --ha-text-secondary: #999;
+    --ha-green: #4caf50;
+    --ha-red: #f44336;
+    --ha-yellow: #ffeb3b;
+    --ha-divider: #333;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Roboto, -apple-system, sans-serif; background:var(--ha-bg); color:var(--ha-text); }
+
+  /* ---- HA Chrome ---- */
+  .ha-app { max-width:1200px; margin:0 auto; }
+  .ha-toolbar {
+    height:56px; background:#1e88e5; display:flex; align-items:center; padding:0 16px;
+    color:#fff; gap:12px; position:sticky; top:0; z-index:10;
+  }
+  .ha-toolbar .menu-icon { font-size:20px; cursor:pointer; opacity:.8; }
+  .ha-toolbar h1 { font-size:18px; font-weight:500; }
+  .ha-toolbar .spacer { flex:1; }
+  .ha-toolbar .dots { font-size:20px; cursor:pointer; opacity:.8; }
+
+  .ha-tabs {
+    display:flex; background:#1976d2; padding:0 16px;
+  }
+  .ha-tab {
+    padding:12px 16px; font-size:13px; color:rgba(255,255,255,.7); cursor:pointer;
+    border-bottom:2px solid transparent; transition:all .2s;
+  }
+  .ha-tab:hover { color:#fff; }
+  .ha-tab.active { color:#fff; border-bottom-color:#fff; }
+
+  .ha-content { padding:16px; }
+
+  /* ---- Config Flow simulation ---- */
+  .config-flow-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+    align-items:center; justify-content:center; z-index:100;
+  }
+  .config-flow-overlay.show { display:flex; }
+  .config-flow {
+    background:var(--ha-card); border-radius:12px; width:440px; max-height:90vh; overflow-y:auto;
+  }
+  .cf-header { padding:20px 24px 0; }
+  .cf-header h2 { font-size:18px; font-weight:500; }
+  .cf-header p { font-size:13px; color:var(--ha-text-secondary); margin-top:4px; }
+  .cf-body { padding:20px 24px; }
+  .cf-field { margin-bottom:16px; }
+  .cf-field label { display:block; font-size:12px; color:var(--ha-text-secondary); margin-bottom:4px; }
+  .cf-field input, .cf-field select {
+    width:100%; padding:10px 12px; background:var(--ha-bg); border:1px solid var(--ha-divider);
+    border-radius:6px; color:var(--ha-text); font-size:14px;
+  }
+  .cf-field input:focus { outline:none; border-color:var(--ha-primary); }
+  .cf-field .helper { font-size:11px; color:var(--ha-text-secondary); margin-top:4px; }
+  .cf-actions { padding:12px 24px 20px; display:flex; justify-content:flex-end; gap:8px; }
+  .cf-btn {
+    padding:8px 20px; border-radius:6px; font-size:13px; cursor:pointer; border:none;
+  }
+  .cf-btn-text { background:none; color:var(--ha-primary); }
+  .cf-btn-primary { background:var(--ha-primary); color:#fff; }
+  .cf-steps { display:flex; gap:4px; padding:12px 24px; }
+  .cf-step { width:8px; height:8px; border-radius:50%; background:var(--ha-divider); }
+  .cf-step.active { background:var(--ha-primary); }
+  .cf-step.done { background:var(--ha-green); }
+
+  /* ---- HA Cards ---- */
+  .ha-card {
+    background:var(--ha-card); border-radius:12px; margin-bottom:16px;
+    border:1px solid var(--ha-card-border); overflow:hidden;
+  }
+  .ha-card-header { padding:16px 16px 0; font-size:16px; font-weight:500; }
+  .ha-card-content { padding:16px; }
+
+  /* ---- Device page ---- */
+  .device-header {
+    display:flex; align-items:center; gap:16px; margin-bottom:16px;
+  }
+  .device-icon {
+    width:48px; height:48px; border-radius:50%; background:var(--ha-primary);
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+  }
+  .device-info h3 { font-size:16px; }
+  .device-info small { font-size:12px; color:var(--ha-text-secondary); }
+
+  /* Entity rows */
+  .entity-row {
+    display:flex; align-items:center; padding:12px 0; border-bottom:1px solid var(--ha-divider);
+  }
+  .entity-row:last-child { border:none; }
+  .entity-icon { width:40px; text-align:center; font-size:18px; color:var(--ha-text-secondary); }
+  .entity-info { flex:1; }
+  .entity-name { font-size:14px; }
+  .entity-id { font-size:11px; color:var(--ha-text-secondary); }
+  .entity-state { font-size:14px; font-weight:500; text-align:right; padding-left:12px; }
+  .entity-state.on { color:var(--ha-accent); }
+  .entity-state.alert { color:var(--ha-red); }
+  .entity-state.ok { color:var(--ha-green); }
+
+  /* Toggle HA style */
+  .ha-toggle { position:relative; width:40px; height:22px; cursor:pointer; }
+  .ha-toggle input { display:none; }
+  .ha-toggle .track {
+    position:absolute; inset:0; background:#555; border-radius:11px; transition:.2s;
+  }
+  .ha-toggle .track::before {
+    content:''; position:absolute; width:18px; height:18px; border-radius:50%;
+    left:2px; top:2px; background:#999; transition:.2s;
+  }
+  .ha-toggle input:checked + .track { background:var(--ha-primary); }
+  .ha-toggle input:checked + .track::before { transform:translateX(18px); background:#fff; }
+
+  /* ---- Dashboard card style ---- */
+  .dashboard-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+  .camera-entity-card { }
+  .camera-entity-card .preview {
+    height:200px; background:linear-gradient(135deg,#1a2a1a,#0a1a0a);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .camera-entity-card .preview .ph { font-size:60px; opacity:.1; }
+  .camera-entity-card .preview .overlay {
+    position:absolute; bottom:0; left:0; right:0;
+    background:linear-gradient(transparent,rgba(0,0,0,.8)); padding:12px;
+  }
+  .camera-entity-card .preview .overlay .cam-name { font-size:14px; font-weight:500; }
+  .camera-entity-card .preview .overlay .cam-status { font-size:11px; color:var(--ha-text-secondary); }
+  .camera-entity-card .preview .state-badge {
+    position:absolute; top:12px; right:12px; padding:4px 10px; border-radius:4px;
+    font-size:11px; font-weight:600; text-transform:uppercase;
+  }
+  .camera-entity-card .entities { padding:0 16px 8px; }
+  .mini-entity { display:flex; align-items:center; padding:8px 0; border-bottom:1px solid var(--ha-divider); font-size:13px; }
+  .mini-entity:last-child { border:none; }
+  .mini-entity .me-icon { width:30px; font-size:14px; color:var(--ha-text-secondary); }
+  .mini-entity .me-name { flex:1; color:var(--ha-text-secondary); }
+  .mini-entity .me-value { font-weight:500; }
+
+  /* Lovelace card editor hint */
+  .lovelace-hint {
+    background:var(--ha-card); border:2px dashed var(--ha-divider); border-radius:12px;
+    padding:24px; text-align:center; color:var(--ha-text-secondary); font-size:13px;
+  }
+  .lovelace-hint code { background:var(--ha-bg); padding:2px 6px; border-radius:3px; font-size:12px; }
+
+  /* ---- Automations ---- */
+  .automation-card {
+    display:flex; align-items:center; padding:12px 16px; gap:12px;
+  }
+  .auto-icon { font-size:20px; }
+  .auto-info { flex:1; }
+  .auto-name { font-size:14px; }
+  .auto-desc { font-size:11px; color:var(--ha-text-secondary); }
+  .auto-trigger { font-size:11px; color:var(--ha-primary); }
+
+  /* page visibility */
+  .tab-page { display:none; }
+  .tab-page.visible { display:block; }
+
+  /* Flow steps visibility */
+  .cf-step-content { display:none; }
+  .cf-step-content.visible { display:block; }
+</style>
+</head>
+<body>
+<div class="ha-app">
+
+  <!-- HA Toolbar -->
+  <div class="ha-toolbar">
+    <span class="menu-icon">&#9776;</span>
+    <h1>Frigate Event Manager</h1>
+    <span class="spacer"></span>
+    <span class="dots" title="Show config flow" onclick="document.querySelector('.config-flow-overlay').classList.add('show')">+ Ajouter</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="ha-tabs">
+    <div class="ha-tab active" data-tab="overview">Vue d'ensemble</div>
+    <div class="ha-tab" data-tab="devices">Appareils</div>
+    <div class="ha-tab" data-tab="entities">Entites</div>
+    <div class="ha-tab" data-tab="automations">Automations</div>
+    <div class="ha-tab" data-tab="dashboard">Dashboard Lovelace</div>
+  </div>
+
+  <!-- ========== OVERVIEW ========== -->
+  <div class="ha-content">
+    <div class="tab-page visible" id="tab-overview">
+      <div class="ha-card">
+        <div class="ha-card-header">Integration Frigate Event Manager</div>
+        <div class="ha-card-content">
+          <div class="device-header">
+            <div class="device-icon">&#128247;</div>
+            <div class="device-info">
+              <h3>Frigate Event Manager</h3>
+              <small>via HACS &middot; v0.2.0 &middot; 6 appareils &middot; 24 entites</small>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--ha-text-secondary);margin-bottom:12px">
+            Gestion intelligente des evenements Frigate NVR avec notifications, filtrage par camera/objet/zone, et proxy media securise.
+          </p>
+          <div style="display:flex;gap:8px">
+            <button class="cf-btn cf-btn-primary" onclick="document.querySelector('.config-flow-overlay').classList.add('show')">Configurer</button>
+            <button class="cf-btn cf-btn-text">Documentation</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Devices summary -->
+      <div class="ha-card">
+        <div class="ha-card-header">Appareils (cameras)</div>
+        <div class="ha-card-content" style="padding:8px 16px">
+          <div class="entity-row">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">jardin_nord</div><div class="entity-id">4 entites</div></div>
+            <div class="entity-state alert">ALERT</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">allee_garage</div><div class="entity-id">4 entites</div></div>
+            <div class="entity-state on">detection</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">terrasse</div><div class="entity-id">4 entites</div></div>
+            <div class="entity-state ok">idle</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">entree</div><div class="entity-id">4 entites</div></div>
+            <div class="entity-state ok">idle</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">salon</div><div class="entity-id">4 entites</div></div>
+            <div class="entity-state ok">idle</div>
+          </div>
+          <div class="entity-row" style="opacity:.5">
+            <div class="entity-icon">&#128249;</div>
+            <div class="entity-info"><div class="entity-name">garage</div><div class="entity-id">4 entites &middot; desactive</div></div>
+            <div class="entity-state">off</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== DEVICES ========== -->
+    <div class="tab-page" id="tab-devices">
+      <div class="ha-card">
+        <div class="ha-card-header">jardin_nord</div>
+        <div class="ha-card-content">
+          <div class="device-header">
+            <div class="device-icon" style="background:var(--ha-red)">&#128249;</div>
+            <div class="device-info">
+              <h3>jardin_nord</h3>
+              <small>Frigate Event Manager &middot; Camera &middot; Jardin</small>
+            </div>
+          </div>
+
+          <div style="font-size:12px;color:var(--ha-text-secondary);margin-bottom:8px">ENTITES</div>
+
+          <div class="entity-row">
+            <div class="entity-icon">&#9888;</div>
+            <div class="entity-info">
+              <div class="entity-name">Derniere alerte</div>
+              <div class="entity-id">sensor.fem_jardin_nord_last_alert</div>
+            </div>
+            <div class="entity-state alert">il y a 14min</div>
+          </div>
+
+          <div class="entity-row">
+            <div class="entity-icon">&#128100;</div>
+            <div class="entity-info">
+              <div class="entity-name">Dernier objet detecte</div>
+              <div class="entity-id">sensor.fem_jardin_nord_last_object</div>
+            </div>
+            <div class="entity-state">person (87%)</div>
+          </div>
+
+          <div class="entity-row">
+            <div class="entity-icon">&#128202;</div>
+            <div class="entity-info">
+              <div class="entity-name">Evenements (24h)</div>
+              <div class="entity-id">sensor.fem_jardin_nord_event_count</div>
+            </div>
+            <div class="entity-state">23</div>
+          </div>
+
+          <div class="entity-row">
+            <div class="entity-icon">&#128276;</div>
+            <div class="entity-info">
+              <div class="entity-name">Notifications</div>
+              <div class="entity-id">switch.fem_jardin_nord_notifications</div>
+            </div>
+            <div class="entity-state">
+              <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ha-card">
+        <div class="ha-card-header">allee_garage</div>
+        <div class="ha-card-content">
+          <div class="device-header">
+            <div class="device-icon" style="background:var(--ha-accent)">&#128249;</div>
+            <div class="device-info">
+              <h3>allee_garage</h3>
+              <small>Frigate Event Manager &middot; Camera &middot; Exterieur</small>
+            </div>
+          </div>
+
+          <div class="entity-row">
+            <div class="entity-icon">&#9888;</div>
+            <div class="entity-info">
+              <div class="entity-name">Derniere alerte</div>
+              <div class="entity-id">sensor.fem_allee_garage_last_alert</div>
+            </div>
+            <div class="entity-state">il y a 2h</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128663;</div>
+            <div class="entity-info">
+              <div class="entity-name">Dernier objet detecte</div>
+              <div class="entity-id">sensor.fem_allee_garage_last_object</div>
+            </div>
+            <div class="entity-state">car (92%)</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128202;</div>
+            <div class="entity-info">
+              <div class="entity-name">Evenements (24h)</div>
+              <div class="entity-id">sensor.fem_allee_garage_event_count</div>
+            </div>
+            <div class="entity-state">8</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128276;</div>
+            <div class="entity-info">
+              <div class="entity-name">Notifications</div>
+              <div class="entity-id">switch.fem_allee_garage_notifications</div>
+            </div>
+            <div class="entity-state">
+              <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== ENTITIES ========== -->
+    <div class="tab-page" id="tab-entities">
+      <div class="ha-card">
+        <div class="ha-card-content" style="padding:8px 16px">
+          <div style="font-size:12px;color:var(--ha-text-secondary);margin-bottom:8px;padding:8px 0;border-bottom:1px solid var(--ha-divider)">
+            24 entites &middot; Frigate Event Manager
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#9888;</div>
+            <div class="entity-info"><div class="entity-name">jardin_nord — Derniere alerte</div><div class="entity-id">sensor.fem_jardin_nord_last_alert</div></div>
+            <div class="entity-state alert">14min</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128100;</div>
+            <div class="entity-info"><div class="entity-name">jardin_nord — Dernier objet</div><div class="entity-id">sensor.fem_jardin_nord_last_object</div></div>
+            <div class="entity-state">person</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128202;</div>
+            <div class="entity-info"><div class="entity-name">jardin_nord — Events 24h</div><div class="entity-id">sensor.fem_jardin_nord_event_count</div></div>
+            <div class="entity-state">23</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128276;</div>
+            <div class="entity-info"><div class="entity-name">jardin_nord — Notifications</div><div class="entity-id">switch.fem_jardin_nord_notifications</div></div>
+            <div class="entity-state on">ON</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#9888;</div>
+            <div class="entity-info"><div class="entity-name">allee_garage — Derniere alerte</div><div class="entity-id">sensor.fem_allee_garage_last_alert</div></div>
+            <div class="entity-state">2h</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128663;</div>
+            <div class="entity-info"><div class="entity-name">allee_garage — Dernier objet</div><div class="entity-id">sensor.fem_allee_garage_last_object</div></div>
+            <div class="entity-state">car</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128202;</div>
+            <div class="entity-info"><div class="entity-name">allee_garage — Events 24h</div><div class="entity-id">sensor.fem_allee_garage_event_count</div></div>
+            <div class="entity-state">8</div>
+          </div>
+          <div class="entity-row">
+            <div class="entity-icon">&#128276;</div>
+            <div class="entity-info"><div class="entity-name">allee_garage — Notifications</div><div class="entity-id">switch.fem_allee_garage_notifications</div></div>
+            <div class="entity-state on">ON</div>
+          </div>
+          <div style="padding:8px 0;font-size:12px;color:var(--ha-text-secondary);text-align:center">
+            ... +16 entites (terrasse, entree, salon, garage)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== AUTOMATIONS ========== -->
+    <div class="tab-page" id="tab-automations">
+      <div class="ha-card">
+        <div class="ha-card-header">Automations suggerees</div>
+        <div class="ha-card-content" style="padding:4px 0">
+          <div class="automation-card" style="border-bottom:1px solid var(--ha-divider)">
+            <div class="auto-icon">&#128276;</div>
+            <div class="auto-info">
+              <div class="auto-name">Notification iOS quand alerte personne</div>
+              <div class="auto-desc">Envoie une notification avec snapshot quand une personne est detectee</div>
+              <div class="auto-trigger">Trigger: sensor.fem_*_last_object = "person" + severity = "alert"</div>
+            </div>
+            <button class="cf-btn cf-btn-text">Creer</button>
+          </div>
+          <div class="automation-card" style="border-bottom:1px solid var(--ha-divider)">
+            <div class="auto-icon">&#128161;</div>
+            <div class="auto-info">
+              <div class="auto-name">Allumer lumieres sur detection nocturne</div>
+              <div class="auto-desc">Active les lumieres exterieures entre 22h-6h sur detection</div>
+              <div class="auto-trigger">Trigger: binary_sensor.fem_*_alert = ON + condition: time</div>
+            </div>
+            <button class="cf-btn cf-btn-text">Creer</button>
+          </div>
+          <div class="automation-card">
+            <div class="auto-icon">&#128187;</div>
+            <div class="auto-info">
+              <div class="auto-name">Desactiver notifications en mode vacances</div>
+              <div class="auto-desc">Passe toutes les cameras en mode "alerte uniquement" via un input_boolean</div>
+              <div class="auto-trigger">Trigger: input_boolean.vacances = ON</div>
+            </div>
+            <button class="cf-btn cf-btn-text">Creer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== DASHBOARD LOVELACE ========== -->
+    <div class="tab-page" id="tab-dashboard">
+      <p style="font-size:13px;color:var(--ha-text-secondary);margin-bottom:16px">
+        Carte Lovelace custom fournie par l'integration. Ajoutable via le dashboard HA.
+      </p>
+      <div class="dashboard-grid">
+        <!-- Camera card 1 -->
+        <div class="ha-card camera-entity-card">
+          <div class="preview">
+            <div class="ph">&#127968;</div>
+            <div class="state-badge" style="background:var(--ha-red);color:#fff">ALERT</div>
+            <div class="overlay">
+              <div class="cam-name">jardin_nord</div>
+              <div class="cam-status">person detectee il y a 14 min</div>
+            </div>
+          </div>
+          <div class="entities">
+            <div class="mini-entity"><span class="me-icon">&#9888;</span><span class="me-name">Derniere alerte</span><span class="me-value" style="color:var(--ha-red)">14:32</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128100;</span><span class="me-name">Objet</span><span class="me-value">person (87%)</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128202;</span><span class="me-name">Events 24h</span><span class="me-value">23</span></div>
+            <div class="mini-entity">
+              <span class="me-icon">&#128276;</span><span class="me-name">Notifs</span>
+              <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera card 2 -->
+        <div class="ha-card camera-entity-card">
+          <div class="preview" style="background:linear-gradient(135deg,#1a1a2a,#0a0a1a)">
+            <div class="ph">&#128663;</div>
+            <div class="state-badge" style="background:var(--ha-accent);color:#000">DETECTION</div>
+            <div class="overlay">
+              <div class="cam-name">allee_garage</div>
+              <div class="cam-status">voiture detectee il y a 2h</div>
+            </div>
+          </div>
+          <div class="entities">
+            <div class="mini-entity"><span class="me-icon">&#9888;</span><span class="me-name">Derniere alerte</span><span class="me-value">12:45</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128663;</span><span class="me-name">Objet</span><span class="me-value">car (92%)</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128202;</span><span class="me-name">Events 24h</span><span class="me-value">8</span></div>
+            <div class="mini-entity">
+              <span class="me-icon">&#128276;</span><span class="me-name">Notifs</span>
+              <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera card 3 -->
+        <div class="ha-card camera-entity-card">
+          <div class="preview" style="background:linear-gradient(135deg,#2a2a1a,#1a1a0a)">
+            <div class="ph">&#128058;</div>
+            <div class="state-badge" style="background:var(--ha-card-border);color:var(--ha-text-secondary)">IDLE</div>
+            <div class="overlay">
+              <div class="cam-name">terrasse</div>
+              <div class="cam-status">idle depuis 6h</div>
+            </div>
+          </div>
+          <div class="entities">
+            <div class="mini-entity"><span class="me-icon">&#9888;</span><span class="me-name">Derniere alerte</span><span class="me-value" style="color:var(--ha-text-secondary)">—</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128058;</span><span class="me-name">Objet</span><span class="me-value">cat (65%)</span></div>
+            <div class="mini-entity"><span class="me-icon">&#128202;</span><span class="me-name">Events 24h</span><span class="me-value">4</span></div>
+            <div class="mini-entity">
+              <span class="me-icon">&#128276;</span><span class="me-name">Notifs</span>
+              <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- YAML hint -->
+      <div class="lovelace-hint" style="margin-top:16px">
+        <p style="margin-bottom:8px">Ajouter via le dashboard HA :</p>
+        <code>type: custom:fem-camera-card</code><br>
+        <code>camera: jardin_nord</code><br>
+        <code>show_notifications_toggle: true</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== CONFIG FLOW OVERLAY ========== -->
+<div class="config-flow-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="config-flow">
+    <div class="cf-steps">
+      <div class="cf-step active" id="dot-0"></div>
+      <div class="cf-step" id="dot-1"></div>
+      <div class="cf-step" id="dot-2"></div>
+      <div class="cf-step" id="dot-3"></div>
+      <div class="cf-step" id="dot-4"></div>
+    </div>
+
+    <!-- Step 1: Frigate connection — detect existing integration -->
+    <div class="cf-step-content visible" id="step-0">
+      <div class="cf-header">
+        <h2>Connexion Frigate</h2>
+        <p>Configurez l'acces a votre instance Frigate NVR</p>
+      </div>
+      <div class="cf-body">
+        <!-- Detected existing integration -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('frigate-mode-existing').checked=true;document.getElementById('frigate-manual-fields').style.display='none'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="frigate-mode" id="frigate-mode-existing" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Integration Frigate detectee</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            <div>URL: <strong style="color:var(--ha-text)">http://192.168.1.50:5000</strong></div>
+            <div>6 cameras configurees &middot; MQTT sur <strong style="color:var(--ha-text)">core-mosquitto:1883</strong></div>
+            <div style="margin-top:4px;font-style:italic;color:var(--ha-text-secondary)">Les credentials Frigate seront reutilises. Pas de double configuration.</div>
+          </div>
+        </div>
+
+        <!-- Manual option -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('frigate-mode-manual').checked=true;document.getElementById('frigate-manual-fields').style.display='block'">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="frigate-mode" id="frigate-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Configuration manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Saisir manuellement l'URL et les credentials Frigate
+          </div>
+        </div>
+
+        <div id="frigate-manual-fields" style="display:none;margin-top:16px">
+          <div class="cf-field">
+            <label>URL Frigate</label>
+            <input placeholder="http://frigate:5000">
+          </div>
+          <div class="cf-field">
+            <label>Utilisateur</label>
+            <input placeholder="admin">
+          </div>
+          <div class="cf-field">
+            <label>Mot de passe</label>
+            <input type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
+          </div>
+        </div>
+      </div>
+      <div class="cf-actions">
+        <button class="cf-btn cf-btn-text" onclick="document.querySelector('.config-flow-overlay').classList.remove('show')">Annuler</button>
+        <button class="cf-btn cf-btn-primary" onclick="goToStep(1)">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Step 2: MQTT — detect existing integration -->
+    <div class="cf-step-content" id="step-1">
+      <div class="cf-header">
+        <h2>MQTT</h2>
+        <p>Configurez la connexion MQTT pour recevoir les evenements Frigate</p>
+      </div>
+      <div class="cf-body">
+        <!-- Detected existing MQTT -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:16px;cursor:pointer" onclick="document.getElementById('mqtt-mode-existing').checked=true;document.getElementById('mqtt-manual-fields').style.display='none'">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="mqtt-mode" id="mqtt-mode-existing" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Integration MQTT detectee</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            <div>Broker: <strong style="color:var(--ha-text)">mqtt://core-mosquitto:1883</strong></div>
+            <div>User: <strong style="color:var(--ha-text)">homeassistant</strong></div>
+            <div style="margin-top:4px;font-style:italic">La connexion au broker sera reutilisee. Le topic d'ecoute reste specifique a FEM.</div>
+          </div>
+        </div>
+
+        <!-- Manual -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('mqtt-mode-manual').checked=true;document.getElementById('mqtt-manual-fields').style.display='block'">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="mqtt-mode" id="mqtt-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Configuration manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Saisir manuellement l'adresse du broker MQTT
+          </div>
+        </div>
+
+        <div id="mqtt-manual-fields" style="display:none;margin-top:16px">
+          <div class="cf-field">
+            <label>Broker URL</label>
+            <input placeholder="mqtt://localhost:1883">
+          </div>
+          <div class="cf-field">
+            <label>Username</label>
+            <input placeholder="">
+          </div>
+          <div class="cf-field">
+            <label>Password</label>
+            <input type="password" placeholder="">
+          </div>
+        </div>
+
+        <div style="margin-top:16px;border-top:1px solid var(--ha-divider);padding-top:16px">
+          <div class="cf-field">
+            <label>Topic d'ecoute</label>
+            <input value="frigate/reviews">
+            <div class="helper">Topic specifique a Frigate Event Manager (different du topic de l'integration Frigate)</div>
+          </div>
+        </div>
+      </div>
+      <div class="cf-actions">
+        <button class="cf-btn cf-btn-text" onclick="goToStep(0)">Retour</button>
+        <button class="cf-btn cf-btn-primary" onclick="goToStep(2)">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Camera discovery method -->
+    <div class="cf-step-content" id="step-2">
+      <div class="cf-header">
+        <h2>Decouverte des cameras</h2>
+        <p>Comment souhaitez-vous detecter les cameras ?</p>
+      </div>
+      <div class="cf-body">
+        <!-- Option: from existing Frigate integration -->
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer" onclick="document.getElementById('cam-mode-integration').checked=true">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="cam-mode" id="cam-mode-integration" checked style="accent-color:var(--ha-green)">
+            <div style="font-size:13px;font-weight:500;color:var(--ha-green)">&#9989; Depuis l'integration Frigate (recommande)</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            Recupere la liste des 6 cameras configurees dans l'integration Frigate existante.<br>
+            <span style="color:var(--ha-text)">Avantage :</span> synchronise automatiquement si vous ajoutez/supprimez des cameras dans Frigate.
+          </div>
+        </div>
+
+        <!-- Option: MQTT auto-discovery -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;margin-bottom:12px;cursor:pointer" onclick="document.getElementById('cam-mode-mqtt').checked=true">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <input type="radio" name="cam-mode" id="cam-mode-mqtt" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Decouverte par MQTT</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px">
+            Les cameras apparaissent automatiquement quand un evenement est recu sur le topic MQTT.<br>
+            <span style="color:var(--ha-text)">Avantage :</span> fonctionne sans l'integration Frigate (mode standalone).
+          </div>
+        </div>
+
+        <!-- Option: manual -->
+        <div style="background:var(--ha-bg);border:1px solid var(--ha-divider);border-radius:8px;padding:12px;cursor:pointer" onclick="document.getElementById('cam-mode-manual').checked=true">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="radio" name="cam-mode" id="cam-mode-manual" style="accent-color:var(--ha-primary)">
+            <div style="font-size:13px;color:var(--ha-text)">Selection manuelle</div>
+          </div>
+          <div style="font-size:11px;color:var(--ha-text-secondary);padding-left:24px;margin-top:4px">
+            Choisir manuellement les cameras a surveiller
+          </div>
+        </div>
+      </div>
+      <div class="cf-actions">
+        <button class="cf-btn cf-btn-text" onclick="goToStep(1)">Retour</button>
+        <button class="cf-btn cf-btn-primary" onclick="goToStep(3)">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Cameras selection (pre-populated from integration) -->
+    <div class="cf-step-content" id="step-3">
+      <div class="cf-header">
+        <h2>Cameras detectees</h2>
+        <p>6 cameras trouvees via l'integration Frigate. Toutes activees par defaut.</p>
+      </div>
+      <div class="cf-body">
+        <div style="background:#1b2e1b;border:1px solid var(--ha-green);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--ha-green);display:flex;align-items:center;gap:8px">
+          <span>&#9989;</span> Synchronise avec l'integration Frigate &mdash; les nouvelles cameras seront ajoutees automatiquement
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">jardin_nord</div>
+            <div class="entity-id">camera.frigate_jardin_nord</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">allee_garage</div>
+            <div class="entity-id">camera.frigate_allee_garage</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">terrasse</div>
+            <div class="entity-id">camera.frigate_terrasse</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">entree</div>
+            <div class="entity-id">camera.frigate_entree</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">salon</div>
+            <div class="entity-id">camera.frigate_salon</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+        <div class="entity-row">
+          <div class="entity-icon">&#128249;</div>
+          <div class="entity-info">
+            <div class="entity-name">garage</div>
+            <div class="entity-id">camera.frigate_garage</div>
+          </div>
+          <label class="ha-toggle"><input type="checkbox" checked><span class="track"></span></label>
+        </div>
+      </div>
+      <div class="cf-actions">
+        <button class="cf-btn cf-btn-text" onclick="goToStep(2)">Retour</button>
+        <button class="cf-btn cf-btn-primary" onclick="goToStep(4)">Suivant</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Done -->
+    <div class="cf-step-content" id="step-4">
+      <div class="cf-header" style="text-align:center;padding-bottom:0">
+        <div style="font-size:48px;margin-bottom:8px">&#9989;</div>
+        <h2>Configuration terminee !</h2>
+        <p>6 cameras ajoutees avec 24 entites</p>
+      </div>
+      <div class="cf-body" style="text-align:center">
+        <div style="background:var(--ha-bg);border-radius:8px;padding:12px;margin-bottom:12px;text-align:left;font-size:12px">
+          <div style="color:var(--ha-text-secondary);margin-bottom:8px">Resume de la configuration :</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>Frigate : <strong>via integration existante</strong></span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>MQTT : <strong>via integration existante</strong> (topic: frigate/reviews)</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="color:var(--ha-green)">&#9679;</span>
+            <span>Cameras : <strong>6 synchronisees</strong> depuis Frigate</span>
+          </div>
+        </div>
+        <p style="font-size:13px;color:var(--ha-text-secondary)">
+          Les entites sont disponibles dans votre dashboard.<br>
+          Vous pouvez maintenant creer des automations.
+        </p>
+      </div>
+      <div class="cf-actions" style="justify-content:center">
+        <button class="cf-btn cf-btn-primary" onclick="document.querySelector('.config-flow-overlay').classList.remove('show')">Terminer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab navigation
+document.querySelectorAll('.ha-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.ha-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('visible'));
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('visible');
+  });
+});
+
+// Config flow steps
+function goToStep(n) {
+  document.querySelectorAll('.cf-step-content').forEach(s => s.classList.remove('visible'));
+  document.getElementById('step-' + n).classList.add('visible');
+  document.querySelectorAll('.cf-step').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+  });
+}
+</script>
+</body>
+</html>

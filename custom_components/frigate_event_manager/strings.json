@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "manual": {
+        "title": "Configurer Frigate Event Manager (manuel)",
+        "description": "L'addon n'a pas pu être détecté automatiquement. Saisissez son adresse.",
+        "data": {
+          "url": "URL du addon (ex: http://192.168.1.10)",
+          "port": "Port du addon"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter au addon. Vérifiez l'URL et le port."
+    },
+    "abort": {
+      "already_configured": "Frigate Event Manager est déjà configuré."
+    }
+  }
+}

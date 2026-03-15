@@ -1,0 +1,60 @@
+name: build-publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine bake target
+        id: target
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+              echo "name=prerelease" >> "$GITHUB_OUTPUT"
+            else
+              echo "name=release" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "name=frigate-event-manager" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push
+        uses: docker/bake-action@82490499d2e5613fcead7e128237ef0b0ea210f7 # v7.0.0
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+        with:
+          source: .
+          files: ./docker-bake.hcl
+          targets: ${{ steps.target.outputs.name }}
+          push: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
