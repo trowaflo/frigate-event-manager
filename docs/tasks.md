@@ -390,7 +390,7 @@
 
 ### T-460 | Throttler — anti-spam par caméra
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/throttle.py
 - Locks: —
