@@ -591,13 +591,17 @@
 
 ### T-483 | Simplification T-480
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/
 - Locks: —
 - Depends: T-481, T-482
 - Blocks: T-490
-- Notes: —
+- Notes: |
+    Docstring ajoutée sur async_setup_entry des 3 fichiers (sensor.py, switch.py,
+    binary_sensor.py) : comportement "aucune entité si coordinator.data vide au
+    démarrage" documenté explicitement, mention reload nécessaire, référence T-484
+    pour la découverte dynamique future. Aucun changement de comportement observable.
 
 ### T-490 | Docs — README + architecture.md + tasks.md
 
