@@ -73,6 +73,10 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         _LOGGER.warning("Payload MQTT non-JSON ignoré : %s", err)
         return None
 
+    if not isinstance(raw, dict):
+        _LOGGER.warning("Payload MQTT ignoré : dict attendu, reçu %s", type(raw).__name__)
+        return None
+
     # Validation des champs obligatoires
     event_type = raw.get("type")
     if event_type not in ("new", "update", "end"):
