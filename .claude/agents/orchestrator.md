@@ -26,13 +26,12 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 
 | Besoin | Agent à spawner |
 | --- | --- |
-| Code Go métier (domain, core, adapter) | `go-architect` |
-| Code Python / integration HA HACS | `python-architect` |
-| Fichiers de test `*_test.go` | `quality-guard` |
+| Code Python / intégration HA HACS | `python-architect` |
+| Fichiers de test Python | `quality-guard` |
 | Refactoring / DRY | `code-simplifier` |
 | Review qualité + sécurité + doc | `reviewer` |
 | UI / HTML / CSS | `frontend-designer` |
-| Dockerfile, CI/CD, Taskfile | `sre-cloud` |
+| CI/CD, Taskfile | `sre-cloud` |
 
 ## Séquence d'orchestration
 
@@ -129,7 +128,7 @@ Statuts d'erreur : `WAITING_FOR_LOCK`, `REFACTORING_NEEDED`, `REJECTED`, `CRASHE
 **Skills** (`/skill`) = recettes invocables par l'utilisateur. Exemple : `/test`, `/dev-replay`.
 **Agents** (`.claude/agents/`) = identités autonomes spawnables avec scope et protocole de coordination.
 
-**Ne jamais créer un skill qui duplique un agent existant.** Si une tâche est déjà couverte par un agent, spawner l'agent — ne pas créer un skill miroir. La liste des agents fait foi : orchestrator, go-architect, reviewer, quality-guard, code-simplifier, frontend-designer, sre-cloud.
+**Ne jamais créer un skill qui duplique un agent existant.** Si une tâche est déjà couverte par un agent, spawner l'agent — ne pas créer un skill miroir. La liste des agents fait foi : orchestrator, python-architect, reviewer, quality-guard, code-simplifier, frontend-designer, sre-cloud.
 
 ## Étape Learn (avant de clore chaque session)
 

@@ -89,7 +89,6 @@ Agents avec scopes stricts pour les taches multi-composants :
 | `code-simplifier` | Refactoring DRY (apres reviewer + quality-guard) |
 | `frontend-designer` | Maquettes HTML interactives `maquette/` |
 | `sre-cloud` | CI/CD, Taskfile |
-| `go-architect` | ⚠️ EN VEILLE — projet migre Python |
 
 **Pipeline obligatoire** (toute feature) : implement (python-architect) → review + tests (parallele) → simplify → PR.
 
