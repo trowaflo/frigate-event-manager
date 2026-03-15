@@ -272,13 +272,33 @@
 
 ### T-441 | Review T-440
 
-- Status: TODO
+- Status: REVIEW_OK
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/registry.py
 - Locks: —
 - Depends: T-440
 - Blocks: T-443
-- Notes: —
+- Notes: |
+    REVIEW_OK — aucune issue bloquante. Issues MINOR pour T-443 (code-simplifier) :
+    1. registry.py _read_state L202 : int(cam_data.get("event_count_24h") or 0) non protégé
+       contre une valeur JSON de type string non-numérique (ex: "abc" → ValueError non attrapé).
+       Utiliser _to_float() ou un try/except int() local, comme le fait coordinator.py.
+    2. registry.py _read_state L201 : list(cam_data.get("last_objects") or []) — si la valeur
+       JSON est une string (ex: "person"), list("person") retourne ["p","e","r","s","o","n"].
+       Préférer une vérification isinstance avant list().
+    Points vérifiés OK :
+    - Auto-découverte enabled=True : get() crée CameraState(name=) avec default enabled=True (coordinator.py L50). Conforme.
+    - Persistence hass.config.path("frigate_em_state.json") : L43 conforme, pas de /data/.
+    - Écriture atomique : _write_atomic() via tmp + os.replace() (POSIX atomique). Conforme.
+    - Fichier absent : os.path.isfile() → return silencieux log DEBUG. Conforme.
+    - JSON corrompu : except (OSError, json.JSONDecodeError) → return log ERROR. Conforme.
+    - Format invalide (non-dict racine) : isinstance(raw, dict) check. Conforme.
+    - Entrée caméra invalide : isinstance(cam_data, dict) + continue. Conforme.
+    - async_add_executor_job : async_save() L118 et async_load() L126. Conforme.
+    - Pas de redéfinition CameraState/FrigateEvent : importés depuis .coordinator L17. Conforme.
+    - event_count_24h sur type="new" uniquement : update() L74-76. Conforme.
 
 ### T-442 | Tests T-440
 
