@@ -445,7 +445,7 @@
 
 ### T-470 | Notifier — notifications HA Companion
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/notifier.py
 - Locks: —
