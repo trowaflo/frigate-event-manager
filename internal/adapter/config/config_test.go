@@ -374,3 +374,74 @@ func TestLoad_EnvOverrides_FrigateCredentials(t *testing.T) {
 		t.Errorf("FrigatePassword attendu 'env_frigate_pass', reçu '%s'", cfg.FrigatePassword)
 	}
 }
+
+// --- MQTTDiscovery : option HACS ---
+
+// Absent dans le JSON → défaut true (comportement actuel préservé).
+func TestLoad_MQTTDiscovery_AbsentDansJSON_DefaultTrue(t *testing.T) {
+	path := writeTestFile(t, `{
+        "mqtt_broker_url": "tcp://localhost:1883"
+    }`)
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !cfg.MQTTDiscoveryEnabled() {
+		t.Error("MQTTDiscovery devrait être true quand absent du JSON")
+	}
+}
+
+// Explicitement true dans le JSON → true.
+func TestLoad_MQTTDiscovery_ExplicitementTrue(t *testing.T) {
+	path := writeTestFile(t, `{
+        "mqtt_broker_url": "tcp://localhost:1883",
+        "mqtt_discovery": true
+    }`)
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if !cfg.MQTTDiscoveryEnabled() {
+		t.Error("MQTTDiscovery devrait être true quand explicitement true dans le JSON")
+	}
+}
+
+// Explicitement false dans le JSON → false (intégration HACS active).
+func TestLoad_MQTTDiscovery_ExplicitementFalse(t *testing.T) {
+	path := writeTestFile(t, `{
+        "mqtt_broker_url": "tcp://localhost:1883",
+        "mqtt_discovery": false
+    }`)
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+	if cfg.MQTTDiscoveryEnabled() {
+		t.Error("MQTTDiscovery devrait être false quand explicitement false dans le JSON")
+	}
+}
+
+// Sanitized() expose la clé mqtt_discovery avec la valeur correcte.
+func TestConfig_Sanitized_ContientMQTTDiscovery(t *testing.T) {
+	path := writeTestFile(t, `{
+        "mqtt_broker_url": "tcp://localhost:1883",
+        "mqtt_discovery": false
+    }`)
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("erreur inattendue: %v", err)
+	}
+
+	s := cfg.Sanitized()
+	val, ok := s["mqtt_discovery"]
+	if !ok {
+		t.Fatal("Sanitized() devrait contenir la clé 'mqtt_discovery'")
+	}
+	if val != false {
+		t.Errorf("mqtt_discovery attendu false, reçu %v", val)
+	}
+}

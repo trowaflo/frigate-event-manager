@@ -26,6 +26,7 @@ options:
   frigate_url: ""
   api_port: 5555
   presign_ttl: 60
+  mqtt_discovery: true
 schema:
   mqtt_broker_url: str
   mqtt_topic: str?
@@ -47,3 +48,4 @@ schema:
   api_port: "int(1,65535)?"
   presign_ttl: "int(1,1440)?"
   persist_events: bool?
+  mqtt_discovery: bool?

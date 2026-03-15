@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer Frigate Event Manager",
+        "description": "Saisissez l'adresse du addon Go Frigate Event Manager.",
+        "data": {
+          "url": "URL du addon (ex: http://localhost)",
+          "port": "Port du addon"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter au addon. Vérifiez l'URL et le port."
+    },
+    "abort": {
+      "already_configured": "Frigate Event Manager est déjà configuré."
+    }
+  }
+}

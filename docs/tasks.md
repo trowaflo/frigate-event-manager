@@ -6,6 +6,111 @@
 
 ## Blackboard Actif
 
+### T-320 | Option mqtt_discovery — config.yaml + config.go + applyDefaults
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: config.yaml, internal/adapter/config/config.go
+- Locks: —
+- Depends: —
+- Blocks: T-321, T-322
+- Notes: |
+    Ajouter `mqtt_discovery: bool?` dans config.yaml (section options défaut true, section schema bool?).
+    Ajouter `MQTTDiscovery bool` dans la struct Config avec tag json:"mqtt_discovery".
+    Dans applyDefaults() : si MQTTDiscovery == false (zero value) le forcer à true (absent = actif).
+    Ajouter "mqtt_discovery" dans Sanitized().
+    Contrainte : absence de l'option dans options.json = true (comportement actuel préservé).
+
+### T-321 | Option mqtt_discovery — wiring main.go
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: cmd/addon/main.go
+- Locks: —
+- Depends: T-320
+- Blocks: T-322, T-323
+- Notes: |
+    Conditionner le bloc MQTT Discovery (lignes 156-166 de main.go) sur cfg.MQTTDiscovery.
+    Si false : ne pas créer mqttdiscovery.Publisher, ne pas appeler reg.AddListener, ne pas appeler PublishAll.
+    Ajouter un log.Info("MQTT Discovery désactivé (intégration HACS)") quand cfg.MQTTDiscovery == false.
+    go build ./... doit être vert.
+
+### T-322 | Tests — mqtt_discovery option (coverage >=80%)
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: internal/adapter/config/config_test.go
+- Locks: —
+- Depends: T-320, T-321
+- Blocks: T-323
+- Notes: |
+    Tester applyDefaults : absent dans JSON → MQTTDiscovery=true.
+    Tester applyDefaults : mqtt_discovery: false → MQTTDiscovery=false.
+    Tester applyDefaults : mqtt_discovery: true → MQTTDiscovery=true.
+    Tester Sanitized() : clé "mqtt_discovery" présente avec valeur correcte.
+    Utiliser testify/assert + testify/require.
+    go test ./... -count=1 doit être vert.
+
+### T-323 | Review + simplification — mqtt_discovery (étape A)
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: config.yaml, internal/adapter/config/config.go, cmd/addon/main.go, internal/adapter/config/config_test.go
+- Locks: —
+- Depends: T-321, T-322
+- Blocks: —
+- Notes: |
+    Vérifier cohérence nommage, défaut bool Go (false = zero value, donc applyDefaults doit être vigilant).
+    Vérifier que le wiring main.go est propre et ne laisse pas de listener orphelin.
+    Pas de logique dupliquée. Pas de test fragile.
+
+### T-330 | Structure intégration Python HACS
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: integration/frigate_event_manager/, integration/hacs.json
+- Locks: —
+- Depends: —
+- Blocks: T-331, T-332
+- Notes: |
+    Créer les fichiers suivants (structure standard HA custom component) :
+  - integration/hacs.json : { "name": "Frigate Event Manager", "type": "integration" }
+  - integration/frigate_event_manager/manifest.json : domain, name, version, dependencies (http), codeowners, iot_class (local_polling), config_flow: true
+  - `integration/frigate_event_manager/__init__.py` : DOMAIN constant, async_setup_entry, async_unload_entry (délègue tout au addon Go via HTTP)
+  - integration/frigate_event_manager/config_flow.py : ConfigFlow avec step user (url du addon + port), validation HTTP GET /api/stats
+  - integration/frigate_event_manager/strings.json : labels UI en français (step.user.title, step.user.data.url, step.user.data.port, errors.cannot_connect)
+    Code minimaliste : pas de logique métier. L'intégration se connecte à `http://localhost:{port}`.
+    Version dans manifest.json : "0.0.1".
+    iot_class : "local_polling" car elle interroge le addon Go en HTTP.
+
+### T-331 | Review — intégration Python HACS
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: integration/frigate_event_manager/, integration/hacs.json
+- Locks: —
+- Depends: T-330
+- Blocks: —
+- Notes: |
+    Vérifier conformité manifest.json avec les standards HA (champs requis HACS).
+    Vérifier config_flow.py : FlowHandler name, vol.Schema correcte, erreurs bien catchées.
+    Vérifier strings.json : clés cohérentes avec config_flow.py.
+    Vérifier `__init__.py` : async_setup_entry retourne True, cleanup propre dans async_unload_entry.
+    Pas d'imports inutiles. Code idiomatique HA.
+
+### T-332 | Simplification — intégration Python HACS
+
+- Status: DONE
+- Owner: orchestrator
+- Scope: integration/frigate_event_manager/
+- Locks: —
+- Depends: T-330, T-331
+- Blocks: —
+- Notes: |
+    Vérifier qu'il n'y a pas de duplication entre `__init__.py` et config_flow.py.
+    S'assurer que la connexion HTTP est faite via aiohttp (standard HA async) et non requests.
+    Code le plus court possible — chaque ligne doit avoir une raison d'être.
+
 ### T-310 | Implémenter ZoneFilter, LabelFilter, TimeFilter + champs config + champs domaine
 
 - Status: DONE

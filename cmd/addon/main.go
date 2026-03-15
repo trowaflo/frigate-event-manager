@@ -153,7 +153,9 @@ func main() {
 	}
 
 	// --- MQTT Discovery : publier les entités après connexion ---
-	if cm := subscriber.ConnectionManager(); cm != nil {
+	if !cfg.MQTTDiscoveryEnabled() {
+		log.Info("MQTT Discovery désactivé (intégration HACS)")
+	} else if cm := subscriber.ConnectionManager(); cm != nil {
 		mqttPub := mqttdiscovery.NewAutopahoAdapter(cm)
 		discoveryPub := mqttdiscovery.NewPublisher(ctx, mqttPub, log)
 

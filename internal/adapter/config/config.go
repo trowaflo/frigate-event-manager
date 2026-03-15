@@ -41,6 +41,11 @@ type Config struct {
 	// Persistence
 	PersistEvents bool `json:"persist_events"` // sauvegarde le ring buffer sur disque
 
+	// HACS — désactive le MQTT Discovery quand l'intégration HACS gère les entités.
+	// Absent ou true = MQTT Discovery actif (comportement par défaut).
+	// false = MQTT Discovery désactivé, entités gérées par l'intégration HACS.
+	MQTTDiscovery *bool `json:"mqtt_discovery"`
+
 	// Filtres
 	SeverityFilter    []string `json:"severity_filter"`
 	Cameras           []string `json:"cameras"`
@@ -139,7 +144,17 @@ func (c *Config) applyDefaults() {
 	if c.PresignTTL == 0 {
 		c.PresignTTL = 60
 	}
+	if c.MQTTDiscovery == nil {
+		v := true
+		c.MQTTDiscovery = &v
+	}
 	c.HABaseURL = "http://supervisor/core"
+}
+
+// MQTTDiscoveryEnabled retourne true si le MQTT Discovery est actif.
+// Absent dans la config = true (comportement par défaut préservé).
+func (c *Config) MQTTDiscoveryEnabled() bool {
+	return c.MQTTDiscovery != nil && *c.MQTTDiscovery
 }
 
 // Sanitized retourne la config sans secrets pour affichage dans la Web UI.
@@ -175,6 +190,7 @@ func (c *Config) Sanitized() map[string]any {
 		"zone_order_enforced": c.ZoneOrderEnforced,
 		"labels":              c.Labels,
 		"disable_times":       c.DisableTimes,
+		"mqtt_discovery":      c.MQTTDiscoveryEnabled(),
 	}
 }
 
