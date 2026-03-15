@@ -1,0 +1,14 @@
+# https://taskfile.dev
+version: "3"
+
+tasks:
+  test:
+    desc: "Lance les tests Python avec couverture >=80%"
+    cmds:
+      - pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v
+
+  lint:
+    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2)"
+    cmds:
+      - ruff check .
+      - markdownlint-cli2 '**/*.md'

@@ -21,7 +21,7 @@
 
 ### T-401 | Nettoyage — Supprimer les fichiers Go et résidus
 
-- Status: IN_PROGRESS
+- Status: DONE
 - Owner: sre-cloud
 - Scope: racine du repo
 - Locks: —
@@ -39,7 +39,7 @@
 
 ### T-402 | Infra — Adapter CI/CD et Taskfile pour Python
 
-- Status: TODO
+- Status: IN_PROGRESS
 - Owner: sre-cloud
 - Scope: .github/workflows/validation.yml, Taskfile.yml (nouveau)
 - Locks: —
