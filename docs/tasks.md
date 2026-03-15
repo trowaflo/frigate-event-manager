@@ -39,7 +39,7 @@
 
 ### T-402 | Infra — Adapter CI/CD et Taskfile pour Python
 
-- Status: IN_PROGRESS
+- Status: DONE
 - Owner: sre-cloud
 - Scope: .github/workflows/validation.yml, Taskfile.yml (nouveau)
 - Locks: —
@@ -53,7 +53,7 @@
 
 ### T-410 | Squelette + config flow complet
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/
 - Locks: —

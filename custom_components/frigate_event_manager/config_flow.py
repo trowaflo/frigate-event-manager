@@ -2,76 +2,68 @@
 
 from __future__ import annotations
 
-import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import ADDON_PORT, DOMAIN
-from . import get_addon_url
+from .const import (
+    CONF_COOLDOWN,
+    CONF_DISABLE_TIMES,
+    CONF_LABELS,
+    CONF_MQTT_TOPIC,
+    CONF_NOTIFY_TARGET,
+    CONF_SEVERITY_FILTER,
+    CONF_ZONES,
+    DEFAULT_COOLDOWN,
+    DEFAULT_MQTT_TOPIC,
+    DOMAIN,
+)
 
-STEP_MANUAL_SCHEMA = vol.Schema(
+STEP_USER_SCHEMA = vol.Schema(
     {
-        vol.Required("url", default="http://192.168.1.x"): str,
-        vol.Required("port", default=ADDON_PORT): int,
+        vol.Required(CONF_MQTT_TOPIC, default=DEFAULT_MQTT_TOPIC): str,
+        vol.Required(CONF_NOTIFY_TARGET): str,
+        vol.Optional(CONF_SEVERITY_FILTER, default=[]): vol.All(
+            vol.Coerce(list), [str]
+        ),
+        vol.Optional(CONF_ZONES, default=[]): vol.All(vol.Coerce(list), [str]),
+        vol.Optional(CONF_LABELS, default=[]): vol.All(vol.Coerce(list), [str]),
+        vol.Optional(CONF_DISABLE_TIMES, default=[]): vol.All(
+            vol.Coerce(list), [str]
+        ),
+        vol.Optional(CONF_COOLDOWN, default=DEFAULT_COOLDOWN): vol.All(
+            int, vol.Range(min=0)
+        ),
     }
 )
 
 
-async def _test_connection(url: str) -> bool:
-    """Vérifie que l'addon Go répond sur /api/stats."""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{url}/api/stats",
-                timeout=aiohttp.ClientTimeout(total=5),
-            ) as resp:
-                return resp.status == 200
-    except aiohttp.ClientError:
-        return False
-
-
 class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow — tente l'auto-découverte Supervisor, sinon saisie manuelle."""
+    """Config flow — saisie des paramètres MQTT et de notification."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: dict | None = None
     ) -> FlowResult:
-        """Étape 1 : tentative d'auto-découverte via Supervisor."""
+        """Étape unique : formulaire de configuration complet."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
 
-        # Auto-découverte via Supervisor (HA OS / Supervised)
-        addon_url = await get_addon_url()
-        if addon_url and await _test_connection(addon_url):
-            return self.async_create_entry(
-                title="Frigate Event Manager",
-                data={"url": addon_url},
-            )
-
-        # Fallback : saisie manuelle
-        return await self.async_step_manual(user_input)
-
-    async def async_step_manual(
-        self, user_input: dict | None = None
-    ) -> FlowResult:
-        """Étape 2 (fallback) : saisie manuelle de l'URL et du port."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            url = f"{user_input['url'].rstrip('/')}:{user_input['port']}"
-            if await _test_connection(url):
+            if user_input.get(CONF_COOLDOWN, 0) < 0:
+                errors[CONF_COOLDOWN] = "cooldown_invalid"
+            else:
                 return self.async_create_entry(
                     title="Frigate Event Manager",
-                    data={"url": url},
+                    data=user_input,
                 )
-            errors["base"] = "cannot_connect"
 
         return self.async_show_form(
-            step_id="manual",
-            data_schema=STEP_MANUAL_SCHEMA,
+            step_id="user",
+            data_schema=STEP_USER_SCHEMA,
             errors=errors,
         )
