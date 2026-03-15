@@ -460,23 +460,47 @@
 
 ### T-471 | Review T-470
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/notifier.py
 - Locks: —
 - Depends: T-470
 - Blocks: T-473
-- Notes: —
+- Notes: |
+    APPROVED — aucune issue bloquante.
+    Points vérifiés OK :
+    - html.escape() : camera (L53), severity (L54), objects (L55), review_id (L73),
+      tag utilise camera_safe déjà échappée (L67). Conforme.
+    - data.tag : présent inconditionnellement dans le bloc data (L67). Conforme.
+    - data.push.sound.critical : conditionnel sur `event.severity == "alert"` (L85).
+      Bloc push absent pour severity="detection". Conforme.
+    - data.image : absent si thumb_url vide — guard `if thumb_url:` en L81. Conforme.
+    - Gestion d'erreur async_call : try/except Exception (L107-118), log ERROR avec
+      cible + message, exception non re-levée. # noqa: BLE001 justifié. Conforme.
+    - Secrets dans les logs : notify_target = nom de service (ex: "mobile_app_iphone"),
+      camera et severity = champs métier non sensibles. Aucun token/password loggué. Conforme.
+    Observation non-bloquante (MINOR pour T-473) :
+    1. notifier.py L82 : thumb_url injecté dans data["image"] sans html.escape().
+       Acceptable car transmis au client push natif (pas rendu HTML), mais
+       une validation de format URL (startswith http) renforcerait la robustesse.
 
 ### T-472 | Tests T-470
 
-- Status: TODO
+- Status: IN_REVIEW
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
 - Depends: T-470
 - Blocks: T-473
-- Notes: —
+- Notes: |
+    Fichier : tests/test_notifier.py (34 tests, 8 classes)
+    Couvre : async_call arguments (6), html.escape (6), critical alert (5),
+    thumb_url (4), tag (3), actions review_id (2), exception catchée (4),
+    objects vide/multiples (2).
+    Coverage attendu ≥80% (analyse statique : tous les chemins couverts) — valider avec :
+    pytest tests/test_notifier.py --cov=custom_components/frigate_event_manager/notifier --cov-report=term-missing
 
 ### T-473 | Simplification T-470
 
