@@ -70,17 +70,20 @@
 
 ### T-411 | Review T-410
 
-- Status: TODO
+- Status: DONE
 - Owner: reviewer
 - Scope: custom_components/frigate_event_manager/
 - Locks: —
 - Depends: T-410
 - Blocks: T-413
-- Notes: —
+- Notes: |
+    REVIEW_OK. Points non-bloquants pour T-413 :
+    1. config_flow.py L57 : check cooldown<0 redondant avec vol.Range(min=0) — branche morte à supprimer
+    2. __init__.py L32 : utiliser CONF_MQTT_TOPIC au lieu de la string littérale "mqtt_topic"
 
 ### T-412 | Tests T-410
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
