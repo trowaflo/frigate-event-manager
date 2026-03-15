@@ -1,11 +1,11 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Configurer Frigate Event Manager",
-        "description": "Saisissez l'adresse du addon Go Frigate Event Manager.",
+      "manual": {
+        "title": "Configurer Frigate Event Manager (manuel)",
+        "description": "L'addon n'a pas pu être détecté automatiquement. Saisissez son adresse.",
         "data": {
-          "url": "URL du addon (ex: http://localhost)",
+          "url": "URL du addon (ex: http://192.168.1.10)",
           "port": "Port du addon"
         }
       }
