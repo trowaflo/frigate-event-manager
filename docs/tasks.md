@@ -209,13 +209,29 @@
 
 ### T-431 | Review T-430
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/filter.py
 - Locks: —
 - Depends: T-430
 - Blocks: T-433
-- Notes: —
+- Notes: |
+    APPROVED — aucune issue bloquante. Issue MINOR pour T-433 (code-simplifier) :
+    1. filter.py L135 : datetime.now sans timezone explicite.
+       Si HA tourne avec TZ=UTC et que l'utilisateur configure des disabled_hours
+       en heure locale, le filtre sera décalé. Envisager datetime.now().astimezone()
+       ou documenter l'hypothèse "heure locale du serveur HA".
+    Points vérifiés OK :
+    - Convention liste vide = tout accepter : conforme sur ZoneFilter, LabelFilter, TimeFilter.
+    - zone_order_enforced : sous-séquence ordonnée via iter() correcte.
+    - LabelFilter : any() garantit "au moins un match".
+    - TimeFilter : clock injectable conforme, .hour correct.
+    - FilterChain : all() avec court-circuit natif Python.
+    - Typage : tous les imports utilisés, annotations cohérentes.
+    - Robustesse : event.zones et event.objects garantis list[str] non-None
+      par le coordinator (L112-113) et les dataclass defaults.
 
 ### T-432 | Tests T-430
 
