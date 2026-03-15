@@ -504,13 +504,18 @@
 
 ### T-473 | Simplification T-470
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: custom_components/frigate_event_manager/notifier.py
 - Locks: —
 - Depends: T-471, T-472
 - Blocks: T-480
-- Notes: —
+- Notes: |
+    Guard URL ajouté sur thumb_url (L82) : startswith(("http://", "https://")).
+    Valeur non-URL → _LOGGER.warning + rejet (clé "image" absente du payload).
+    Valeur vide → comportement inchangé (guard `if thumb_url:` externe préservé).
+    test_thumb_url_avec_chemin_relatif adapté en test_thumb_url_avec_chemin_relatif_rejete.
+    test_thumb_url_https_accepte ajouté (35 tests au total, +1 net).
 
 ### T-480 | Entités HA — sensor, switch, binary_sensor
 

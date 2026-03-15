@@ -348,12 +348,29 @@ class TestThumbUrl:
         assert "image" not in data
 
     @pytest.mark.asyncio
-    async def test_thumb_url_avec_chemin_relatif(self) -> None:
-        """thumb_url peut être un chemin relatif — transmis tel quel."""
+    async def test_thumb_url_avec_chemin_relatif_rejete(self) -> None:
+        """thumb_url chemin relatif (non HTTP/HTTPS) → data['image'] absent + warning loggué."""
         hass = _make_hass()
         notifier = _notifier(hass)
         event = _make_event()
         thumb_url = "/api/frigate/notifications/abc/thumbnail.jpg"
+
+        with patch(
+            "custom_components.frigate_event_manager.notifier._LOGGER"
+        ) as mock_logger:
+            await notifier.async_notify(event, thumb_url=thumb_url)
+            mock_logger.warning.assert_called_once()
+
+        data = _captured_service_data(hass)["data"]
+        assert "image" not in data
+
+    @pytest.mark.asyncio
+    async def test_thumb_url_https_accepte(self) -> None:
+        """thumb_url HTTPS valide → data['image'] présent."""
+        hass = _make_hass()
+        notifier = _notifier(hass)
+        event = _make_event()
+        thumb_url = "https://frigate.local/api/events/abc123/thumbnail.jpg"
 
         await notifier.async_notify(event, thumb_url=thumb_url)
 

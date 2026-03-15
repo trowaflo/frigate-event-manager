@@ -77,9 +77,16 @@ class HANotifier:
             ],
         }
 
-        # Ajout de la miniature si une URL est fournie
+        # Ajout de la miniature si une URL HTTP(S) valide est fournie
         if thumb_url:
-            data["image"] = thumb_url
+            if thumb_url.startswith(("http://", "https://")):
+                data["image"] = thumb_url
+            else:
+                _LOGGER.warning(
+                    "thumb_url rejeté — format non-URL : %r (caméra=%s)",
+                    thumb_url,
+                    event.camera,
+                )
 
         # Bypass DND iOS (critical=1) uniquement pour les alertes
         if event.severity == "alert":
