@@ -519,17 +519,18 @@
 
 ### T-480 | Entités HA — sensor, switch, binary_sensor
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/
 - Locks: —
 - Depends: T-473
 - Blocks: T-481, T-482
 - Notes: |
-    sensor.py : last_severity, last_object, event_count_24h par caméra.
-    switch.py : notifications on/off par caméra (PATCH registry).
-    binary_sensor.py : motion par caméra (on sur type:new, off sur type:end).
-    Toutes les entités : CoordinatorEntity, unique_id fem_{cam}_{key}, has_entity_name=True.
+    sensor.py : conforme spec (last_severity, last_object, event_count_24h) — aucun changement requis.
+    switch.py : conforme spec (notifications on/off, set_camera_enabled) — aucun changement requis.
+    binary_sensor.py : créé. FrigateMotionSensor, unique_id fem_{cam}_motion,
+    device_class=MOTION, is_on=cam["motion"], has_entity_name=True.
+    __init__.py : binary_sensor déjà dans PLATFORMS — aucun changement requis.
 
 ### T-481 | Review T-480
 
