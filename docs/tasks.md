@@ -103,19 +103,37 @@
 
 ### T-420 | Coordinator MQTT — subscribe + parse payload Frigate
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/coordinator.py
 - Locks: —
 - Depends: T-413
 - Blocks: T-421, T-422
 - Notes: |
+    CONTEXT REVIEWER (issues BLOCKING à corriger) :
+    1. coordinator.py actuel utilise aiohttp vers /api/cameras de l'addon Go — à supprimer entièrement.
+    2. __init__.py appelle coordinator.async_config_entry_first_refresh() — incompatible avec MQTT push.
+       Remplacer par un coordinator sans polling (update_interval=None) + démarrage MQTT dans async_setup.
+    3. switch.py utilise entry.data["url"] (KeyError car la clé n'existe plus) et aiohttp PATCH — à corriger.
+    4. sensor.py attend cam["name"], cam["last_severity"], cam["last_objects"], cam["event_count_24h"] —
+       la shape de coordinator.data doit être cohérente avec ces clés (ou sensor.py doit être adapté).
+
+    SPEC T-420 :
     Utiliser hass.components.mqtt.async_subscribe (intégration MQTT native HA).
-    Souscrire à frigate/reviews (ou topic configuré).
+    Souscrire à frigate/reviews (ou topic configuré via CONF_MQTT_TOPIC).
     Parser le payload JSON → dataclass FrigateEvent (type, camera, severity, objects,
     zones, score, thumb_path, review_id, start_time, end_time).
     Gérer reconnexion automatique (HA MQTT s'en charge).
-    Exposer coordinator.data : liste des CameraState (état courant par caméra).
+    Exposer coordinator.data : dict[str, CameraState] — clé = camera_name.
+    CameraState expose : name, last_severity, last_objects, event_count_24h, last_event_time, enabled.
+    coordinator.async_start() souscrit au topic MQTT + stocke l'unsubscribe callback.
+    coordinator.async_stop() appelle l'unsubscribe callback.
+    __init__.py : remplacer async_config_entry_first_refresh() par coordinator.async_start().
+    async_unload_entry : appeler coordinator.async_stop() avant async_unload_platforms().
+    switch.py : remplacer aiohttp PATCH par coordinator.set_camera_enabled(cam_name, enabled).
+    Ne pas modifier sensor.py (T-480 s'en chargera), mais s'assurer que coordinator.data
+    est itérable comme liste de dicts avec les clés "name", "last_severity", "last_objects",
+    "event_count_24h" pour préserver la compatibilité avec l'existant.
 
 ### T-421 | Review T-420
 
