@@ -255,7 +255,7 @@
 
 ### T-440 | Registry — état caméras en mémoire
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: custom_components/frigate_event_manager/registry.py
 - Locks: —
@@ -267,6 +267,8 @@
     Persistence dans hass.config.path("frigate_em_state.json") (pas /data/).
     Écriture atomique (tmp + rename).
     Auto-découverte des nouvelles caméras (enabled=True par défaut).
+    CameraState et FrigateEvent importés depuis .coordinator (pas de redéfinition).
+    I/O disque déléguées à hass.async_add_executor_job (pas de dépendance aiofiles).
 
 ### T-441 | Review T-440
 
