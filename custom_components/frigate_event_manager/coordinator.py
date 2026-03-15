@@ -11,6 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -61,6 +62,20 @@ class CameraState:
         }
 
 
+def _to_float(value: Any, *, default: float | None) -> float | None:
+    """Convertit une valeur en float de manière sécurisée.
+
+    Retourne `default` si la valeur est None, falsy, ou non-numérique.
+    Protège contre les strings non-numériques comme 'N/A'.
+    """
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
 def _parse_event(payload: str) -> FrigateEvent | None:
     """Parse un payload MQTT Frigate JSON → FrigateEvent.
 
@@ -96,11 +111,11 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         severity=str(after.get("severity") or raw.get("severity") or "detection"),
         objects=list(after.get("objects") or raw.get("objects") or []),
         zones=list(after.get("current_zones") or raw.get("zones") or []),
-        score=float(after.get("score") or raw.get("score") or 0.0),
+        score=_to_float(after.get("score") or raw.get("score"), default=0.0),
         thumb_path=str(after.get("thumb_path") or raw.get("thumb_path") or ""),
         review_id=str(after.get("id") or raw.get("review_id") or ""),
-        start_time=float(after.get("start_time") or raw.get("start_time") or 0.0),
-        end_time=after.get("end_time") or raw.get("end_time"),
+        start_time=_to_float(after.get("start_time") or raw.get("start_time"), default=0.0),
+        end_time=_to_float(after.get("end_time") or raw.get("end_time"), default=None),
     )
 
 
@@ -143,9 +158,8 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[list[dict]]):
         if cam_name not in self._cameras:
             self._cameras[cam_name] = CameraState(name=cam_name)
         self._cameras[cam_name].enabled = enabled
-        # Met à jour coordinator.data et notifie les entités HA
-        self._sync_data()
-        self.async_set_updated_data(self.data)
+        # Notifie les entités HA avec les données fraîches
+        self.async_set_updated_data(self._cameras_as_list())
 
     async def async_start(self) -> None:
         """Souscrit au topic MQTT Frigate.
@@ -153,7 +167,8 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[list[dict]]):
         Appelé depuis async_setup_entry après l'enregistrement du coordinator.
         La reconnexion MQTT est gérée nativement par HA, pas besoin de retry.
         """
-        self._unsubscribe_mqtt = await self.hass.components.mqtt.async_subscribe(
+        self._unsubscribe_mqtt = await mqtt.async_subscribe(
+            self.hass,
             self._mqtt_topic,
             self._handle_mqtt_message,
         )
@@ -210,17 +225,16 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[list[dict]]):
             event.objects,
         )
 
-        # Synchronise coordinator.data et notifie les entités HA
-        self._sync_data()
-        self.async_set_updated_data(self.data)
+        # Notifie les entités HA avec les données fraîches
+        self.async_set_updated_data(self._cameras_as_list())
 
-    def _sync_data(self) -> None:
-        """Met à jour self.data à partir des CameraState internes.
+    def _cameras_as_list(self) -> list[dict]:
+        """Retourne les CameraState sérialisés en liste de dicts.
 
         Maintient la forme liste-de-dicts pour la compatibilité
         avec sensor.py et switch.py existants.
         """
-        self.data = [state.as_dict() for state in self._cameras.values()]
+        return [state.as_dict() for state in self._cameras.values()]
 
     async def _async_update_data(self) -> list[dict]:
         """Non utilisé — le coordinator est en mode push MQTT uniquement."""

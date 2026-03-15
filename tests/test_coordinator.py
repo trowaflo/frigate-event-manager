@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -541,7 +541,6 @@ class TestAsyncStartStop:
         mock_subscribe = AsyncMock(return_value=mock_unsubscribe)
 
         mock_hass = MagicMock()
-        mock_hass.components.mqtt.async_subscribe = mock_subscribe
 
         # Bypasse __init__ pour créer un coordinator minimal sans boucle HA
         coordinator = object.__new__(FrigateEventManagerCoordinator)
@@ -551,9 +550,14 @@ class TestAsyncStartStop:
         coordinator._unsubscribe_mqtt = None
         coordinator.hass = mock_hass
 
-        await coordinator.async_start()
+        with patch(
+            "custom_components.frigate_event_manager.coordinator.mqtt.async_subscribe",
+            mock_subscribe,
+        ):
+            await coordinator.async_start()
 
         mock_subscribe.assert_called_once_with(
+            mock_hass,
             DEFAULT_MQTT_TOPIC,
             coordinator._handle_mqtt_message,
         )
@@ -566,7 +570,6 @@ class TestAsyncStartStop:
         mock_subscribe = AsyncMock(return_value=mock_unsubscribe)
 
         mock_hass = MagicMock()
-        mock_hass.components.mqtt.async_subscribe = mock_subscribe
 
         coordinator = object.__new__(FrigateEventManagerCoordinator)
         coordinator._entry = _make_entry(topic=custom_topic)
@@ -575,9 +578,14 @@ class TestAsyncStartStop:
         coordinator._unsubscribe_mqtt = None
         coordinator.hass = mock_hass
 
-        await coordinator.async_start()
+        with patch(
+            "custom_components.frigate_event_manager.coordinator.mqtt.async_subscribe",
+            mock_subscribe,
+        ):
+            await coordinator.async_start()
 
         mock_subscribe.assert_called_once_with(
+            mock_hass,
             custom_topic,
             coordinator._handle_mqtt_message,
         )
