@@ -404,13 +404,24 @@
 
 ### T-461 | Review T-460
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/throttle.py
 - Locks: —
 - Depends: T-460
 - Blocks: T-463
-- Notes: —
+- Notes: |
+    APPROVED — aucune issue. Tous les critères vérifiés :
+    1. should_notify() read-only : dict.get() sans insertion, aucune mutation. Conforme.
+    2. record() seul point de mutation : _last_notified[camera] = instant en L82 uniquement. Conforme.
+    3. Première notification → True : guard `if derniere is None` correct (dict.get() → None si absent). Conforme.
+    4. now=0.0 non-falsy : test `is not None` (L62, L81), pas de test booléen. 0.0 epoch correctement traité. Conforme.
+    5. Clock injectable : Callable[[], float] = time.time, utilisé via self._clock(). Conforme.
+    6. Cooldown expiré → True, non expiré → False : `>=` inclusif en L69, sémantique correcte. Conforme.
+    7. Caméras indépendantes : dict[str, float] avec clé = camera_name, isolation totale. Conforme.
+    Qualité : CC max=2, 0 magic number contextuel problématique, 0 log, 0 secret, typage complet.
 
 ### T-462 | Tests T-460
 
