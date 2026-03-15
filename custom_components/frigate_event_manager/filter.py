@@ -9,7 +9,7 @@ Un seul refus suffit pour bloquer l'événement.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Protocol, runtime_checkable
 
 from .coordinator import FrigateEvent
@@ -128,11 +128,16 @@ class TimeFilter:
         Args:
             disabled_hours: Heures (0-23) où les événements sont bloqués
                 (liste vide = tout accepter).
-            clock: Fonction retournant l'heure courante. Défaut : datetime.now().
-                   Injectable pour les tests unitaires.
+            clock: Fonction retournant l'heure courante. Défaut : datetime.now()
+                   converti en heure locale du serveur via .astimezone() — les
+                   disabled_hours doivent donc être exprimées en heure locale du
+                   serveur Home Assistant. Si HA tourne en UTC, configurer les
+                   heures en UTC. Injectable pour les tests unitaires.
         """
         self.disabled_hours = disabled_hours
-        self._clock: Callable[[], datetime] = clock if clock is not None else datetime.now
+        self._clock: Callable[[], datetime] = (
+            clock if clock is not None else lambda: datetime.now(tz=timezone.utc).astimezone()
+        )
 
     def apply(self, event: FrigateEvent) -> bool:  # noqa: ARG002
         """Retourne True si l'heure courante n'est pas une heure désactivée.
