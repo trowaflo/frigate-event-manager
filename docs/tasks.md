@@ -534,23 +534,60 @@
 
 ### T-481 | Review T-480
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
+- Security: SECURITY_OK
+- Doc: SYNCED
 - Scope: custom_components/frigate_event_manager/
 - Locks: —
 - Depends: T-480
 - Blocks: T-483
-- Notes: —
+- Notes: |
+    APPROVED — aucune issue bloquante.
+    Points vérifiés OK :
+    - CoordinatorEntity + has_entity_name=True : présent sur les 3 fichiers (sensor.py L46,
+      switch.py L35, binary_sensor.py L43). Conforme.
+    - unique_id format fem_{cam}_{key} : sensor.py L61 dynamique via key param,
+      switch.py L46 "notifications", binary_sensor.py L56 "motion". Conforme.
+    - binary_sensor device_class=MOTION : BinarySensorDeviceClass.MOTION en L44.
+      Import correct depuis homeassistant.components.binary_sensor. Conforme.
+    - switch is_on lit coordinator.data : boucle sur coordinator.data or [] L51-54. Conforme.
+    - switch async_turn_on/off appelle set_camera_enabled : L58 et L62. Conforme.
+      Rafraîchissement HA garanti par async_set_updated_data dans le coordinator. Conforme.
+    - sensor last_object extra_state_attributes avec all_objects : L90-91. Conforme.
+    - Robustesse coordinator.data vide ou caméra absente : guards "or []" dans les 3
+      async_setup_entry + _camera_data retourne {} + is_on retourne valeur par défaut. Conforme.
+    - Cohérence avec CameraState.as_dict() : toutes les clés accédées (name, last_severity,
+      last_objects, event_count_24h, motion, enabled) présentes dans le dict sérialisé. Conforme.
+    Issue MINOR pour T-483 (observation, non-bloquant) :
+    1. Découverte dynamique des entités absente : si coordinator.data est vide au
+       chargement de la plateforme, aucune entité n'est créée. Les caméras découvertes
+       après le démarrage via MQTT ne génèrent pas de nouvelles entités HA sans reload.
+       Limitation architecturale connue — à traiter dans une tâche dédiée (ex: T-484)
+       si la découverte dynamique est souhaitée (async_add_entities appelé depuis le
+       callback MQTT du coordinator).
 
 ### T-482 | Tests T-480
 
-- Status: TODO
+- Status: IN_REVIEW
 - Owner: quality-guard
 - Scope: tests/
 - Locks: —
 - Depends: T-480
 - Blocks: T-483
-- Notes: —
+- Notes: |
+    Fichier : tests/test_entities.py (44 tests, 5 classes)
+    Couvre : FrigateLastSeveritySensor (8), FrigateLastObjectSensor (9),
+    FrigateEventCountSensor (7), FrigateNotificationSwitch (12), FrigateMotionSensor (9).
+    Mock : CoordinatorEntity.__init__ patché no-op, coordinator MagicMock avec .data liste de dicts.
+    Cas couverts : nominal, camera inconnue, data vide, data None, plusieurs caméras,
+    async_turn_on/off avec kwargs, unique_id, device_class MOTION.
+    Coverage attendu ≥80% — valider avec :
+    pytest tests/test_entities.py -v
+      --cov=custom_components/frigate_event_manager/sensor
+      --cov=custom_components/frigate_event_manager/switch
+      --cov=custom_components/frigate_event_manager/binary_sensor
+      --cov-report=term-missing
 
 ### T-483 | Simplification T-480
 
