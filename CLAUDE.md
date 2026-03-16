@@ -106,6 +106,8 @@ Agents avec scopes stricts pour les taches multi-composants :
 - **`markdownlint-cli2`** : sans `npx`, exclure `.venv/` : `markdownlint-cli2 '**/*.md' '!.venv/**'`
 - **Agents sans Bash** : les agents specialises ne peuvent pas lancer `pytest` — l'orchestrateur principal verifie toujours les tests apres chaque livraison.
 - **Planifier ≠ executer** : si l'utilisateur demande d'ajouter quelque chose a un plan ou une liste, NE PAS modifier les fichiers concernes — uniquement mettre a jour `docs/tasks.md`.
+- **Config flow — champs liste** : `vol.Coerce(list)` sur une string UI convertit chaque *caractere* en element. Toujours utiliser `str` + `_parse_csv()` pour les champs liste, convertir en liste dans `async_step_user` avant `async_create_entry`.
+- **`translations/en.json` obligatoire** : HA exige ce fichier comme langue de fallback. Sans lui, le config flow ne s'affiche pas dans l'UI. Toujours creer `translations/en.json` en meme temps que `fr.json`.
 
 ## Project
 
