@@ -100,7 +100,9 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                     user_input.get(CONF_USERNAME) or None,
                     user_input.get(CONF_PASSWORD) or None,
                 ).get_cameras()
-            except aiohttp.ClientError:
+            except aiohttp.ClientResponseError as err:
+                errors["base"] = "invalid_auth" if err.status == 401 else "cannot_connect"
+            except (aiohttp.ClientError, TimeoutError, ValueError):
                 errors["base"] = "cannot_connect"
             else:
                 self._url = user_input[CONF_URL]
@@ -163,7 +165,9 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                     user_input.get(CONF_USERNAME) or None,
                     user_input.get(CONF_PASSWORD) or None,
                 ).get_cameras()
-            except aiohttp.ClientError:
+            except aiohttp.ClientResponseError as err:
+                errors["base"] = "invalid_auth" if err.status == 401 else "cannot_connect"
+            except (aiohttp.ClientError, TimeoutError, ValueError):
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_update_reload_and_abort(
@@ -230,7 +234,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 entry.data.get(CONF_USERNAME),
                 entry.data.get(CONF_PASSWORD),
             ).get_cameras()
-        except aiohttp.ClientError:
+        except aiohttp.ClientResponseError as err:
+            errors["base"] = "invalid_auth" if err.status == 401 else "cannot_connect"
+            all_cameras = []
+        except (aiohttp.ClientError, TimeoutError, ValueError):
             errors["base"] = "cannot_connect"
             all_cameras = []
 

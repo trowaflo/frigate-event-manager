@@ -16,7 +16,7 @@ class FrigateClient:
     ) -> None:
         """Initialise le client avec l'URL et les credentials optionnels."""
         self._url = url.rstrip("/")
-        self._auth = aiohttp.BasicAuth(username, password) if username else None
+        self._auth = aiohttp.BasicAuth(username, password or "") if username else None
 
     async def get_cameras(self) -> list[str]:
         """Retourne la liste des noms de caméras depuis GET {url}/api/cameras.

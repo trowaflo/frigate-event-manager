@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to Frigate. Check the URL and credentials."
+      "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+      "invalid_auth": "Invalid credentials. Check your username and password."
     },
     "abort": {
       "already_configured": "Frigate Event Manager is already configured.",
@@ -49,7 +50,8 @@
         }
       },
       "error": {
-        "cannot_connect": "Cannot connect to Frigate. Check the URL and credentials."
+        "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+        "invalid_auth": "Invalid credentials. Check your username and password."
       },
       "abort": {
         "no_cameras_available": "All cameras are already configured.",
@@ -70,7 +72,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to Frigate. Check the URL and credentials."
+      "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+      "invalid_auth": "Invalid credentials. Check your username and password."
     },
     "abort": {
       "reconfigure_successful": "Configuration updated successfully."

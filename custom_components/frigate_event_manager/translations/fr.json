@@ -19,7 +19,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
+      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL.",
+      "invalid_auth": "Identifiants incorrects. Vérifiez le nom d'utilisateur et le mot de passe."
     },
     "abort": {
       "already_configured": "Frigate Event Manager est déjà configuré.",
@@ -49,7 +50,8 @@
         }
       },
       "error": {
-        "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
+        "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL.",
+        "invalid_auth": "Identifiants incorrects. Vérifiez le nom d'utilisateur et le mot de passe."
       },
       "abort": {
         "no_cameras_available": "Toutes les caméras sont déjà configurées.",
@@ -70,7 +72,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
+      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL.",
+      "invalid_auth": "Identifiants incorrects. Vérifiez le nom d'utilisateur et le mot de passe."
     },
     "abort": {
       "reconfigure_successful": "Configuration mise à jour avec succès."
