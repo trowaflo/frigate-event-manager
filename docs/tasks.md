@@ -27,24 +27,18 @@
 
 ### T-500 | Supprimer composants obsolètes
 
-- Status: IN_PROGRESS
+- Status: DONE
 - Owner: python-architect
 - Scope: `event_store.py`, `registry.py`, `sensor.py`, `tests/test_event_store.py`, `tests/test_registry.py`, `tests/test_entities.py` (partiel), `__init__.py`, `coordinator.py`
-- Locks: [LOCKED by T-500: custom_components/frigate_event_manager/event_store.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: custom_components/frigate_event_manager/registry.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: custom_components/frigate_event_manager/sensor.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: custom_components/frigate_event_manager/__init__.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: custom_components/frigate_event_manager/coordinator.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: tests/test_event_store.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: tests/test_registry.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
-         [LOCKED by T-500: tests/test_entities.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+- Locks: —
 - Depends: —
 - Blocks: T-504
 - Notes: |
-    Supprimer event_store.py, registry.py, sensor.py.
-    Retirer sensor de PLATFORMS dans __init__.py.
-    Nettoyer coordinator.py (_cameras_as_list ne retourne plus que switch + binary_sensor).
-    Adapter/supprimer les tests correspondants.
+    Commit 4dc6b84 — ruff 0 erreur.
+    Supprimés : event_store.py, registry.py, sensor.py, tests/test_event_store.py, tests/test_registry.py.
+    __init__.py : PLATFORMS = ["switch", "binary_sensor"].
+    coordinator.py : commentaires sensor.py nettoyés.
+    tests/test_entities.py : classes sensor supprimées, switch + binary_sensor conservés.
 
 ### T-501 | Review — nettoyage
 
