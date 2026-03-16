@@ -50,7 +50,7 @@ class CameraState:
     enabled: bool = True        # contrôle notifications (switch HA)
 
     def as_dict(self) -> dict[str, Any]:
-        """Sérialise l'état pour la compatibilité sensor.py (liste de dicts)."""
+        """Sérialise l'état en dict pour la liste coordinator.data."""
         return {
             "name": self.name,
             "last_severity": self.last_severity,
@@ -124,7 +124,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[list[dict]]):
 
     S'abonne au topic Frigate via MQTT natif HA.
     Maintient un dict interne de CameraState, exposé via coordinator.data
-    comme liste de dicts pour la compatibilité avec sensor.py et switch.py.
+    comme liste de dicts pour la compatibilité avec switch.py.
     """
 
     def __init__(
@@ -232,7 +232,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[list[dict]]):
         """Retourne les CameraState sérialisés en liste de dicts.
 
         Maintient la forme liste-de-dicts pour la compatibilité
-        avec sensor.py et switch.py existants.
+        avec switch.py.
         """
         return [state.as_dict() for state in self._cameras.values()]
 

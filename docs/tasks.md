@@ -27,10 +27,17 @@
 
 ### T-500 | Supprimer composants obsolètes
 
-- Status: TODO
+- Status: IN_PROGRESS
 - Owner: python-architect
 - Scope: `event_store.py`, `registry.py`, `sensor.py`, `tests/test_event_store.py`, `tests/test_registry.py`, `tests/test_entities.py` (partiel), `__init__.py`, `coordinator.py`
-- Locks: —
+- Locks: [LOCKED by T-500: custom_components/frigate_event_manager/event_store.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: custom_components/frigate_event_manager/registry.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: custom_components/frigate_event_manager/sensor.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: custom_components/frigate_event_manager/__init__.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: custom_components/frigate_event_manager/coordinator.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: tests/test_event_store.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: tests/test_registry.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
+         [LOCKED by T-500: tests/test_entities.py | since: 2026-03-16T00:00:00Z | ttl: 10m]
 - Depends: —
 - Blocks: T-504
 - Notes: |

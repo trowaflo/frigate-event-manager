@@ -16,7 +16,7 @@ from .coordinator import FrigateEventManagerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor", "switch", "binary_sensor"]
+PLATFORMS = ["switch", "binary_sensor"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
