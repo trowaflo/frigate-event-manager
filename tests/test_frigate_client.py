@@ -49,11 +49,13 @@ def _make_session(response: MagicMock) -> MagicMock:
 
 
 async def test_get_cameras_returns_camera_names() -> None:
-    """Happy path : l'API retourne un dict → get_cameras() retourne les clés."""
+    """Happy path : /api/config retourne un dict avec 'cameras' → get_cameras() retourne les noms."""
     api_response = {
-        "jardin": {"fps": 5},
-        "entree": {"fps": 10},
-        "garage": {"fps": 5},
+        "cameras": {
+            "jardin": {"fps": 5},
+            "entree": {"fps": 10},
+            "garage": {"fps": 5},
+        }
     }
     response = _make_response(api_response)
     cm_session = _make_session(response)
@@ -68,7 +70,7 @@ async def test_get_cameras_returns_camera_names() -> None:
 
 async def test_get_cameras_single_camera() -> None:
     """Une seule caméra dans la réponse → liste d'un élément."""
-    api_response = {"salon": {"fps": 15}}
+    api_response = {"cameras": {"salon": {"fps": 15}}}
     response = _make_response(api_response)
     cm_session = _make_session(response)
 
@@ -103,7 +105,7 @@ async def test_get_cameras_strips_trailing_slash() -> None:
         client = FrigateClient("http://frigate.local:5000/")
         await client.get_cameras()
 
-    assert captured_url[0] == "http://frigate.local:5000/api/cameras"
+    assert captured_url[0] == "http://frigate.local:5000/api/config"
 
 
 # ---------------------------------------------------------------------------
@@ -225,8 +227,8 @@ async def test_get_cameras_propagates_raise_for_status_error() -> None:
 
 
 async def test_get_cameras_correct_endpoint() -> None:
-    """Le client appelle bien /api/cameras sur le bon host."""
-    api_response = {"cam": {}}
+    """Le client appelle bien /api/config sur le bon host."""
+    api_response = {"cameras": {"cam": {}}}
     response = _make_response(api_response)
     captured_url: list[str] = []
 
@@ -248,4 +250,4 @@ async def test_get_cameras_correct_endpoint() -> None:
         client = FrigateClient("http://192.168.1.100:5000")
         await client.get_cameras()
 
-    assert captured_url[0] == "http://192.168.1.100:5000/api/cameras"
+    assert captured_url[0] == "http://192.168.1.100:5000/api/config"
