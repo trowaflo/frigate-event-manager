@@ -9,6 +9,7 @@ from __future__ import annotations
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -50,6 +51,11 @@ class FrigateMotionSensor(
         cam_name = coordinator.camera
         self._attr_name = f"Mouvement {cam_name}"
         self._attr_unique_id = f"fem_{cam_name}_motion"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, cam_name)},
+            name=f"Caméra {cam_name}",
+            manufacturer="Frigate",
+        )
 
     @property
     def is_on(self) -> bool | None:
