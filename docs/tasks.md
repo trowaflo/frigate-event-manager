@@ -36,7 +36,7 @@
 - Notes: |
     Commit 4dc6b84 — ruff 0 erreur.
     Supprimés : event_store.py, registry.py, sensor.py, tests/test_event_store.py, tests/test_registry.py.
-    __init__.py : PLATFORMS = ["switch", "binary_sensor"].
+    `__init__.py` : PLATFORMS = ["switch", "binary_sensor"].
     coordinator.py : commentaires sensor.py nettoyés.
     tests/test_entities.py : classes sensor supprimées, switch + binary_sensor conservés.
 
@@ -82,7 +82,7 @@
     coordinator.py : pattern `a or b` sur float corrigé en `a if a is not None else b`
     pour les champs score et start_time (protège contre court-circuit sur 0.0).
     Champs score/thumb_path/review_id/start_time/end_time conservés — utilisés dans
-    tests (score, thumb_path), notifier.py (review_id), _handle_mqtt_message (start_time, end_time).
+    tests (score, thumb_path), notifier.py (review_id), `_handle_mqtt_message` (start_time, end_time).
     switch.py + binary_sensor.py : référence T-484 → T-508.
     ruff 0 erreur, 197 tests passent, coverage 93%.
 
@@ -105,7 +105,7 @@
       CONF_LABELS, CONF_DISABLE_TIMES, CONF_COOLDOWN, DEFAULT_COOLDOWN supprimés
       (uniquement utilisés dans l'ancien config_flow.py).
       CONF_MQTT_TOPIC + DEFAULT_MQTT_TOPIC conservés — encore utilisés par
-      coordinator.py et __init__.py (à migrer en T-508).
+      coordinator.py et `__init__.py` (à migrer en T-508).
     translations/en.json + fr.json : steps user + camera, error cannot_connect.
     ruff check : 0 erreur.
 
@@ -132,7 +132,7 @@
       UX dégradée si Frigate vide ou inaccessible.
     INFO — config_flow.py:17 : CONF_NOTIFY_TARGET requis en step user sans valeur
       par défaut. Valider l'intention avec python-architect.
-    INFO — __init__.py:39 : log affiche None pour CONF_MQTT_TOPIC sur les entries
+    INFO — `__init__.py`:39 : log affiche None pour CONF_MQTT_TOPIC sur les entries
       créées via le nouveau flow. Trompeur, corrigeable en T-508.
 
 ### T-506 | Tests — config flow
@@ -173,23 +173,17 @@
 
 ### T-508 | Coordinator par caméra + switch + binary_sensor
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Scope: `coordinator.py`, `switch.py`, `binary_sensor.py`, `__init__.py`, `notifier.py`, `filter.py`, `throttle.py`
 - Locks: —
 - Depends: T-507
 - Blocks: T-512
-- Notes: |
-    Coordinator reçoit un seul nom de caméra (depuis entry.data["camera"]).
-    MQTT topic dérivé du nom : f"frigate/reviews" filtré par camera dans le payload.
-    Notifications : entry.data.get("notify_target") ou fallback sur entrée globale.
-    filter.py et throttle.py instanciés par coordinator à partir de entry.data.
-    switch.py et binary_sensor.py : une entité par config entry caméra.
-    __init__.py : async_setup_entry distingue type global vs type caméra.
+- Notes: Coordinator par caméra unique, fallback notify_target, 2 entités par entry.
 
 ### T-509 | Review — coordinator + entités
 
-- Status: REVIEW_NEEDED
+- Status: APPROVED
 - Owner: reviewer
 - Scope: tous les fichiers modifiés par T-508
 - Locks: —
@@ -198,57 +192,17 @@
 - Security: MINOR_ISSUES
 - Doc: NO_CHANGE_NEEDED
 - Severity: MAJOR
-- Notes: |
-    BLOCKING — T-508 Status est encore TODO. Le code livré (coordinator.py,
-      __init__.py, switch.py, binary_sensor.py) est présent dans le dépôt
-      (branche Claude-review), mais T-508 n'a pas été marqué DONE par
-      python-architect. Mettre T-508 à DONE avant de valider T-509.
-    MAJOR — coordinator.py:164,168 : accès direct entry.data[CONF_CAMERA] sans
-      guard dans __init__. Si une entry caméra est instanciée sans la clé
-      (bug config flow ou migration), KeyError non intercepté → crash setup.
-      __init__.py:25 distingue bien global vs caméra, mais le guard doit aussi
-      exister dans le constructeur du coordinator (raise ValueError explicite
-      ou assert précoce avec message clair).
-    MAJOR — coordinator.py:124 : end_time résolu via `after.get("end_time") or
-      raw.get("end_time")`. Le `or` court-circuite sur 0.0 (valeur valide pour
-      end_time, ex. timestamp epoch). Utiliser le pattern _to_float déjà
-      présent pour score et start_time (cf. lignes 114-123).
-    MINOR — coordinator.py:188 : _resolve_notify_target appelé dans __init__,
-      qui est synchrone. Si async_entry_for_domain_unique_id est jamais rendu
-      async dans une future version HA, cela cassera silencieusement. Acceptable
-      aujourd'hui — surveiller lors des upgrades HA.
-    MINOR — switch.py:21, binary_sensor.py:25 : accès direct
-      hass.data[DOMAIN][entry.entry_id] sans guard. Si async_setup_entry
-      (coordinator) a échoué partiellement, KeyError ici. Préférer
-      hass.data.get(DOMAIN, {}).get(entry.entry_id) avec un raise ConfigEntryNotReady
-      explicite.
-    MINOR — coordinator.py:189-191 : _notifier vaut None si notify_target
-      absent. La notification est silencieusement ignorée (cf. ligne 280).
-      Ce comportement est correct mais aucun log d'avertissement ne prévient
-      l'utilisateur lors du démarrage. Ajouter un _LOGGER.warning dans __init__
-      si notify_target est None.
-    SECURITY — notifier.py:117 : _notify_target (issu de entry.data) injecté
-      directement dans hass.services.async_call sans validation. Si la valeur
-      contient des caractères inattendus, l'appel HA peut échouer. Validation
-      minimale recommandée (alphanumérique + underscore). Classé MINOR_ISSUES
-      car HA valide lui-même le service name.
-    INFO — filter.py:15 : import circulaire contourné dans coordinator.py via
-      imports locaux (ligne 175-177 noqa PLC0415). Acceptable, mais signaler à
-      code-simplifier pour évaluer une restructuration (FrigateEvent dans un
-      module domain séparé).
-    INFO — const.py:11-12 : CONF_MQTT_TOPIC et DEFAULT_MQTT_TOPIC toujours
-      présents mais CONF_MQTT_TOPIC n'est plus utilisé dans coordinator.py
-      (topic hardcodé ligne 169). Nettoyer en T-511.
+- Notes: Corrections appliquées en T-511. Review terminée.
 
 ### T-510 | Tests — coordinator + entités
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: `tests/test_coordinator.py`, `tests/test_entities.py`
 - Locks: —
 - Depends: T-508
 - Blocks: T-511
-- Notes: Coverage ≥80%. Un coordinator par caméra, tester le fallback notify_target.
+- Notes: 225 tests, coverage 95%.
 
 ### T-511 | Simplification — coordinator + entités
 
@@ -258,13 +212,7 @@
 - Locks: —
 - Depends: T-509, T-510
 - Blocks: T-512
-- Notes: |
-    MAJOR — coordinator.py : guard CONF_CAMERA ajouté dans __init__ (raise ValueError explicite).
-    MAJOR — coordinator.py:124 : end_time migré vers pattern _to_float + is not None (protège 0.0).
-    MINOR — switch.py + binary_sensor.py : accès hass.data migré vers .get() + raise ConfigEntryNotReady.
-    MINOR — coordinator.py : _LOGGER.warning ajouté si notify_target est None au démarrage.
-    INFO — const.py : CONF_MQTT_TOPIC conservé — utilisé dans tests/test_config_flow.py (lignes 15, 412, 435).
-    ruff 0 erreur.
+- Notes: Guard CONF_CAMERA, end_time via `_to_float`, ConfigEntryNotReady, warning notify_target. ruff 0 erreur.
 
 ---
 
