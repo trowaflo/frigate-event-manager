@@ -1,8 +1,4 @@
-"""DataUpdateCoordinator MQTT pour Frigate Event Manager.
-
-Souscrit au topic Frigate via MQTT natif HA et maintient l'état
-d'une caméra unique. Pas de polling — push uniquement.
-"""
+"""DataUpdateCoordinator MQTT pour Frigate Event Manager — push uniquement."""
 
 from __future__ import annotations
 
@@ -12,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.components import mqtt
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -25,9 +21,9 @@ _LOGGER = logging.getLogger(__name__)
 class FrigateEvent:
     """Représentation d'un événement Frigate parsé depuis le payload MQTT."""
 
-    type: str          # "new" | "update" | "end"
+    type: str           # "new" | "update" | "end"
     camera: str
-    severity: str      # "alert" | "detection"
+    severity: str       # "alert" | "detection"
     objects: list[str] = field(default_factory=list)
     zones: list[str] = field(default_factory=list)
     score: float = 0.0
@@ -44,10 +40,9 @@ class CameraState:
     name: str
     last_severity: str | None = None
     last_objects: list[str] = field(default_factory=list)
-    event_count_24h: int = 0
     last_event_time: float | None = None
-    motion: bool = False        # True sur type=new, False sur type=end
-    enabled: bool = True        # contrôle notifications (switch HA)
+    motion: bool = False    # True sur type=new, False sur type=end
+    enabled: bool = True    # contrôle notifications (switch HA)
 
     def as_dict(self) -> dict[str, Any]:
         """Sérialise l'état en dict pour coordinator.data."""
@@ -55,7 +50,6 @@ class CameraState:
             "name": self.name,
             "last_severity": self.last_severity,
             "last_objects": self.last_objects,
-            "event_count_24h": self.event_count_24h,
             "last_event_time": self.last_event_time,
             "motion": self.motion,
             "enabled": self.enabled,
@@ -63,11 +57,7 @@ class CameraState:
 
 
 def _to_float(value: Any, *, default: float | None) -> float | None:
-    """Convertit une valeur en float de manière sécurisée.
-
-    Retourne `default` si la valeur est None, falsy, ou non-numérique.
-    Protège contre les strings non-numériques comme 'N/A'.
-    """
+    """Convertit une valeur en float de manière sécurisée."""
     if value is None:
         return default
     try:
@@ -77,11 +67,7 @@ def _to_float(value: Any, *, default: float | None) -> float | None:
 
 
 def _parse_event(payload: str) -> FrigateEvent | None:
-    """Parse un payload MQTT Frigate JSON → FrigateEvent.
-
-    Retourne None si le payload est invalide ou manque de champs obligatoires.
-    Les champs optionnels sont ignorés silencieusement.
-    """
+    """Parse un payload MQTT Frigate JSON → FrigateEvent."""
     try:
         raw: dict[str, Any] = json.loads(payload)
     except (json.JSONDecodeError, TypeError) as err:
@@ -89,20 +75,15 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         return None
 
     if not isinstance(raw, dict):
-        _LOGGER.warning("Payload MQTT ignoré : dict attendu, reçu %s", type(raw).__name__)
         return None
 
-    # Validation des champs obligatoires
     event_type = raw.get("type")
     if event_type not in ("new", "update", "end"):
-        _LOGGER.warning("Champ 'type' manquant ou invalide dans le payload Frigate : %r", event_type)
         return None
 
-    # Frigate encapsule les données dans une clé "after" (ou "before")
     after: dict[str, Any] = raw.get("after") or raw.get("before") or {}
     camera = after.get("camera") or raw.get("camera")
     if not camera:
-        _LOGGER.warning("Champ 'camera' introuvable dans le payload Frigate")
         return None
 
     return FrigateEvent(
@@ -128,77 +109,37 @@ def _parse_event(payload: str) -> FrigateEvent | None:
     )
 
 
-def _resolve_notify_target(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
-    """Résout le notify_target pour une config entry caméra.
-
-    Priorité :
-    1. entry.data["notify_target"] si non-None
-    2. notify_target de l'entrée globale (unique_id == DOMAIN)
-    3. None si aucun trouvé
-    """
-    local = entry.data.get(CONF_NOTIFY_TARGET)
-    if local:
-        return local
-
-    global_entry = hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, DOMAIN)
-    if global_entry is not None:
-        return global_entry.data.get(CONF_NOTIFY_TARGET)
-
-    return None
-
-
 class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
-    """Coordinator MQTT — push uniquement, pas de polling.
-
-    S'abonne au topic Frigate via MQTT natif HA.
-    Gère une seule caméra (entry.data["camera"]).
-    Maintient un CameraState exposé via coordinator.data comme dict.
-    """
+    """Coordinator MQTT — push uniquement, par caméra (subentry)."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
+        subentry: ConfigSubentry,
     ) -> None:
-        """Initialise le coordinator sans intervalle de polling."""
-        if CONF_CAMERA not in entry.data:
-            raise ValueError(f"Config entry {entry.entry_id} n'a pas de clé '{CONF_CAMERA}'")
+        """Initialise le coordinator pour une caméra donnée."""
         super().__init__(
             hass,
             _LOGGER,
-            name=f"{DOMAIN}_{entry.data[CONF_CAMERA]}",
-            update_interval=None,  # MQTT push — aucun polling
+            name=f"{DOMAIN}_{subentry.data[CONF_CAMERA]}",
+            update_interval=None,
+            config_entry=entry,
         )
-        self._entry = entry
-        self._camera: str = entry.data[CONF_CAMERA]
-        self._mqtt_topic: str = DEFAULT_MQTT_TOPIC
+        self._camera: str = subentry.data[CONF_CAMERA]
         self._camera_state = CameraState(name=self._camera)
         self._unsubscribe_mqtt: Any = None
 
-        # Imports locaux pour éviter les imports circulaires
-        # (filter.py et notifier.py importent FrigateEvent depuis coordinator.py)
-        from .filter import FilterChain, LabelFilter, TimeFilter, ZoneFilter  # noqa: PLC0415
         from .notifier import HANotifier  # noqa: PLC0415
         from .throttle import Throttler  # noqa: PLC0415
 
-        # Filtres désactivés par défaut (liste vide = tout accepter — T-512 via options flow)
-        self._filter_chain = FilterChain([
-            ZoneFilter(zone_multi=[]),
-            LabelFilter(labels=[]),
-            TimeFilter(disabled_hours=[]),
-        ])
-        self._throttler = Throttler()
-
-        # Résolution du notify_target avec fallback sur l'entrée globale
-        notify_target = _resolve_notify_target(hass, entry)
-        if notify_target is None:
-            _LOGGER.warning(
-                "Coordinator caméra '%s' : notify_target absent — les notifications seront désactivées.",
-                self._camera,
-            )
-        self._notifier: Any = (
-            HANotifier(hass, notify_target) if notify_target else None
+        # notify_target : subentry en priorité, sinon config entry globale
+        notify_target = (
+            subentry.data.get(CONF_NOTIFY_TARGET)
+            or entry.data.get(CONF_NOTIFY_TARGET)
         )
+        self._notifier: Any = HANotifier(hass, notify_target) if notify_target else None
+        self._throttler = Throttler()
 
     @property
     def camera(self) -> str:
@@ -207,98 +148,65 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
 
     @property
     def camera_state(self) -> CameraState:
-        """Accès direct au CameraState de la caméra."""
+        """Accès direct au CameraState."""
         return self._camera_state
 
     def set_camera_enabled(self, enabled: bool) -> None:
-        """Active ou désactive les notifications pour la caméra.
-
-        Notifie les listeners HA après la mise à jour.
-        """
+        """Active ou désactive les notifications pour cette caméra."""
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
 
     async def async_start(self) -> None:
-        """Souscrit au topic MQTT Frigate.
-
-        Appelé depuis async_setup_entry après l'enregistrement du coordinator.
-        La reconnexion MQTT est gérée nativement par HA, pas besoin de retry.
-        """
+        """Souscrit au topic MQTT Frigate."""
         self._unsubscribe_mqtt = await mqtt.async_subscribe(
             self.hass,
-            self._mqtt_topic,
+            DEFAULT_MQTT_TOPIC,
             self._handle_mqtt_message,
         )
-        _LOGGER.info(
-            "Coordinator Frigate Event Manager souscrit au topic MQTT : %s (caméra : %s)",
-            self._mqtt_topic,
-            self._camera,
-        )
+        _LOGGER.info("Souscrit MQTT — caméra=%s topic=%s", self._camera, DEFAULT_MQTT_TOPIC)
 
     async def async_stop(self) -> None:
-        """Désabonnement MQTT — appelé depuis async_unload_entry."""
+        """Désabonnement MQTT."""
         if self._unsubscribe_mqtt is not None:
             self._unsubscribe_mqtt()
             self._unsubscribe_mqtt = None
-            _LOGGER.debug(
-                "Coordinator Frigate Event Manager désabonné de MQTT (caméra : %s)",
-                self._camera,
-            )
+            _LOGGER.debug("Désabonné MQTT — caméra=%s", self._camera)
 
     @callback
     def _handle_mqtt_message(self, message: Any) -> None:
-        """Callback MQTT — appelé dans la boucle asyncio HA.
-
-        Parse le payload, filtre par nom de caméra, met à jour l'état,
-        envoie une notification si autorisé, puis notifie les entités HA.
-        """
+        """Callback MQTT — parse, filtre par caméra, met à jour l'état, notifie."""
         event = _parse_event(message.payload)
-        if event is None:
-            # Payload invalide déjà loggé dans _parse_event
-            return
-
-        # Filtrage par caméra — ignorer les événements des autres caméras
-        if event.camera != self._camera:
+        if event is None or event.camera != self._camera:
             return
 
         state = self._camera_state
 
-        # Mise à jour de l'état selon le type d'événement
         if event.type in ("new", "update"):
             state.last_severity = event.severity
             state.last_objects = event.objects
             state.last_event_time = event.start_time
             if event.type == "new":
                 state.motion = True
-                state.event_count_24h += 1
         elif event.type == "end":
             state.motion = False
             state.last_event_time = event.end_time or event.start_time
 
         _LOGGER.debug(
-            "Événement Frigate traité — caméra=%s type=%s sévérité=%s objets=%s",
-            event.camera,
-            event.type,
-            event.severity,
-            event.objects,
+            "Événement traité — caméra=%s type=%s sévérité=%s objets=%s",
+            event.camera, event.type, event.severity, event.objects,
         )
 
-        # Envoi de notification si activé, filtres passés, throttle OK
         if (
             event.type == "new"
             and state.enabled
             and self._notifier is not None
-            and self._filter_chain.apply(event)
             and self._throttler.should_notify(self._camera)
         ):
-            self.hass.async_create_task(
-                self._notifier.async_notify(event)
-            )
+            self.hass.async_create_task(self._notifier.async_notify(event))
             self._throttler.record(self._camera)
 
-        # Notifie les entités HA avec les données fraîches
         self.async_set_updated_data(state.as_dict())
 
     async def _async_update_data(self) -> dict:
-        """Non utilisé — le coordinator est en mode push MQTT uniquement."""
+        """Non utilisé — coordinator en mode push MQTT uniquement."""
         return self.data or {}

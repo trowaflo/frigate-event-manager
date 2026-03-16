@@ -2,37 +2,89 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configurer Frigate Event Manager",
-        "description": "Configuration globale.",
+        "title": "Connexion à Frigate",
+        "description": "Renseignez les informations de votre serveur Frigate. Les champs sont pré-remplis si l'intégration Frigate est installée.",
         "data": {
-          "url": "URL Frigate (ex: http://192.168.1.10:5000)",
-          "notify_target": "Service de notification HA (ex: notify.mobile_app_iphone)"
+          "url": "URL Frigate",
+          "username": "Nom d'utilisateur (optionnel)",
+          "password": "Mot de passe (optionnel)"
         }
       },
-      "camera": {
-        "title": "Ajouter une caméra",
+      "notify": {
+        "title": "Notification par défaut",
+        "description": "Sélectionnez le service de notification par défaut. Vous pourrez le modifier par caméra.",
         "data": {
-          "camera": "Caméra",
-          "notify_target": "Service de notification (vide = hérite du global)"
+          "notify_target": "Service de notification"
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL."
+      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
     },
     "abort": {
-      "already_configured": "Déjà configuré.",
-      "missing_global_entry": "Configuration globale Frigate introuvable. Veuillez d'abord l'ajouter."
+      "already_configured": "Frigate Event Manager est déjà configuré.",
+      "reconfigure_successful": "Configuration mise à jour avec succès."
     }
   },
-  "options": {
+  "config_subentries": {
+    "camera": {
+      "entry_type": "Caméra",
+      "initiate_flow": {
+        "user": "Ajouter une caméra"
+      },
+      "step": {
+        "user": {
+          "title": "Ajouter une caméra",
+          "description": "Sélectionnez une caméra depuis votre instance Frigate.",
+          "data": {
+            "camera": "Caméra",
+            "notify_target": "Service de notification"
+          }
+        },
+        "reconfigure": {
+          "title": "Modifier la caméra",
+          "data": {
+            "notify_target": "Service de notification"
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
+      },
+      "abort": {
+        "no_cameras_available": "Toutes les caméras sont déjà configurées.",
+        "reconfigure_successful": "Caméra mise à jour avec succès."
+      }
+    }
+  },
+  "reconfigure": {
     "step": {
-      "init": {
-        "title": "Modifier la configuration",
+      "reconfigure": {
+        "title": "Modifier la connexion Frigate",
         "data": {
           "url": "URL Frigate",
-          "notify_target": "Service de notification"
+          "username": "Nom d'utilisateur (optionnel)",
+          "password": "Mot de passe (optionnel)",
+          "notify_target": "Service de notification par défaut"
         }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL et les identifiants."
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration mise à jour avec succès."
+    }
+  },
+  "entity": {
+    "switch": {
+      "notifications": {
+        "name": "Notifications"
+      }
+    },
+    "binary_sensor": {
+      "mouvement": {
+        "name": "Mouvement"
       }
     }
   }

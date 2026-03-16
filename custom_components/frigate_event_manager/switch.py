@@ -1,12 +1,11 @@
-"""Entité switch pour Frigate Event Manager — notifications par caméra."""
+"""Entité switch — activation/désactivation des notifications par caméra."""
 
 from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -15,14 +14,15 @@ from .coordinator import FrigateEventManagerCoordinator
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    entry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée une entité switch pour la caméra de cette config entry."""
-    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if coordinator is None:
-        raise ConfigEntryNotReady(f"Coordinator non trouvé pour {entry.entry_id}")
-    async_add_entities([FrigateNotificationSwitch(coordinator)])
+    """Crée une entité switch par caméra configurée."""
+    for subentry_id, coordinator in entry.runtime_data.items():
+        async_add_entities(
+            [FrigateNotificationSwitch(coordinator, subentry_id)],
+            config_subentry_id=subentry_id,
+        )
 
 
 class FrigateNotificationSwitch(
@@ -36,23 +36,25 @@ class FrigateNotificationSwitch(
     def __init__(
         self,
         coordinator: FrigateEventManagerCoordinator,
+        subentry_id: str,
     ) -> None:
+        """Initialise le switch pour la caméra donnée."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_name = "Notifications"
         self._attr_unique_id = f"fem_{cam_name}_switch"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, cam_name)},
+            identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
         )
 
     @property
     def is_on(self) -> bool:
-        """Retourne l'état enabled de la caméra depuis le coordinator."""
+        """Retourne l'état enabled depuis coordinator.data."""
         data = self.coordinator.data
         if data:
-            return data.get("enabled", True)
+            return bool(data.get("enabled", True))
         return self.coordinator.camera_state.enabled
 
     async def async_turn_on(self, **kwargs) -> None:

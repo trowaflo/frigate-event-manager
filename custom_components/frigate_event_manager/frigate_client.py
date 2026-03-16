@@ -8,9 +8,15 @@ import aiohttp
 class FrigateClient:
     """Client HTTP asyncio pour interroger l'API REST de Frigate."""
 
-    def __init__(self, url: str) -> None:
-        """Initialise le client avec l'URL de base de Frigate."""
+    def __init__(
+        self,
+        url: str,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        """Initialise le client avec l'URL et les credentials optionnels."""
         self._url = url.rstrip("/")
+        self._auth = aiohttp.BasicAuth(username, password) if username else None
 
     async def get_cameras(self) -> list[str]:
         """Retourne la liste des noms de caméras depuis GET {url}/api/cameras.
@@ -19,7 +25,7 @@ class FrigateClient:
         Lève aiohttp.ClientError si la connexion est impossible.
         """
         timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession(timeout=timeout, auth=self._auth) as session:
             async with session.get(f"{self._url}/api/cameras") as response:
                 response.raise_for_status()
                 data = await response.json()
