@@ -113,6 +113,14 @@ Agents avec scopes stricts pour les taches multi-composants :
 
 Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT natif HA, filtre, throttle, et envoie des notifications HA Companion. Publiee via HACS custom repository.
 
+## Commits
+
+Format : titre court uniquement. Pas d'identifiant de tâche, pas de corps, pas de Co-Authored-By.
+
+```bash
+git commit -m "type: titre court"
+```
+
 ## Commands
 
 ```bash
