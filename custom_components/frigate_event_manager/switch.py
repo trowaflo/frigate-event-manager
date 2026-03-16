@@ -39,7 +39,7 @@ class FrigateNotificationSwitch(
     ) -> None:
         super().__init__(coordinator)
         cam_name = coordinator.camera
-        self._attr_name = f"Notifications {cam_name}"
+        self._attr_name = "Notifications"
         self._attr_unique_id = f"fem_{cam_name}_switch"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, cam_name)},

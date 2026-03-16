@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import voluptuous as vol
 
+import aiohttp
+
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.helpers import selector
 
 from .const import CONF_CAMERA, CONF_NOTIFY_TARGET, CONF_URL, DOMAIN
+from .frigate_client import FrigateClient
 
 
 def _detect_frigate_url(hass: object) -> str | None:
@@ -56,11 +59,11 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> "FrigateEventManagerOptionsFlow":
         """Retourne le handler d'options flow pour cet entry."""
-        return FrigateEventManagerOptionsFlow(config_entry)
+        return FrigateEventManagerOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape 1 : configuration globale (URL Frigate + notify_target)."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
@@ -75,6 +78,14 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         if user_input is not None:
+            try:
+                await FrigateClient(user_input[CONF_URL]).get_cameras()
+            except aiohttp.ClientError:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=step_schema,
+                    errors={"base": "cannot_connect"},
+                )
             return self.async_create_entry(
                 title="Frigate Event Manager",
                 data={
@@ -91,7 +102,7 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_camera(
         self, user_input: dict | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Étape 2 : ajout d'une caméra (répétable via async_init source='camera')."""
         global_entry = self.hass.config_entries.async_entry_for_domain_unique_id(
             DOMAIN, DOMAIN
@@ -143,15 +154,11 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class FrigateEventManagerOptionsFlow(config_entries.OptionsFlow):
     """Options flow — édition d'un entry existant via le bouton Configurer."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialise avec l'entry existant."""
-        self._entry = config_entry
-
     async def async_step_init(
         self, user_input: dict | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Formulaire d'édition pré-rempli avec les valeurs courantes."""
-        data = self._entry.data
+        data = self.config_entry.data
         is_camera = CONF_CAMERA in data
 
         if user_input is not None:
@@ -159,7 +166,7 @@ class FrigateEventManagerOptionsFlow(config_entries.OptionsFlow):
             new_data = {**data, **user_input}
             if is_camera:
                 new_data[CONF_NOTIFY_TARGET] = user_input.get(CONF_NOTIFY_TARGET) or None
-            self.hass.config_entries.async_update_entry(self._entry, data=new_data)
+            self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
             return self.async_create_entry(title="", data={})
 
         if is_camera:

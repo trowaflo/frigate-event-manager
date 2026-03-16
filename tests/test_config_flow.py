@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant import config_entries
@@ -36,6 +36,7 @@ CAMERAS_LIST = ["entree", "garage", "jardin"]
 PATCH_DETECT_URL = "custom_components.frigate_event_manager.config_flow._detect_frigate_url"
 PATCH_DISCOVER = "custom_components.frigate_event_manager.config_flow._discover_frigate_cameras"
 PATCH_SETUP_ENTRY = "custom_components.frigate_event_manager.async_setup_entry"
+PATCH_FRIGATE_CLIENT = "custom_components.frigate_event_manager.config_flow.FrigateClient"
 
 
 # ---------------------------------------------------------------------------
@@ -45,9 +46,12 @@ PATCH_SETUP_ENTRY = "custom_components.frigate_event_manager.async_setup_entry"
 
 async def test_config_flow_happy_path(hass: HomeAssistant) -> None:
     """Happy path : formulaire valide → entrée créée."""
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=["entree"])
     with (
         patch(PATCH_DETECT_URL, return_value=None),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -69,9 +73,12 @@ async def test_config_flow_happy_path(hass: HomeAssistant) -> None:
 
 async def test_config_flow_already_configured(hass: HomeAssistant) -> None:
     """Si l'intégration est déjà configurée → abort already_configured."""
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=[])
     with (
         patch(PATCH_DETECT_URL, return_value=None),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -92,9 +99,12 @@ async def test_config_flow_already_configured(hass: HomeAssistant) -> None:
 
 async def test_config_flow_frigate_url_autodetected(hass: HomeAssistant) -> None:
     """Si Frigate intégration présente → URL pré-remplie dans le champ."""
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=[])
     with (
         patch(PATCH_DETECT_URL, return_value="http://frigate.local:5000"),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -114,9 +124,12 @@ async def test_config_flow_frigate_url_autodetected(hass: HomeAssistant) -> None
 async def test_config_flow_frigate_url_override(hass: HomeAssistant) -> None:
     """Même si Frigate détectée, l'utilisateur peut saisir une autre URL."""
     override_url = "https://frigate.mondomaine.com"
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=[])
     with (
         patch(PATCH_DETECT_URL, return_value="http://192.168.1.10:5000"),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -168,9 +181,12 @@ async def test_config_flow_missing_notify_target_field(hass: HomeAssistant) -> N
 async def test_config_flow_url_stored_correctly(hass: HomeAssistant) -> None:
     """L'URL saisie est conservée telle quelle dans entry.data."""
     url = "http://192.168.1.100:5000"
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=[])
     with (
         patch(PATCH_DETECT_URL, return_value=None),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
@@ -192,9 +208,12 @@ async def test_config_flow_url_stored_correctly(hass: HomeAssistant) -> None:
 
 async def _setup_global_entry(hass: HomeAssistant) -> None:
     """Helper : configure l'entrée globale."""
+    mock_client = AsyncMock()
+    mock_client.get_cameras = AsyncMock(return_value=[])
     with (
         patch(PATCH_DETECT_URL, return_value=None),
         patch(PATCH_SETUP_ENTRY, return_value=True),
+        patch(PATCH_FRIGATE_CLIENT, return_value=mock_client),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,

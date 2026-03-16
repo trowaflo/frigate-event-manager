@@ -24,5 +24,16 @@
       "already_configured": "Déjà configuré.",
       "missing_global_entry": "Configuration globale Frigate introuvable. Veuillez d'abord l'ajouter."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Modifier la configuration",
+        "data": {
+          "url": "URL Frigate",
+          "notify_target": "Service de notification"
+        }
+      }
+    }
   }
 }

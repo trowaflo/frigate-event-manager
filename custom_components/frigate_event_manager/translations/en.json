@@ -24,5 +24,16 @@
       "already_configured": "Already configured.",
       "missing_global_entry": "Global Frigate configuration not found. Please add it first."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit configuration",
+        "data": {
+          "url": "Frigate URL",
+          "notify_target": "Notification service"
+        }
+      }
+    }
   }
 }

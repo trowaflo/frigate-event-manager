@@ -142,10 +142,10 @@ class TestFrigateNotificationSwitch:
         switch = self._build(data=_cam_dict(name="garage", enabled=True))
         assert switch.is_on is True
 
-    def test_nom_entite_contient_nom_camera(self) -> None:
-        """_attr_name contient le nom de la caméra."""
+    def test_nom_entite_est_notifications(self) -> None:
+        """_attr_name vaut 'Notifications' (le device porte le nom caméra)."""
         switch = self._build(cam_name="terrasse")
-        assert "terrasse" in switch._attr_name
+        assert switch._attr_name == "Notifications"
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ class TestFrigateMotionSensor:
         sensor = self._build(data=_cam_dict())
         assert sensor.is_on is False
 
-    def test_nom_entite_contient_nom_camera(self) -> None:
-        """_attr_name contient le nom de la caméra."""
+    def test_nom_entite_est_mouvement(self) -> None:
+        """_attr_name vaut 'Mouvement' (le device porte le nom caméra)."""
         sensor = self._build(cam_name="piscine")
-        assert "piscine" in sensor._attr_name
+        assert sensor._attr_name == "Mouvement"

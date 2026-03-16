@@ -6,6 +6,7 @@
   "config_flow": true,
   "dependencies": ["mqtt"],
   "documentation": "https://github.com/trowaflo/frigate-event-manager",
+  "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/trowaflo/frigate-event-manager/issues",
   "requirements": []
