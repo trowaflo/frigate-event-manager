@@ -7,22 +7,20 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
 from .const import CONF_CAMERA, CONF_NOTIFY_TARGET, CONF_URL, DOMAIN
 from .frigate_client import FrigateClient
-
-STEP_USER_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_URL): str,
-        vol.Required(CONF_NOTIFY_TARGET): str,
-    }
-)
 
 
 class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow — étape 1 globale, étape 2 par caméra."""
 
     VERSION = 1
+
+    def __init__(self) -> None:
+        """Initialise le config flow."""
+        self._frigate_url: str | None = None
 
     async def async_step_user(
         self, user_input: dict | None = None
@@ -33,8 +31,51 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         errors: dict[str, str] = {}
 
+        # Auto-détection de l'intégration Frigate
+        if self._frigate_url is None:
+            frigate_entries = self.hass.config_entries.async_entries("frigate")
+            if frigate_entries:
+                entry = frigate_entries[0]
+                detected_url = entry.data.get("url") or entry.data.get("host")
+                if detected_url:
+                    self._frigate_url = detected_url
+                else:
+                    errors["base"] = "frigate_url_not_found"
+
+        # Construction dynamique du sélecteur notify
+        notify_services = sorted(
+            f"notify.{svc}"
+            for svc in self.hass.services.async_services_for_domain("notify")
+            if svc != "persistent_notification"
+        )
+
+        if notify_services:
+            notify_field = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=notify_services,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
+        else:
+            notify_field = str  # type: ignore[assignment]
+
+        # Construction dynamique du schéma selon la disponibilité de l'URL auto-détectée
+        if self._frigate_url and not errors:
+            step_schema = vol.Schema(
+                {
+                    vol.Required(CONF_NOTIFY_TARGET): notify_field,
+                }
+            )
+        else:
+            step_schema = vol.Schema(
+                {
+                    vol.Required(CONF_URL): str,
+                    vol.Required(CONF_NOTIFY_TARGET): notify_field,
+                }
+            )
+
         if user_input is not None:
-            url = user_input[CONF_URL]
+            url = self._frigate_url or user_input.get(CONF_URL, "")
             try:
                 await FrigateClient(url).get_cameras()
             except aiohttp.ClientError:
@@ -50,7 +91,7 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=STEP_USER_SCHEMA,
+            data_schema=step_schema,
             errors=errors,
         )
 
