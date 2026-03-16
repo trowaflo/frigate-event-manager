@@ -42,33 +42,49 @@
 
 ### T-501 | Review — nettoyage
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
 - Scope: tous les fichiers modifiés par T-500
 - Locks: —
 - Depends: T-500
 - Blocks: T-503
-- Notes: —
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Notes: |
+    Aucune référence morte à event_store/registry/sensor. Nettoyage propre.
+    MINOR (code-simplifier) — coordinator.py:33-37 : champs FrigateEvent (score,
+    thumb_path, review_id, start_time, end_time) parsés mais non exposés dans
+    CameraState.as_dict(). Élaguer ou intégrer selon besoins des phases suivantes.
+    MINOR (code-simplifier) — coordinator.py:113,117 : pattern `a or b` sur float
+    court-circuite sur 0.0 (valeur valide). Préférer `a if a is not None else b`.
+    INFO — switch.py:27, binary_sensor.py:31 : référence orpheline à T-484
+    (absent de tasks.md). Mettre à jour vers T-508 lors du prochain passage.
 
 ### T-502 | Tests — nettoyage
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: `tests/`
 - Locks: —
 - Depends: T-500
 - Blocks: T-503
-- Notes: Coverage ≥80% après suppression.
+- Notes: 197 tests passent, coverage 93% (≥80%). Aucune modification nécessaire — tests déjà propres après T-500.
 
 ### T-503 | Simplification — nettoyage
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: tous les fichiers modifiés par T-500
 - Locks: —
 - Depends: T-501, T-502
 - Blocks: T-504
-- Notes: —
+- Notes: |
+    coordinator.py : pattern `a or b` sur float corrigé en `a if a is not None else b`
+    pour les champs score et start_time (protège contre court-circuit sur 0.0).
+    Champs score/thumb_path/review_id/start_time/end_time conservés — utilisés dans
+    tests (score, thumb_path), notifier.py (review_id), _handle_mqtt_message (start_time, end_time).
+    switch.py + binary_sensor.py : référence T-484 → T-508.
+    ruff 0 erreur, 197 tests passent, coverage 93%.
 
 ---
 

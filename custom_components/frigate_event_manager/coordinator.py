@@ -111,10 +111,16 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         severity=str(after.get("severity") or raw.get("severity") or "detection"),
         objects=list(after.get("objects") or raw.get("objects") or []),
         zones=list(after.get("current_zones") or raw.get("zones") or []),
-        score=_to_float(after.get("score") or raw.get("score"), default=0.0),
+        score=_to_float(
+            after.get("score") if after.get("score") is not None else raw.get("score"),
+            default=0.0,
+        ),
         thumb_path=str(after.get("thumb_path") or raw.get("thumb_path") or ""),
         review_id=str(after.get("id") or raw.get("review_id") or ""),
-        start_time=_to_float(after.get("start_time") or raw.get("start_time"), default=0.0),
+        start_time=_to_float(
+            after.get("start_time") if after.get("start_time") is not None else raw.get("start_time"),
+            default=0.0,
+        ),
         end_time=_to_float(after.get("end_time") or raw.get("end_time"), default=None),
     )
 

@@ -24,7 +24,7 @@ async def async_setup_entry(
     événement MQTT n'a encore été reçu (coordinator.data vide), aucune entité
     n'est créée. Les caméras découvertes ultérieurement via MQTT n'apparaissent
     pas automatiquement — un reload de l'intégration est nécessaire pour les
-    enregistrer. La découverte dynamique post-démarrage est prévue en T-484.
+    enregistrer. La découverte dynamique post-démarrage est prévue en T-508.
     """
     coordinator: FrigateEventManagerCoordinator = hass.data[DOMAIN][entry.entry_id]
 
