@@ -121,7 +121,10 @@ def _parse_event(payload: str) -> FrigateEvent | None:
             after.get("start_time") if after.get("start_time") is not None else raw.get("start_time"),
             default=0.0,
         ),
-        end_time=_to_float(after.get("end_time") or raw.get("end_time"), default=None),
+        end_time=_to_float(
+            after.get("end_time") if after.get("end_time") is not None else raw.get("end_time"),
+            default=None,
+        ),
     )
 
 
@@ -158,6 +161,8 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         entry: ConfigEntry,
     ) -> None:
         """Initialise le coordinator sans intervalle de polling."""
+        if CONF_CAMERA not in entry.data:
+            raise ValueError(f"Config entry {entry.entry_id} n'a pas de clé '{CONF_CAMERA}'")
         super().__init__(
             hass,
             _LOGGER,
@@ -186,6 +191,11 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
 
         # Résolution du notify_target avec fallback sur l'entrée globale
         notify_target = _resolve_notify_target(hass, entry)
+        if notify_target is None:
+            _LOGGER.warning(
+                "Coordinator caméra '%s' : notify_target absent — les notifications seront désactivées.",
+                self._camera,
+            )
         self._notifier: Any = (
             HANotifier(hass, notify_target) if notify_target else None
         )

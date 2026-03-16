@@ -189,13 +189,56 @@
 
 ### T-509 | Review — coordinator + entités
 
-- Status: TODO
+- Status: REVIEW_NEEDED
 - Owner: reviewer
 - Scope: tous les fichiers modifiés par T-508
 - Locks: —
 - Depends: T-508
 - Blocks: T-511
-- Notes: —
+- Security: MINOR_ISSUES
+- Doc: NO_CHANGE_NEEDED
+- Severity: MAJOR
+- Notes: |
+    BLOCKING — T-508 Status est encore TODO. Le code livré (coordinator.py,
+      __init__.py, switch.py, binary_sensor.py) est présent dans le dépôt
+      (branche Claude-review), mais T-508 n'a pas été marqué DONE par
+      python-architect. Mettre T-508 à DONE avant de valider T-509.
+    MAJOR — coordinator.py:164,168 : accès direct entry.data[CONF_CAMERA] sans
+      guard dans __init__. Si une entry caméra est instanciée sans la clé
+      (bug config flow ou migration), KeyError non intercepté → crash setup.
+      __init__.py:25 distingue bien global vs caméra, mais le guard doit aussi
+      exister dans le constructeur du coordinator (raise ValueError explicite
+      ou assert précoce avec message clair).
+    MAJOR — coordinator.py:124 : end_time résolu via `after.get("end_time") or
+      raw.get("end_time")`. Le `or` court-circuite sur 0.0 (valeur valide pour
+      end_time, ex. timestamp epoch). Utiliser le pattern _to_float déjà
+      présent pour score et start_time (cf. lignes 114-123).
+    MINOR — coordinator.py:188 : _resolve_notify_target appelé dans __init__,
+      qui est synchrone. Si async_entry_for_domain_unique_id est jamais rendu
+      async dans une future version HA, cela cassera silencieusement. Acceptable
+      aujourd'hui — surveiller lors des upgrades HA.
+    MINOR — switch.py:21, binary_sensor.py:25 : accès direct
+      hass.data[DOMAIN][entry.entry_id] sans guard. Si async_setup_entry
+      (coordinator) a échoué partiellement, KeyError ici. Préférer
+      hass.data.get(DOMAIN, {}).get(entry.entry_id) avec un raise ConfigEntryNotReady
+      explicite.
+    MINOR — coordinator.py:189-191 : _notifier vaut None si notify_target
+      absent. La notification est silencieusement ignorée (cf. ligne 280).
+      Ce comportement est correct mais aucun log d'avertissement ne prévient
+      l'utilisateur lors du démarrage. Ajouter un _LOGGER.warning dans __init__
+      si notify_target est None.
+    SECURITY — notifier.py:117 : _notify_target (issu de entry.data) injecté
+      directement dans hass.services.async_call sans validation. Si la valeur
+      contient des caractères inattendus, l'appel HA peut échouer. Validation
+      minimale recommandée (alphanumérique + underscore). Classé MINOR_ISSUES
+      car HA valide lui-même le service name.
+    INFO — filter.py:15 : import circulaire contourné dans coordinator.py via
+      imports locaux (ligne 175-177 noqa PLC0415). Acceptable, mais signaler à
+      code-simplifier pour évaluer une restructuration (FrigateEvent dans un
+      module domain séparé).
+    INFO — const.py:11-12 : CONF_MQTT_TOPIC et DEFAULT_MQTT_TOPIC toujours
+      présents mais CONF_MQTT_TOPIC n'est plus utilisé dans coordinator.py
+      (topic hardcodé ligne 169). Nettoyer en T-511.
 
 ### T-510 | Tests — coordinator + entités
 
@@ -209,13 +252,19 @@
 
 ### T-511 | Simplification — coordinator + entités
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: tous les fichiers modifiés par T-508
 - Locks: —
 - Depends: T-509, T-510
 - Blocks: T-512
-- Notes: —
+- Notes: |
+    MAJOR — coordinator.py : guard CONF_CAMERA ajouté dans __init__ (raise ValueError explicite).
+    MAJOR — coordinator.py:124 : end_time migré vers pattern _to_float + is not None (protège 0.0).
+    MINOR — switch.py + binary_sensor.py : accès hass.data migré vers .get() + raise ConfigEntryNotReady.
+    MINOR — coordinator.py : _LOGGER.warning ajouté si notify_target est None au démarrage.
+    INFO — const.py : CONF_MQTT_TOPIC conservé — utilisé dans tests/test_config_flow.py (lignes 15, 412, 435).
+    ruff 0 erreur.
 
 ---
 

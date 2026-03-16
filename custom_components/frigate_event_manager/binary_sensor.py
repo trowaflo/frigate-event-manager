@@ -7,7 +7,7 @@ de type "new" est actif, OFF quand l'événement se termine (type "end").
 from __future__ import annotations
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -22,7 +22,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Crée une entité binary_sensor pour la caméra de cette config entry."""
-    coordinator: FrigateEventManagerCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is None:
+        raise ConfigEntryNotReady(f"Coordinator non trouvé pour {entry.entry_id}")
     async_add_entities([FrigateMotionSensor(coordinator)])
 
 
