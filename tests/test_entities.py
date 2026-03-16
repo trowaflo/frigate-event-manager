@@ -4,8 +4,11 @@ Couvre :
 - FrigateNotificationSwitch.is_on + async_turn_on/off
 - FrigateMotionSensor.is_on + device_class
 
-Stratégie : mock du coordinator (MagicMock) avec coordinator.data
-fourni comme liste de dicts au format CameraState.as_dict().
+Stratégie : mock du coordinator (MagicMock) dont :
+  - coordinator.camera retourne le nom de la caméra
+  - coordinator.data retourne un dict conforme à CameraState.as_dict()
+  - coordinator.camera_state retourne un CameraState réel
+
 CoordinatorEntity.__init__ est patché en no-op pour éviter
 les dépendances HA (hass, event bus, etc.).
 """
@@ -28,10 +31,17 @@ from custom_components.frigate_event_manager.switch import FrigateNotificationSw
 _NOOP = "homeassistant.helpers.update_coordinator.CoordinatorEntity.__init__"
 
 
-def _make_coordinator(cam_dicts: list[dict]) -> MagicMock:
-    """Construit un coordinator mocké dont .data vaut la liste fournie."""
+def _make_coordinator(cam_name: str = "jardin", data: dict | None = None) -> MagicMock:
+    """Construit un coordinator mocké pour une caméra unique.
+
+    coordinator.data est un dict conforme à CameraState.as_dict().
+    coordinator.camera retourne le nom de la caméra.
+    coordinator.camera_state retourne un CameraState réel.
+    """
     coordinator = MagicMock()
-    coordinator.data = cam_dicts
+    coordinator.camera = cam_name
+    coordinator.camera_state = CameraState(name=cam_name)
+    coordinator.data = data if data is not None else CameraState(name=cam_name).as_dict()
     return coordinator
 
 
@@ -62,88 +72,80 @@ def _cam_dict(
 class TestFrigateNotificationSwitch:
     """Tests de FrigateNotificationSwitch."""
 
-    def _build(self, cam_dicts: list[dict], cam_name: str = "jardin") -> FrigateNotificationSwitch:
-        coordinator = _make_coordinator(cam_dicts)
+    def _build(self, cam_name: str = "jardin", data: dict | None = None) -> FrigateNotificationSwitch:
+        coordinator = _make_coordinator(cam_name, data)
         with patch(_NOOP, return_value=None):
-            switch = FrigateNotificationSwitch(coordinator, cam_name)
+            switch = FrigateNotificationSwitch(coordinator)
         switch.coordinator = coordinator
         return switch
 
     def test_is_on_retourne_enabled_true(self) -> None:
         """is_on retourne True quand enabled=True."""
-        switch = self._build([_cam_dict(enabled=True)])
+        switch = self._build(data=_cam_dict(enabled=True))
         assert switch.is_on is True
 
     def test_is_on_retourne_enabled_false(self) -> None:
         """is_on retourne False quand enabled=False."""
-        switch = self._build([_cam_dict(enabled=False)])
+        switch = self._build(data=_cam_dict(enabled=False))
         assert switch.is_on is False
-
-    def test_is_on_true_par_defaut_camera_inconnue(self) -> None:
-        """is_on retourne True quand la caméra n'est pas dans coordinator.data."""
-        switch = self._build([_cam_dict(name="autre")], cam_name="jardin")
-        assert switch.is_on is True
-
-    def test_is_on_true_par_defaut_data_vide(self) -> None:
-        """is_on retourne True quand coordinator.data est vide."""
-        switch = self._build([])
-        assert switch.is_on is True
 
     def test_is_on_true_par_defaut_data_none(self) -> None:
-        """is_on retourne True quand coordinator.data est None."""
-        switch = self._build([])
+        """is_on se replie sur camera_state.enabled quand coordinator.data est None."""
+        switch = self._build()
         switch.coordinator.data = None
+        switch.coordinator.camera_state.enabled = True
         assert switch.is_on is True
 
+    def test_is_on_false_via_camera_state_quand_data_none(self) -> None:
+        """is_on retourne False via camera_state quand coordinator.data est None."""
+        switch = self._build()
+        switch.coordinator.data = None
+        switch.coordinator.camera_state.enabled = False
+        assert switch.is_on is False
+
     async def test_async_turn_on_appelle_set_camera_enabled_true(self) -> None:
-        """async_turn_on appelle coordinator.set_camera_enabled avec enabled=True."""
-        switch = self._build([_cam_dict(enabled=False)])
+        """async_turn_on appelle coordinator.set_camera_enabled avec True."""
+        switch = self._build(data=_cam_dict(enabled=False))
         await switch.async_turn_on()
-        switch.coordinator.set_camera_enabled.assert_called_once_with("jardin", True)
+        switch.coordinator.set_camera_enabled.assert_called_once_with(True)
 
     async def test_async_turn_off_appelle_set_camera_enabled_false(self) -> None:
-        """async_turn_off appelle coordinator.set_camera_enabled avec enabled=False."""
-        switch = self._build([_cam_dict(enabled=True)])
+        """async_turn_off appelle coordinator.set_camera_enabled avec False."""
+        switch = self._build(data=_cam_dict(enabled=True))
         await switch.async_turn_off()
-        switch.coordinator.set_camera_enabled.assert_called_once_with("jardin", False)
+        switch.coordinator.set_camera_enabled.assert_called_once_with(False)
 
-    async def test_async_turn_on_nom_camera_correct(self) -> None:
-        """async_turn_on passe le bon nom de caméra au coordinator."""
-        switch = self._build([_cam_dict(name="garage", enabled=False)], cam_name="garage")
-        await switch.async_turn_on()
-        switch.coordinator.set_camera_enabled.assert_called_once_with("garage", True)
+    def test_unique_id_format_switch(self) -> None:
+        """unique_id suit le format fem_{cam}_switch."""
+        switch = self._build(cam_name="entree")
+        assert switch._attr_unique_id == "fem_entree_switch"
 
-    async def test_async_turn_off_nom_camera_correct(self) -> None:
-        """async_turn_off passe le bon nom de caméra au coordinator."""
-        switch = self._build([_cam_dict(name="garage", enabled=True)], cam_name="garage")
-        await switch.async_turn_off()
-        switch.coordinator.set_camera_enabled.assert_called_once_with("garage", False)
-
-    def test_unique_id(self) -> None:
-        """unique_id suit le format fem_{cam}_notifications."""
-        switch = self._build([_cam_dict()], cam_name="entree")
-        assert switch._attr_unique_id == "fem_entree_notifications"
-
-    def test_plusieurs_cameras_isole_bonne(self) -> None:
-        """is_on retourne l'état de la bonne caméra quand plusieurs sont présentes."""
-        data = [
-            _cam_dict(name="jardin", enabled=True),
-            _cam_dict(name="garage", enabled=False),
-        ]
-        switch = self._build(data, cam_name="garage")
-        assert switch.is_on is False
+    def test_unique_id_camera_jardin(self) -> None:
+        """unique_id correct pour caméra jardin."""
+        switch = self._build(cam_name="jardin")
+        assert switch._attr_unique_id == "fem_jardin_switch"
 
     async def test_async_turn_on_avec_kwargs_ne_plante_pas(self) -> None:
         """async_turn_on accepte des kwargs arbitraires sans erreur."""
-        switch = self._build([_cam_dict()])
+        switch = self._build(data=_cam_dict())
         await switch.async_turn_on(transition=1)
-        switch.coordinator.set_camera_enabled.assert_called_once_with("jardin", True)
+        switch.coordinator.set_camera_enabled.assert_called_once_with(True)
 
     async def test_async_turn_off_avec_kwargs_ne_plante_pas(self) -> None:
         """async_turn_off accepte des kwargs arbitraires sans erreur."""
-        switch = self._build([_cam_dict()])
+        switch = self._build(data=_cam_dict())
         await switch.async_turn_off(transition=1)
-        switch.coordinator.set_camera_enabled.assert_called_once_with("jardin", False)
+        switch.coordinator.set_camera_enabled.assert_called_once_with(False)
+
+    def test_is_on_depuis_data_dict(self) -> None:
+        """is_on lit enabled depuis coordinator.data (dict)."""
+        switch = self._build(data=_cam_dict(name="garage", enabled=True))
+        assert switch.is_on is True
+
+    def test_nom_entite_contient_nom_camera(self) -> None:
+        """_attr_name contient le nom de la caméra."""
+        switch = self._build(cam_name="terrasse")
+        assert "terrasse" in switch._attr_name
 
 
 # ---------------------------------------------------------------------------
@@ -154,59 +156,58 @@ class TestFrigateNotificationSwitch:
 class TestFrigateMotionSensor:
     """Tests de FrigateMotionSensor."""
 
-    def _build(self, cam_dicts: list[dict], cam_name: str = "jardin") -> FrigateMotionSensor:
-        coordinator = _make_coordinator(cam_dicts)
+    def _build(self, cam_name: str = "jardin", data: dict | None = None) -> FrigateMotionSensor:
+        coordinator = _make_coordinator(cam_name, data)
         with patch(_NOOP, return_value=None):
-            sensor = FrigateMotionSensor(coordinator, cam_name)
+            sensor = FrigateMotionSensor(coordinator)
         sensor.coordinator = coordinator
         return sensor
 
     def test_is_on_true_quand_motion_true(self) -> None:
         """is_on retourne True quand motion=True (événement type=new actif)."""
-        sensor = self._build([_cam_dict(motion=True)])
+        sensor = self._build(data=_cam_dict(motion=True))
         assert sensor.is_on is True
 
     def test_is_on_false_quand_motion_false(self) -> None:
         """is_on retourne False quand motion=False (aucun mouvement actif)."""
-        sensor = self._build([_cam_dict(motion=False)])
+        sensor = self._build(data=_cam_dict(motion=False))
         assert sensor.is_on is False
 
-    def test_is_on_none_camera_inconnue(self) -> None:
-        """is_on retourne None quand la caméra n'est pas dans coordinator.data."""
-        sensor = self._build([_cam_dict(name="autre")], cam_name="jardin")
-        assert sensor.is_on is None
-
-    def test_is_on_none_data_vide(self) -> None:
-        """is_on retourne None quand coordinator.data est vide."""
-        sensor = self._build([])
-        assert sensor.is_on is None
-
-    def test_is_on_none_data_none(self) -> None:
-        """is_on retourne None quand coordinator.data est None."""
-        sensor = self._build([])
+    def test_is_on_via_camera_state_quand_data_none(self) -> None:
+        """is_on se replie sur camera_state.motion quand coordinator.data est None."""
+        sensor = self._build()
         sensor.coordinator.data = None
-        assert sensor.is_on is None
+        sensor.coordinator.camera_state.motion = False
+        assert sensor.is_on is False
+
+    def test_is_on_true_via_camera_state(self) -> None:
+        """is_on retourne True via camera_state quand data est None."""
+        sensor = self._build()
+        sensor.coordinator.data = None
+        sensor.coordinator.camera_state.motion = True
+        assert sensor.is_on is True
 
     def test_device_class_est_motion(self) -> None:
         """device_class est BinarySensorDeviceClass.MOTION."""
-        sensor = self._build([_cam_dict()])
+        sensor = self._build(data=_cam_dict())
         assert sensor._attr_device_class == BinarySensorDeviceClass.MOTION
 
-    def test_unique_id(self) -> None:
+    def test_unique_id_format_motion(self) -> None:
         """unique_id suit le format fem_{cam}_motion."""
-        sensor = self._build([_cam_dict()], cam_name="entree")
+        sensor = self._build(cam_name="entree")
         assert sensor._attr_unique_id == "fem_entree_motion"
 
-    def test_plusieurs_cameras_isole_bonne(self) -> None:
-        """is_on retourne l'état de la bonne caméra quand plusieurs sont présentes."""
-        data = [
-            _cam_dict(name="jardin", motion=False),
-            _cam_dict(name="garage", motion=True),
-        ]
-        sensor = self._build(data, cam_name="garage")
-        assert sensor.is_on is True
+    def test_unique_id_camera_jardin(self) -> None:
+        """unique_id correct pour caméra jardin."""
+        sensor = self._build(cam_name="jardin")
+        assert sensor._attr_unique_id == "fem_jardin_motion"
 
     def test_motion_false_par_defaut_via_cam_dict(self) -> None:
         """Le champ motion vaut False par défaut dans CameraState.as_dict()."""
-        sensor = self._build([_cam_dict()])
+        sensor = self._build(data=_cam_dict())
         assert sensor.is_on is False
+
+    def test_nom_entite_contient_nom_camera(self) -> None:
+        """_attr_name contient le nom de la caméra."""
+        sensor = self._build(cam_name="piscine")
+        assert "piscine" in sensor._attr_name
