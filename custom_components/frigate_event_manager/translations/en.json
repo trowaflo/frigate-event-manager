@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Frigate Event Manager",
+        "description": "Enter MQTT and notification parameters.",
+        "data": {
+          "mqtt_topic": "Frigate MQTT topic (e.g. frigate/reviews)",
+          "notify_target": "HA notification service (e.g. notify.mobile_app_iphone)",
+          "severity_filter": "Severity filter — comma-separated (alert, detection — empty = all)",
+          "zones": "Zones to monitor — comma-separated (empty = all)",
+          "labels": "Objects to monitor — comma-separated (empty = all)",
+          "disable_times": "Disable time ranges — comma-separated (HH:MM-HH:MM format)",
+          "cooldown": "Anti-spam delay between notifications (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect. Check your configuration.",
+      "cooldown_invalid": "Cooldown must be >= 0."
+    },
+    "abort": {
+      "already_configured": "Frigate Event Manager is already configured."
+    }
+  }
+}

@@ -22,13 +22,14 @@ from custom_components.frigate_event_manager.const import (
 )
 
 # Données valides pour les tests happy path
+# Les champs liste sont saisis comme CSV (ce que l'UI HA envoie)
 VALID_USER_INPUT = {
     CONF_MQTT_TOPIC: "frigate/reviews",
     CONF_NOTIFY_TARGET: "notify.mobile_app_iphone",
-    CONF_SEVERITY_FILTER: [],
-    CONF_ZONES: [],
-    CONF_LABELS: [],
-    "disable_times": [],
+    CONF_SEVERITY_FILTER: "",
+    CONF_ZONES: "",
+    CONF_LABELS: "",
+    "disable_times": "",
     CONF_COOLDOWN: 60,
 }
 
@@ -56,6 +57,10 @@ async def test_config_flow_happy_path(hass: HomeAssistant) -> None:
     assert result2["data"][CONF_MQTT_TOPIC] == "frigate/reviews"
     assert result2["data"][CONF_NOTIFY_TARGET] == "notify.mobile_app_iphone"
     assert result2["data"][CONF_COOLDOWN] == 60
+    # Les champs CSV sont convertis en listes dans le config entry
+    assert result2["data"][CONF_SEVERITY_FILTER] == []
+    assert result2["data"][CONF_ZONES] == []
+    assert result2["data"][CONF_LABELS] == []
 
 
 async def test_config_flow_defaults(hass: HomeAssistant) -> None:

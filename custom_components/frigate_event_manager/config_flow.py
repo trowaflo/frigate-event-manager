@@ -20,18 +20,19 @@ from .const import (
     DOMAIN,
 )
 
+def _parse_csv(value: str) -> list[str]:
+    """Convertit une string CSV en liste — vide si la valeur est vide."""
+    return [v.strip() for v in value.split(",") if v.strip()] if value else []
+
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_MQTT_TOPIC, default=DEFAULT_MQTT_TOPIC): str,
         vol.Required(CONF_NOTIFY_TARGET): str,
-        vol.Optional(CONF_SEVERITY_FILTER, default=[]): vol.All(
-            vol.Coerce(list), [str]
-        ),
-        vol.Optional(CONF_ZONES, default=[]): vol.All(vol.Coerce(list), [str]),
-        vol.Optional(CONF_LABELS, default=[]): vol.All(vol.Coerce(list), [str]),
-        vol.Optional(CONF_DISABLE_TIMES, default=[]): vol.All(
-            vol.Coerce(list), [str]
-        ),
+        vol.Optional(CONF_SEVERITY_FILTER, default=""): str,
+        vol.Optional(CONF_ZONES, default=""): str,
+        vol.Optional(CONF_LABELS, default=""): str,
+        vol.Optional(CONF_DISABLE_TIMES, default=""): str,
         vol.Optional(CONF_COOLDOWN, default=DEFAULT_COOLDOWN): vol.All(
             int, vol.Range(min=0)
         ),
@@ -54,9 +55,13 @@ class FrigateEventManagerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Convertit les champs CSV en listes avant de stocker
+            data = dict(user_input)
+            for key in (CONF_SEVERITY_FILTER, CONF_ZONES, CONF_LABELS, CONF_DISABLE_TIMES):
+                data[key] = _parse_csv(str(data.get(key, "")))
             return self.async_create_entry(
                 title="Frigate Event Manager",
-                data=user_input,
+                data=data,
             )
 
         return self.async_show_form(
