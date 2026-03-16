@@ -92,53 +92,80 @@
 
 ### T-504 | Frigate API client + config flow 2 étapes
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
-- Scope: `frigate_client.py` (nouveau), `config_flow.py`, `const.py`
+- Scope: `frigate_client.py` (nouveau), `config_flow.py`, `const.py`, `translations/en.json`, `translations/fr.json`
 - Locks: —
 - Depends: T-503
 - Blocks: T-508
 - Notes: |
-    frigate_client.py : GET {url}/api/cameras → liste noms caméras. Pas de valeur par défaut pour URL/port.
-    Config flow étape 1 (global, unique si absent) :
-      - URL Frigate (pas de défaut), notify_target global
-      - Test connexion API → erreur explicite si injoignable
-      - unique_id = DOMAIN (une seule entrée globale)
-    Config flow étape 2 (caméra, répétable via "+ Add entry") :
-      - Appelle API Frigate → sélecteur de caméras disponibles
-      - notify_target optionnel (vide = hérite du global)
-      - unique_id = f"fem_{camera_name}"
-    _abort_if_unique_id_configured() empêche les doublons par caméra.
+    frigate_client.py créé : GET {url}/api/cameras → liste noms caméras.
+    config_flow.py réécrit : 2 étapes (user + camera).
+    const.py : CONF_URL + CONF_CAMERA ajoutés. CONF_SEVERITY_FILTER, CONF_ZONES,
+      CONF_LABELS, CONF_DISABLE_TIMES, CONF_COOLDOWN, DEFAULT_COOLDOWN supprimés
+      (uniquement utilisés dans l'ancien config_flow.py).
+      CONF_MQTT_TOPIC + DEFAULT_MQTT_TOPIC conservés — encore utilisés par
+      coordinator.py et __init__.py (à migrer en T-508).
+    translations/en.json + fr.json : steps user + camera, error cannot_connect.
+    ruff check : 0 erreur.
 
 ### T-505 | Review — config flow
 
-- Status: TODO
+- Status: DONE
 - Owner: reviewer
 - Scope: `frigate_client.py`, `config_flow.py`, `const.py`
 - Locks: —
 - Depends: T-504
 - Blocks: T-507
-- Notes: —
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Severity: MAJOR
+- Notes: |
+    MAJOR — frigate_client.py:22 : pas de timeout aiohttp. Blocage infini possible
+      sur API Frigate lente. Ajouter aiohttp.ClientTimeout(total=10).
+    MAJOR — config_flow.py:67-70 : async_step_camera ne gère pas global_entry=None.
+      Aucune erreur affichée, formulaire inutilisable si entry globale absente.
+      Ajouter un abort ou une erreur explicite.
+    MINOR — frigate_client.py:21 : ClientSession créée par requête (acceptable pour
+      config flow ponctuel, à surveiller en T-508).
+    MINOR — config_flow.py:95 : vol.In([]) vide → bascule sur str sans validation.
+      UX dégradée si Frigate vide ou inaccessible.
+    INFO — config_flow.py:17 : CONF_NOTIFY_TARGET requis en step user sans valeur
+      par défaut. Valider l'intention avec python-architect.
+    INFO — __init__.py:39 : log affiche None pour CONF_MQTT_TOPIC sur les entries
+      créées via le nouveau flow. Trompeur, corrigeable en T-508.
 
 ### T-506 | Tests — config flow
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
 - Scope: `tests/test_config_flow.py`, `tests/test_frigate_client.py` (nouveau)
 - Locks: —
 - Depends: T-504
 - Blocks: T-507
-- Notes: Mocker les appels HTTP Frigate API avec aioresponses ou unittest.mock.
+- Notes: |
+    tests/test_frigate_client.py créé : 11 tests (happy path, réponse non-dict, erreurs réseau, URL endpoint).
+    tests/test_config_flow.py réécrit : 17 tests (step user happy path, cannot_connect, already_configured,
+      step camera, constantes). Ancien flow (COOLDOWN, LABELS, ZONES, CSV) supprimé.
+    Patch : custom_components.frigate_event_manager.config_flow.FrigateClient.get_cameras (AsyncMock).
+    Patch HTTP : custom_components.frigate_event_manager.frigate_client.aiohttp.ClientSession.
+    aioresponses non installé → unittest.mock.patch utilisé.
+    BLOQUÉ : Bash access refusé — impossible de lancer pytest pour vérifier coverage.
+    Action requise : `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-report=term-missing -q`
 
 ### T-507 | Simplification — config flow
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
 - Scope: `frigate_client.py`, `config_flow.py`
 - Locks: —
 - Depends: T-505, T-506
 - Blocks: T-508
-- Notes: —
+- Notes: |
+    frigate_client.py : ajoute aiohttp.ClientTimeout(total=10) sur ClientSession.
+    config_flow.py : guard async_abort(reason="missing_global_entry") si global_entry=None.
+    translations/en.json + fr.json : clé abort.missing_global_entry ajoutée.
+    ruff 0 erreur, 220 tests passent, coverage 93%.
 
 ---
 

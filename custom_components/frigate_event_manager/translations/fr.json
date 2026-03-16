@@ -3,24 +3,26 @@
     "step": {
       "user": {
         "title": "Configurer Frigate Event Manager",
-        "description": "Renseignez les paramètres MQTT et de notification.",
+        "description": "Configuration globale.",
         "data": {
-          "mqtt_topic": "Topic MQTT Frigate (ex: frigate/reviews)",
-          "notify_target": "Service de notification HA (ex: notify.mobile_app_iphone)",
-          "severity_filter": "Filtre sévérité (alert, detection — vide = tout accepter)",
-          "zones": "Zones à surveiller (vide = toutes)",
-          "labels": "Objets à surveiller (vide = tous)",
-          "disable_times": "Plages de désactivation (format HH:MM-HH:MM)",
-          "cooldown": "Délai anti-spam entre notifications (secondes)"
+          "url": "URL Frigate (ex: http://192.168.1.10:5000)",
+          "notify_target": "Service de notification HA (ex: notify.mobile_app_iphone)"
+        }
+      },
+      "camera": {
+        "title": "Ajouter une caméra",
+        "data": {
+          "camera": "Caméra",
+          "notify_target": "Service de notification (vide = hérite du global)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter. Vérifiez la configuration.",
-      "cooldown_invalid": "Le cooldown doit être >= 0."
+      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL."
     },
     "abort": {
-      "already_configured": "Frigate Event Manager est déjà configuré."
+      "already_configured": "Déjà configuré.",
+      "missing_global_entry": "Configuration globale Frigate introuvable. Veuillez d'abord l'ajouter."
     }
   }
 }
