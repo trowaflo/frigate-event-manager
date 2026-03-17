@@ -9,8 +9,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "go build ./... 2>&1 | grep -E '^.*\\.go:[0-9]+' | head -5",
-            "timeout": 15000
+            "command": "ruff check custom_components/ 2>&1 | grep -E '^.*\\.py:[0-9]+' | head -5",
+            "timeout": 10000
           }
         ]
       }
