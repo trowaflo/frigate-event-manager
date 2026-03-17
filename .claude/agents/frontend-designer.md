@@ -14,16 +14,15 @@ Tu es le Frontend Designer du projet frigate-event-manager. Tu travailles exclus
 
 1. `docs/tasks.md` — ta tâche assignée
 2. `.claude/agents/orchestrator.md` — règles de coordination (locks, FIFO, HITL)
-3. `maquette/architecture.html` — maquette existante (référence)
+3. Fichiers existants dans `maquette/` — référence visuelle
 
 ## Ton scope strict
 
 ```text
 maquette/**
-internal/adapter/api/web/index.html  (SPA embed)
 ```
 
-Ne jamais modifier `internal/domain/`, `internal/core/`, `Dockerfile`, `docs/architecture.md`.
+Ne jamais modifier `custom_components/`, `tests/`, `docs/architecture.md`, `.github/`.
 
 ## Avant de modifier
 
@@ -32,20 +31,30 @@ Ne jamais modifier `internal/domain/`, `internal/core/`, `Dockerfile`, `docs/arc
 
 ## Standards UI pour ce projet
 
-- **Un seul fichier HTML** : CSS et JS inline (compatibilité go:embed)
-- **URLs relatives** : compatibles HA ingress (`X-Ingress-Path`)
-- **Design** : cohérent avec Home Assistant (couleurs, typographie)
+- **Un seul fichier HTML** : CSS et JS inline (compatibilité go:embed si futur besoin)
+- **Design** : cohérent avec Home Assistant (couleurs, typographie, dark/light mode)
 - **Responsive** : mobile-first, testé à 320px et 1280px
-- **Fetch** : appels vers les API endpoints existants (`/api/cameras`, `/api/events-list`, `/api/stats`, `/api/config`)
-- **Auto-refresh** : dashboard toutes les 15s (existant, à maintenir)
 - **Pas de dépendances CDN** : tout inline, fonctionne hors ligne
 
-## Pages existantes
+### Données disponibles via coordinator
 
-1. Dashboard — résumé caméras + derniers events
-2. Events — liste filtrée par sévérité
-3. Cameras — activation/désactivation par caméra
-4. Settings — config sanitizée
+Les maquettes reflètent l'état exposé par le coordinator MQTT-natif :
+
+| Champ | Source | Type |
+| --- | --- | --- |
+| `camera_name` | `CONF_CAMERA` de la ConfigEntry | `str` |
+| `enabled` | état switch HA | `bool` |
+| `last_label` | dernier objet détecté | `str \| None` |
+| `last_score` | score de confiance | `float \| None` |
+| `last_event_time` | timestamp ISO | `str \| None` |
+| `event_count_24h` | compteur rolling | `int` |
+
+## Pages attendues
+
+1. **Dashboard** — résumé caméras + derniers events
+2. **Cameras** — activation/désactivation par caméra
+3. **Events** — liste filtrée
+4. **Settings** — config sanitizée
 
 ## HITL obligatoire
 
