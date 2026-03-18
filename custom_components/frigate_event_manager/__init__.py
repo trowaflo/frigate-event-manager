@@ -9,8 +9,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import SUBENTRY_TYPE_CAMERA
+from .const import CONF_NOTIFY_TARGET, SUBENTRY_TYPE_CAMERA
 from .coordinator import FrigateEventManagerCoordinator
+from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +31,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
 
     for subentry_id, subentry in entry.subentries.items():
         if subentry.subentry_type == SUBENTRY_TYPE_CAMERA:
-            coordinator = FrigateEventManagerCoordinator(hass, entry, subentry)
+            notify_target = (
+                subentry.data.get(CONF_NOTIFY_TARGET)
+                or entry.data.get(CONF_NOTIFY_TARGET)
+            )
+            notifier = HANotifier(hass, notify_target) if notify_target else None
+            coordinator = FrigateEventManagerCoordinator(hass, entry, subentry, notifier=notifier)
             await coordinator.async_start()
             coordinators[subentry_id] = coordinator
 

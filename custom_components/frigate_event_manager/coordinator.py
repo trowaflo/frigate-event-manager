@@ -10,13 +10,16 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import CONF_CAMERA, CONF_NOTIFY_TARGET, DEFAULT_MQTT_TOPIC, DOMAIN
+from .const import CONF_CAMERA, DEFAULT_MQTT_TOPIC, DOMAIN
 from .domain.model import (  # noqa: F401 — re-export rétrocompatibilité
     CameraState,
     FrigateEvent,
     _parse_event,
     _to_float,
 )
+from .domain.ports import NotifierPort
+from .filter import FilterChain
+from .throttle import Throttler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         hass: HomeAssistant,
         entry: ConfigEntry,
         subentry: ConfigSubentry,
+        notifier: NotifierPort | None = None,
     ) -> None:
         """Initialise le coordinator pour une caméra donnée."""
         super().__init__(
@@ -41,17 +45,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         self._camera: str = subentry.data[CONF_CAMERA]
         self._camera_state = CameraState(name=self._camera)
         self._unsubscribe_mqtt: Any = None
-
-        from .notifier import HANotifier  # noqa: PLC0415
-        from .throttle import Throttler  # noqa: PLC0415
-
-        # notify_target : subentry en priorité, sinon config entry globale
-        notify_target = (
-            subentry.data.get(CONF_NOTIFY_TARGET)
-            or entry.data.get(CONF_NOTIFY_TARGET)
-        )
-        self._notifier: Any = HANotifier(hass, notify_target) if notify_target else None
+        self._notifier: NotifierPort | None = notifier
         self._throttler = Throttler()
+        self._filter_chain = FilterChain([])
 
     @property
     def camera(self) -> str:
@@ -112,6 +108,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
             event.type == "new"
             and state.enabled
             and self._notifier is not None
+            and self._filter_chain.apply(event)
             and self._throttler.should_notify(self._camera)
         ):
             self.hass.async_create_task(self._notifier.async_notify(event))
