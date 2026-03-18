@@ -7,11 +7,62 @@ tasks:
     cmds:
       - pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v
 
+  test:html:
+    desc: "Ouvre le rapport de couverture dans le navigateur"
+    cmds:
+      - pytest --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q
+      - open htmlcov/index.html
+
   lint:
     desc: "Lint Python (ruff) + Markdown (markdownlint-cli2)"
     cmds:
       - ruff check .
       - markdownlint-cli2 '**/*.md'
+
+  dev:init:
+    desc: "Stocke les credentials MQTT + Frigate (Keychain macOS ou dev/.env)"
+    cmds:
+      - cmd: |
+          {{if eq OS "darwin"}}
+          echo "--- Stockage des credentials dans le Keychain macOS ---"
+          printf "MQTT_USERNAME: " && read USERNAME
+          security add-generic-password -a frigate-event-manager -s mqtt-username -w "$USERNAME" -U
+          printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
+          security add-generic-password -a frigate-event-manager -s mqtt-password -w "$PASSWORD" -U
+          printf "FRIGATE_USER: " && read FUSER
+          security add-generic-password -a frigate-event-manager -s frigate-user -w "$FUSER" -U
+          printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
+          security add-generic-password -a frigate-event-manager -s frigate-password -w "$FPASSWORD" -U
+          echo "Credentials stockés dans le Keychain macOS"
+          {{else}}
+          echo "--- Stockage des credentials dans dev/.env ---"
+          mkdir -p dev
+          printf "MQTT_USERNAME: " && read USERNAME
+          printf "MQTT_PASSWORD: " && read -s PASSWORD && echo
+          printf "FRIGATE_USER: " && read FUSER
+          printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
+          printf "MQTT_USERNAME='%s'\nMQTT_PASSWORD='%s'\nFRIGATE_USER='%s'\nFRIGATE_PASSWORD='%s'\n" \
+            "$USERNAME" "$PASSWORD" "$FUSER" "$FPASSWORD" > dev/.env
+          chmod 600 dev/.env
+          echo "Credentials stockés dans dev/.env (chmod 600)"
+          {{end}}
+    silent: true
+
+  dev:clean:
+    desc: "Supprime les credentials stockés (Keychain ou dev/.env)"
+    cmds:
+      - cmd: |
+          {{if eq OS "darwin"}}
+          security delete-generic-password -a frigate-event-manager -s mqtt-username 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s frigate-user 2>/dev/null || true
+          security delete-generic-password -a frigate-event-manager -s frigate-password 2>/dev/null || true
+          echo "Credentials supprimés du Keychain"
+          {{else}}
+          rm -f dev/.env
+          echo "dev/.env supprimé"
+          {{end}}
+    silent: true
 
   dev:replay:
     desc: "Récupère le dernier review Frigate réel et le republie en MQTT"
