@@ -164,9 +164,8 @@ tasks:
           fi
 
           echo "Copie vers $HA_HOST..."
-          rsync -a --delete \
-            ./custom_components/frigate_event_manager/ \
-            root@"$HA_HOST":/config/custom_components/frigate_event_manager/
+          tar -czf - -C ./custom_components frigate_event_manager \
+            | ssh root@"$HA_HOST" "rm -rf /config/custom_components/frigate_event_manager && tar -xzf - -C /config/custom_components/"
 
           echo "Redémarrage HA Core..."
           ssh root@"$HA_HOST" "ha core restart"
