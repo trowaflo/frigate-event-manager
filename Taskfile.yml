@@ -12,3 +12,68 @@ tasks:
     cmds:
       - ruff check .
       - markdownlint-cli2 '**/*.md'
+
+  dev:replay:
+    desc: "Récupère le dernier review Frigate réel et le republie en MQTT"
+    cmds:
+      - cmd: |
+          {{if eq OS "darwin"}}
+          FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
+          FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
+          MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
+          MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
+          {{else}}
+          set -a && . dev/.env && set +a
+          {{end}}
+
+          COOKIE_JAR=$(mktemp)
+          echo "Login Frigate..."
+          curl -s -c "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/login' \
+            -H 'Content-Type: application/json' \
+            -d "{\"user\": \"$FRIGATE_USER\", \"password\": \"$FRIGATE_PASSWORD\"}"
+
+          echo ""
+          echo "Récupération du dernier review..."
+          REVIEW=$(curl -s -b "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/review?limit=1')
+          rm -f "$COOKIE_JAR"
+
+          echo "Review récupéré :"
+          echo "$REVIEW" | python3 -m json.tool 2>/dev/null || echo "$REVIEW"
+
+          PAYLOAD=$(echo "$REVIEW" | python3 -c "
+          import json, sys
+          reviews = json.load(sys.stdin)
+          if not reviews:
+              print('Aucun review trouvé', file=sys.stderr)
+              sys.exit(1)
+          r = reviews[0]
+          data = r.get('data', {})
+          payload = {
+              'type': 'new',
+              'after': {
+                  'id': r['id'],
+                  'camera': r['camera'],
+                  'start_time': r['start_time'],
+                  'end_time': r.get('end_time'),
+                  'severity': r['severity'],
+                  'thumb_path': r.get('thumb_path', ''),
+                  'objects': data.get('objects', []),
+                  'current_zones': data.get('zones', []),
+                  'score': data.get('top_score', 0.0),
+              }
+          }
+          print(json.dumps(payload))
+          ")
+
+          echo ""
+          echo "Publication MQTT sur frigate/reviews..."
+          echo "$PAYLOAD" | python3 -m json.tool 2>/dev/null
+
+          echo "$PAYLOAD" | mosquitto_pub \
+            -h mosquitto.trowa-family.ovh -p 1883 \
+            -u "$MQTT_USERNAME" -P "$MQTT_PASSWORD" \
+            -t "frigate/reviews" -s
+
+          echo ""
+          echo "Review republié — le coordinator devrait logger la réception."
+    silent: true
