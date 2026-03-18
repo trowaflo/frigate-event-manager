@@ -32,6 +32,14 @@ CONF_NOTIF_MESSAGE = "notification_message"
 DEFAULT_NOTIF_TITLE = "Frigate — {{ camera }}"
 DEFAULT_NOTIF_MESSAGE = "{{ objects | join(', ') or 'objet inconnu' }} détecté ({{ severity }})"
 
+# Action au tap de la notification
+CONF_TAP_ACTION = "tap_action"
+TAP_ACTION_CLIP = "clip"
+TAP_ACTION_SNAPSHOT = "snapshot"
+TAP_ACTION_PREVIEW = "preview"
+TAP_ACTION_OPTIONS = [TAP_ACTION_CLIP, TAP_ACTION_SNAPSHOT, TAP_ACTION_PREVIEW]
+DEFAULT_TAP_ACTION = TAP_ACTION_CLIP
+
 # Proxy media presigné
 PROXY_PATH_PREFIX = "/api/frigate_em/media"
 SIGNER_DOMAIN_KEY = "frigate_em_signer"

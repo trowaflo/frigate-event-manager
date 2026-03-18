@@ -14,8 +14,10 @@ from .const import (
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
+    DEFAULT_TAP_ACTION,
     MEDIA_URL_TTL,
     PROXY_CLIENT_KEY,
     PROXY_PATH_PREFIX,
@@ -86,6 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                     message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
                     signer=signer,
                     frigate_url=entry.data.get(CONF_URL),
+                    tap_action=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 )
                 if notify_target
                 else None

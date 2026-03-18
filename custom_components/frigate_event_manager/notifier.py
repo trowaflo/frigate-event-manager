@@ -12,7 +12,11 @@ from homeassistant.helpers import template as template_helper
 from .const import (
     DEFAULT_NOTIF_MESSAGE,
     DEFAULT_NOTIF_TITLE,
+    DEFAULT_TAP_ACTION,
     PERSISTENT_NOTIFICATION,
+    TAP_ACTION_CLIP,
+    TAP_ACTION_PREVIEW,
+    TAP_ACTION_SNAPSHOT,
 )
 from .domain.model import FrigateEvent
 from .domain.ports import MediaSignerPort
@@ -31,6 +35,7 @@ class HANotifier:
         message_tpl: str | None = None,
         signer: MediaSignerPort | None = None,
         frigate_url: str | None = None,
+        tap_action: str = DEFAULT_TAP_ACTION,
     ) -> None:
         """Initialise avec la cible, les templates optionnels et le signer media."""
         self._hass = hass
@@ -39,6 +44,7 @@ class HANotifier:
         self._message_tpl = message_tpl or DEFAULT_NOTIF_MESSAGE
         self._signer = signer
         self._frigate_url = frigate_url.rstrip("/") if frigate_url else None
+        self._tap_action = tap_action
 
     def _render(self, tpl_str: str, variables: dict) -> str:
         """Rend un template Jinja2 HA avec les variables de l'événement."""
@@ -112,7 +118,11 @@ class HANotifier:
         companion_data: dict[str, Any] = {"tag": notification_id}
         if media_urls["snapshot_url"]:
             companion_data["image"] = media_urls["snapshot_url"]
-        tap_url = media_urls["clip_url"] or media_urls["preview_url"]
+        tap_url = {
+            TAP_ACTION_CLIP: media_urls["clip_url"],
+            TAP_ACTION_SNAPSHOT: media_urls["snapshot_url"],
+            TAP_ACTION_PREVIEW: media_urls["preview_url"],
+        }.get(self._tap_action, media_urls["clip_url"])
         if tap_url:
             companion_data["url"] = tap_url          # iOS
             companion_data["clickAction"] = tap_url  # Android

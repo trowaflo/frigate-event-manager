@@ -25,12 +25,15 @@ from .const import (
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
+    DEFAULT_TAP_ACTION,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
     SUBENTRY_TYPE_CAMERA,
+    TAP_ACTION_OPTIONS,
 )
 from .frigate_client import FrigateClient
 
@@ -248,6 +251,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
                     CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
                     CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
+                    CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 },
                 unique_id=f"fem_{camera_name}",
             )
@@ -303,6 +307,13 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 vol.Optional(CONF_DISABLED_HOURS, default=""): str,
                 vol.Optional(CONF_NOTIF_TITLE, default=""): str,
                 vol.Optional(CONF_NOTIF_MESSAGE, default=""): str,
+                vol.Required(CONF_TAP_ACTION, default=DEFAULT_TAP_ACTION): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=TAP_ACTION_OPTIONS,
+                        mode=selector.SelectSelectorMode.LIST,
+                        translation_key=CONF_TAP_ACTION,
+                    )
+                ),
             }),
             errors=errors,
         )
@@ -324,6 +335,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
                     CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
                     CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
+                    CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 },
             )
 
@@ -333,6 +345,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         existing_hours = ",".join(str(h) for h in subentry.data.get(CONF_DISABLED_HOURS, []))
         existing_title = subentry.data.get(CONF_NOTIF_TITLE) or ""
         existing_message = subentry.data.get(CONF_NOTIF_MESSAGE) or ""
+        existing_tap = subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({
@@ -350,5 +363,12 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 vol.Optional(CONF_DISABLED_HOURS, default=existing_hours): str,
                 vol.Optional(CONF_NOTIF_TITLE, default=existing_title): str,
                 vol.Optional(CONF_NOTIF_MESSAGE, default=existing_message): str,
+                vol.Required(CONF_TAP_ACTION, default=existing_tap): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=TAP_ACTION_OPTIONS,
+                        mode=selector.SelectSelectorMode.LIST,
+                        translation_key=CONF_TAP_ACTION,
+                    )
+                ),
             }),
         )
