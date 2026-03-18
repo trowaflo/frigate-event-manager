@@ -60,7 +60,7 @@ MQTT Broker → HaMqttAdapter (EventSourcePort) → FrigateEventManagerCoordinat
 
 - Tout I/O est `async` — `aiohttp` pour HTTP, callbacks MQTT via HA
 - Ne jamais bloquer la boucle asyncio
-- `async_turn_on` / `async_turn_off` → action locale + `coordinator.async_request_refresh()`
+- `async_turn_on` / `async_turn_off` → appeler `coordinator.set_camera_enabled()` qui déclenche `async_set_updated_data()` — push immédiat sans polling
 
 ### Config flow
 

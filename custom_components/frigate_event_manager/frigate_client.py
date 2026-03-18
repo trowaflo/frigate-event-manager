@@ -6,7 +6,7 @@ import aiohttp
 
 
 class FrigateClient:
-    """Client HTTP asyncio pour interroger l'API REST de Frigate."""
+    """Client HTTP asyncio pour interroger l'API REST de Frigate. Satisfait FrigatePort."""
 
     def __init__(
         self,

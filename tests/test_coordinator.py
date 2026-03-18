@@ -99,6 +99,13 @@ def _make_subentry(cam_name: str = "jardin", notify_target: str | None = None) -
     return subentry
 
 
+def _make_fake_event_source() -> AsyncMock:
+    """Crée un EventSourcePort fake (AsyncMock retournant un callable de désabonnement)."""
+    source = AsyncMock()
+    source.async_subscribe = AsyncMock(return_value=MagicMock())
+    return source
+
+
 def _make_coordinator(
     hass: HomeAssistant,
     cam_name: str = "jardin",
@@ -107,7 +114,9 @@ def _make_coordinator(
     """Instancie un coordinator avec des mocks ConfigEntry + ConfigSubentry."""
     entry = _make_entry()
     subentry = _make_subentry(cam_name, notify_target)
-    return FrigateEventManagerCoordinator(hass, entry, subentry)
+    return FrigateEventManagerCoordinator(
+        hass, entry, subentry, event_source=_make_fake_event_source()
+    )
 
 
 def _make_msg(payload: dict | str) -> SimpleNamespace:
@@ -423,7 +432,9 @@ class TestFilterChainDepuisSubentry:
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = ["person"]
         subentry.data[CONF_DISABLED_HOURS] = []
-        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
+        )
 
         # PAYLOAD_NEW a objects=["personne"] — ne correspond pas à "person"
         assert coordinator._filter_chain.apply(
@@ -449,7 +460,9 @@ class TestFilterChainDepuisSubentry:
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = ["person"]
         subentry.data[CONF_DISABLED_HOURS] = []
-        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
+        )
 
         from custom_components.frigate_event_manager.domain.model import FrigateEvent
 
@@ -473,7 +486,9 @@ class TestFilterChainDepuisSubentry:
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = []
         subentry.data[CONF_DISABLED_HOURS] = []
-        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
+        )
 
         from custom_components.frigate_event_manager.domain.model import FrigateEvent
 

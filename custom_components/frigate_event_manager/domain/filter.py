@@ -10,7 +10,8 @@ Un seul refus suffit pour bloquer l'événement.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Protocol, runtime_checkable
 
 from .model import FrigateEvent
 

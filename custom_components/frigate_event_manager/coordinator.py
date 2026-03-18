@@ -43,8 +43,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Si None, une ValueError est levée — le coordinator ne connaît aucun adaptateur concret.
         """
         if event_source is None:
-            from .ha_mqtt import HaMqttAdapter  # import local — composition de dernier recours
-            event_source = HaMqttAdapter(hass)
+            raise TypeError(
+                "event_source est requis — injecter HaMqttAdapter en production, "
+                "un fake EventSourcePort en tests."
+            )
         super().__init__(
             hass,
             _LOGGER,
