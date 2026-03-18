@@ -22,7 +22,6 @@ from .domain.filter import FilterChain, LabelFilter, TimeFilter, ZoneFilter
 from .domain.model import CameraState, _parse_event
 from .domain.ports import EventSourcePort, NotifierPort
 from .domain.throttle import Throttler
-from .ha_mqtt import HaMqttAdapter
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +37,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         notifier: NotifierPort | None = None,
         event_source: EventSourcePort | None = None,
     ) -> None:
-        """Initialise le coordinator pour une caméra donnée."""
+        """Initialise le coordinator pour une caméra donnée.
+
+        event_source doit être injecté (HaMqttAdapter en production, fake en test).
+        Si None, une ValueError est levée — le coordinator ne connaît aucun adaptateur concret.
+        """
+        if event_source is None:
+            from .ha_mqtt import HaMqttAdapter  # import local — composition de dernier recours
+            event_source = HaMqttAdapter(hass)
         super().__init__(
             hass,
             _LOGGER,
@@ -50,7 +56,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._camera_state = CameraState(name=self._camera)
         self._unsubscribe_mqtt: Any = None
         self._notifier: NotifierPort | None = notifier
-        self._event_source: EventSourcePort = event_source or HaMqttAdapter(hass)
+        self._event_source: EventSourcePort = event_source
         self._throttler = Throttler(cooldown=DEFAULT_THROTTLE_COOLDOWN)
         zones = subentry.data.get(CONF_ZONES, [])
         labels = subentry.data.get(CONF_LABELS, [])
@@ -95,7 +101,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _handle_mqtt_message(self, message: Any) -> None:
         """Callback MQTT — parse, filtre par caméra, met à jour l'état, notifie."""
         event = _parse_event(message.payload)
-        if event is None or event.camera != self._camera:
+        if event is None:
+            _LOGGER.debug("Payload MQTT ignoré — non parseable (caméra=%s)", self._camera)
+            return
+        if event.camera != self._camera:
             return
 
         state = self._camera_state

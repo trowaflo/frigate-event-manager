@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass, field
 from typing import Any
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -60,11 +57,10 @@ def _to_float(value: Any, *, default: float | None) -> float | None:
 
 
 def _parse_event(payload: str) -> FrigateEvent | None:
-    """Parse un payload MQTT Frigate JSON → FrigateEvent."""
+    """Parse un payload MQTT Frigate JSON → FrigateEvent, None si invalide."""
     try:
         raw: dict[str, Any] = json.loads(payload)
-    except (json.JSONDecodeError, TypeError) as err:
-        _LOGGER.warning("Payload MQTT non-JSON ignoré : %s", err)
+    except (json.JSONDecodeError, TypeError):
         return None
 
     if not isinstance(raw, dict):

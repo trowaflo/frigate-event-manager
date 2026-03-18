@@ -11,6 +11,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import CONF_NOTIFY_TARGET, SUBENTRY_TYPE_CAMERA
 from .coordinator import FrigateEventManagerCoordinator
+from .ha_mqtt import HaMqttAdapter
 from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,7 +37,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                 or entry.data.get(CONF_NOTIFY_TARGET)
             )
             notifier = HANotifier(hass, notify_target) if notify_target else None
-            coordinator = FrigateEventManagerCoordinator(hass, entry, subentry, notifier=notifier)
+            coordinator = FrigateEventManagerCoordinator(
+                hass, entry, subentry,
+                notifier=notifier,
+                event_source=HaMqttAdapter(hass),
+            )
             await coordinator.async_start()
             coordinators[subentry_id] = coordinator
 

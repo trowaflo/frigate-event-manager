@@ -8,13 +8,14 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from . import FEMConfigEntry
 from .const import DOMAIN
 from .coordinator import FrigateEventManagerCoordinator
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: object,
+    entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Crée une entité switch par caméra configurée."""
