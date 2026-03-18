@@ -51,3 +51,29 @@ class FrigateClient(FrigatePort):
                 if not isinstance(data, dict):
                     return []
                 return list(data.get("cameras", {}).keys())
+
+    async def get_media(self, path: str) -> tuple[bytes, str]:
+        """Récupère un média Frigate (image, clip, preview) avec auth.
+
+        Retourne (contenu_brut, content_type).
+        Lève aiohttp.ClientError si la connexion échoue.
+        """
+        timeout = aiohttp.ClientTimeout(total=30)
+        headers: dict[str, str] = {}
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            if self._username:
+                async with session.post(
+                    f"{self._url}/api/login",
+                    json={"user": self._username, "password": self._password},
+                ) as resp:
+                    resp.raise_for_status()
+                    token_cookie = resp.cookies.get("frigate_token")
+                    if token_cookie:
+                        headers["Cookie"] = f"frigate_token={token_cookie.value}"
+
+            url = f"{self._url.rstrip('/')}{path}"
+            async with session.get(url, headers=headers) as resp:
+                resp.raise_for_status()
+                content_type = resp.headers.get("Content-Type", "application/octet-stream")
+                return await resp.read(), content_type

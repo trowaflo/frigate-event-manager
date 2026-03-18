@@ -14,6 +14,7 @@ from .const import (
     PERSISTENT_NOTIFICATION,
 )
 from .domain.model import FrigateEvent
+from .domain.ports import MediaSignerPort
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,12 +28,14 @@ class HANotifier:
         notify_target: str,
         title_tpl: str | None = None,
         message_tpl: str | None = None,
+        signer: MediaSignerPort | None = None,
     ) -> None:
-        """Initialise avec la cible et les templates optionnels."""
+        """Initialise avec la cible, les templates optionnels et le signer media."""
         self._hass = hass
         self._target = notify_target
         self._title_tpl = title_tpl or DEFAULT_NOTIF_TITLE
         self._message_tpl = message_tpl or DEFAULT_NOTIF_MESSAGE
+        self._signer = signer
 
     def _render(self, tpl_str: str, variables: dict) -> str:
         """Rend un template Jinja2 HA avec les variables de l'événement."""
@@ -50,6 +53,20 @@ class HANotifier:
         """Envoie une notification pour un événement Frigate de type 'new'."""
         # Escaper les valeurs string pour prévenir l'injection dans les notifications
         escaped_objects = [html.escape(o) for o in event.objects]
+
+        # Presigned URLs médias (vides si signer non configuré ou données manquantes)
+        preview_url = ""
+        snapshot_url = ""
+        clip_url = ""
+        thumbnail_url = ""
+        if self._signer and event.review_id:
+            preview_url = self._signer.sign_url(f"/api/review/{event.review_id}/preview")
+            if event.detections:
+                det_id = event.detections[0]
+                snapshot_url = self._signer.sign_url(f"/api/events/{det_id}/snapshot.jpg")
+                clip_url = self._signer.sign_url(f"/api/events/{det_id}/clip.mp4")
+                thumbnail_url = self._signer.sign_url(f"/api/events/{det_id}/thumbnail.jpg")
+
         variables = {
             "camera": html.escape(event.camera),
             "camera_name": html.escape(event.camera),          # alias blueprint
@@ -59,6 +76,10 @@ class HANotifier:
             "severity": html.escape(event.severity),
             "score": event.score,
             "review_id": html.escape(event.review_id),
+            "preview_url": preview_url,
+            "snapshot_url": snapshot_url,
+            "clip_url": clip_url,
+            "thumbnail_url": thumbnail_url,
         }
 
         title = self._render(self._title_tpl, variables)

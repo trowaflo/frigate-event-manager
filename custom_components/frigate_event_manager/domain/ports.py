@@ -34,3 +34,15 @@ class FrigatePort(Protocol):
     async def get_cameras(self) -> list[str]:
         """Retourne la liste des noms de caméras."""
         ...
+
+
+class MediaSignerPort(Protocol):
+    """Port — signature et vérification de presigned URLs médias."""
+
+    def sign_url(self, path: str) -> str:
+        """Signe un path et retourne l'URL complète avec ?exp=...&sig=..."""
+        ...
+
+    def verify(self, path: str, exp_str: str, sig: str) -> bool:
+        """Vérifie qu'une presigned URL est valide et non expirée."""
+        ...

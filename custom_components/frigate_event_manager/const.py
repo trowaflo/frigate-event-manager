@@ -31,3 +31,10 @@ CONF_NOTIF_TITLE = "notification_title"
 CONF_NOTIF_MESSAGE = "notification_message"
 DEFAULT_NOTIF_TITLE = "Frigate — {{ camera }}"
 DEFAULT_NOTIF_MESSAGE = "{{ objects | join(', ') or 'objet inconnu' }} détecté ({{ severity }})"
+
+# Proxy media presigné
+PROXY_PATH_PREFIX = "/api/frigate_em/media"
+SIGNER_DOMAIN_KEY = "frigate_em_signer"
+PROXY_CLIENT_KEY = "frigate_em_proxy_client"
+PROXY_VIEW_KEY = "frigate_em_proxy_registered"
+MEDIA_URL_TTL = 3600  # secondes

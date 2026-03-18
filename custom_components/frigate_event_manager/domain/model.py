@@ -16,6 +16,7 @@ class FrigateEvent:
     severity: str       # "alert" | "detection"
     objects: list[str] = field(default_factory=list)
     zones: list[str] = field(default_factory=list)
+    detections: list[str] = field(default_factory=list)
     score: float = 0.0
     thumb_path: str = ""
     review_id: str = ""
@@ -84,6 +85,7 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         severity=str(after.get("severity") or raw.get("severity") or "detection"),
         objects=list(after.get("objects") or data.get("objects") or raw.get("objects") or []),
         zones=list(after.get("current_zones") or data.get("zones") or raw.get("zones") or []),
+        detections=list(data.get("detections") or []),
         score=_to_float(
             after.get("score") if after.get("score") is not None
             else data.get("top_score") if data.get("top_score") is not None
