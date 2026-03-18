@@ -119,11 +119,11 @@ class HANotifier:
             if any(media_urls.get(k) for k in ("clip_url", "snapshot_url", "preview_url")):
                 links = []
                 if media_urls.get("clip_url"):
-                    links.append(f"[Clip]({media_urls['clip_url']})")
+                    links.append(f"[Clip](<{media_urls['clip_url']}>)")
                 if media_urls.get("snapshot_url"):
-                    links.append(f"[Snapshot]({media_urls['snapshot_url']})")
+                    links.append(f"[Snapshot](<{media_urls['snapshot_url']}>)")
                 if media_urls.get("preview_url"):
-                    links.append(f"[Preview]({media_urls['preview_url']})")
+                    links.append(f"[Preview](<{media_urls['preview_url']}>)")
                 message += "\n" + " · ".join(links)
 
             await self._hass.services.async_call(

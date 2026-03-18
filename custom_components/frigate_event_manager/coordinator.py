@@ -84,6 +84,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Silent mode
         self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
+        self._cancel_silent: Any = None
 
     @property
     def camera(self) -> str:
@@ -102,8 +103,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def activate_silent_mode(self) -> None:
         """Active le mode silencieux pour la durée configurée."""
+        if self._cancel_silent is not None:
+            self._cancel_silent()
         self._silent_until = time.time() + self._silent_duration * 60
-        async_call_later(
+        self._cancel_silent = async_call_later(
             self.hass,
             self._silent_duration * 60,
             lambda _: setattr(self, "_silent_until", 0.0),
@@ -127,6 +130,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._debounce_task is not None:
             self._debounce_task.cancel()
             self._debounce_task = None
+        if self._cancel_silent is not None:
+            self._cancel_silent()
+            self._cancel_silent = None
         if self._unsubscribe_mqtt is not None:
             self._unsubscribe_mqtt()
             self._unsubscribe_mqtt = None
