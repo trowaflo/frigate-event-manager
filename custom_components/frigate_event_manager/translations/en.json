@@ -47,8 +47,8 @@
             "notification_message": "Notification message (Jinja2 template, empty = default)"
           },
           "data_description": {
-            "notification_title": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: Frigate — [camera]",
-            "notification_message": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
+            "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
+            "notification_message": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
           }
         },
         "reconfigure": {
@@ -62,8 +62,8 @@
             "notification_message": "Notification message (Jinja2 template, empty = default)"
           },
           "data_description": {
-            "notification_title": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: Frigate — [camera]",
-            "notification_message": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
+            "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
+            "notification_message": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
           }
         }
       },

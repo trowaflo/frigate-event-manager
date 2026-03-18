@@ -47,8 +47,8 @@
             "notification_message": "Message de la notification (template Jinja2, vide = défaut)"
           },
           "data_description": {
-            "notification_title": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
-            "notification_message": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
+            "notification_title": "Variables : camera / camera_name, objects (liste), label (1er objet), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
+            "notification_message": "Variables : camera / camera_name, objects (liste), label (1er objet), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
           }
         },
         "reconfigure": {
@@ -62,8 +62,8 @@
             "notification_message": "Message de la notification (template Jinja2, vide = défaut)"
           },
           "data_description": {
-            "notification_title": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
-            "notification_message": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
+            "notification_title": "Variables : camera / camera_name, objects (liste), label (1er objet), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
+            "notification_message": "Variables : camera / camera_name, objects (liste), label (1er objet), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
           }
         }
       },

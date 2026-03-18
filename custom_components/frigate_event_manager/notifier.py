@@ -49,9 +49,12 @@ class HANotifier:
     async def async_notify(self, event: FrigateEvent) -> None:
         """Envoie une notification pour un événement Frigate de type 'new'."""
         # Escaper les valeurs string pour prévenir l'injection dans les notifications
+        escaped_objects = [html.escape(o) for o in event.objects]
         variables = {
             "camera": html.escape(event.camera),
-            "objects": [html.escape(o) for o in event.objects],
+            "camera_name": html.escape(event.camera),          # alias blueprint
+            "objects": escaped_objects,
+            "label": escaped_objects[0] if escaped_objects else "",  # alias blueprint
             "zones": [html.escape(z) for z in event.zones],
             "severity": html.escape(event.severity),
             "score": event.score,
