@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import aiohttp
 
+from .domain.ports import FrigatePort
 
-class FrigateClient:
-    """Client HTTP asyncio pour interroger l'API REST de Frigate. Satisfait FrigatePort."""
+
+class FrigateClient(FrigatePort):
+    """Client HTTP asyncio pour interroger l'API REST de Frigate."""
 
     def __init__(
         self,
