@@ -39,13 +39,19 @@
           "description": "Sélectionnez une caméra depuis votre instance Frigate.",
           "data": {
             "camera": "Caméra",
-            "notify_target": "Service de notification"
+            "notify_target": "Service de notification",
+            "zones": "Zones requises (virgule, vide = toutes)",
+            "labels": "Objets détectés (virgule, vide = tous)",
+            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)"
           }
         },
         "reconfigure": {
           "title": "Modifier la caméra",
           "data": {
-            "notify_target": "Service de notification"
+            "notify_target": "Service de notification",
+            "zones": "Zones requises (virgule, vide = toutes)",
+            "labels": "Objets détectés (virgule, vide = tous)",
+            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)"
           }
         }
       },

@@ -9,6 +9,11 @@ CONF_PASSWORD = "password"
 CONF_NOTIFY_TARGET = "notify_target"
 CONF_CAMERA = "camera"
 
+# Clés filtres subentry
+CONF_ZONES = "zones"
+CONF_LABELS = "labels"
+CONF_DISABLED_HOURS = "disabled_hours"
+
 # MQTT
 DEFAULT_MQTT_TOPIC = "frigate/reviews"
 
@@ -17,3 +22,6 @@ SUBENTRY_TYPE_CAMERA = "camera"
 
 # Notification spéciale
 PERSISTENT_NOTIFICATION = "persistent_notification"
+
+# Throttle
+DEFAULT_THROTTLE_COOLDOWN = 60

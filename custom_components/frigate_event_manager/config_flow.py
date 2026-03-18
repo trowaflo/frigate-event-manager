@@ -19,15 +19,33 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CAMERA,
+    CONF_DISABLED_HOURS,
+    CONF_LABELS,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
     CONF_URL,
     CONF_USERNAME,
+    CONF_ZONES,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
     SUBENTRY_TYPE_CAMERA,
 )
 from .frigate_client import FrigateClient
+
+
+def _parse_csv_str(value: str) -> list[str]:
+    """Parse une string CSV en liste de strings."""
+    return [x.strip() for x in value.split(",") if x.strip()]
+
+
+def _parse_csv_int(value: str) -> list[int]:
+    """Parse une string CSV en liste d'entiers (ex: '0,1,2' → [0,1,2])."""
+    if not value.strip():
+        return []
+    try:
+        return [int(x.strip()) for x in value.split(",") if x.strip()]
+    except ValueError:
+        return []
 
 
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
@@ -223,6 +241,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 data={
                     CONF_CAMERA: camera_name,
                     CONF_NOTIFY_TARGET: notify,
+                    CONF_ZONES: _parse_csv_str(user_input.get(CONF_ZONES, "")),
+                    CONF_LABELS: _parse_csv_str(user_input.get(CONF_LABELS, "")),
+                    CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
                 },
                 unique_id=f"fem_{camera_name}",
             )
@@ -273,6 +294,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Optional(CONF_ZONES, default=""): str,
+                vol.Optional(CONF_LABELS, default=""): str,
+                vol.Optional(CONF_DISABLED_HOURS, default=""): str,
             }),
             errors=errors,
         )
@@ -287,10 +311,18 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             return self.async_update_and_abort(
                 self._get_entry(),
                 subentry,
-                data_updates={CONF_NOTIFY_TARGET: user_input[CONF_NOTIFY_TARGET]},
+                data_updates={
+                    CONF_NOTIFY_TARGET: user_input[CONF_NOTIFY_TARGET],
+                    CONF_ZONES: _parse_csv_str(user_input.get(CONF_ZONES, "")),
+                    CONF_LABELS: _parse_csv_str(user_input.get(CONF_LABELS, "")),
+                    CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
+                },
             )
 
         notify_options = _get_notify_options(self.hass)
+        existing_zones = ",".join(subentry.data.get(CONF_ZONES, []))
+        existing_labels = ",".join(subentry.data.get(CONF_LABELS, []))
+        existing_hours = ",".join(str(h) for h in subentry.data.get(CONF_DISABLED_HOURS, []))
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({
@@ -303,5 +335,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Optional(CONF_ZONES, default=existing_zones): str,
+                vol.Optional(CONF_LABELS, default=existing_labels): str,
+                vol.Optional(CONF_DISABLED_HOURS, default=existing_hours): str,
             }),
         )

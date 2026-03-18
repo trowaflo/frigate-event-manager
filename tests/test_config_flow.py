@@ -11,10 +11,13 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.frigate_event_manager.const import (
     CONF_CAMERA,
+    CONF_DISABLED_HOURS,
+    CONF_LABELS,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
     CONF_URL,
     CONF_USERNAME,
+    CONF_ZONES,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
     SUBENTRY_TYPE_CAMERA,
@@ -297,3 +300,68 @@ async def test_const_conf_camera() -> None:
 
 async def test_const_persistent_notification() -> None:
     assert PERSISTENT_NOTIFICATION == "persistent_notification"
+
+
+# ---------------------------------------------------------------------------
+# Tests subentry — filtres
+# ---------------------------------------------------------------------------
+
+
+async def test_subentry_cree_camera_avec_filtres(hass: HomeAssistant) -> None:
+    """Les filtres sont sérialisés correctement dans subentry.data."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={
+                CONF_CAMERA: "entree",
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: "jardin,rue",
+                CONF_LABELS: "person,car",
+                CONF_DISABLED_HOURS: "0,1,2",
+            },
+        )
+
+    assert r2["type"] == FlowResultType.CREATE_ENTRY
+    assert r2["data"][CONF_ZONES] == ["jardin", "rue"]
+    assert r2["data"][CONF_LABELS] == ["person", "car"]
+    assert r2["data"][CONF_DISABLED_HOURS] == [0, 1, 2]
+
+
+async def test_subentry_cree_camera_sans_filtres(hass: HomeAssistant) -> None:
+    """Sans filtres, les listes sont vides (tout accepter)."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={
+                CONF_CAMERA: "entree",
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: "",
+                CONF_LABELS: "",
+                CONF_DISABLED_HOURS: "",
+            },
+        )
+
+    assert r2["type"] == FlowResultType.CREATE_ENTRY
+    assert r2["data"][CONF_ZONES] == []
+    assert r2["data"][CONF_LABELS] == []
+    assert r2["data"][CONF_DISABLED_HOURS] == []
