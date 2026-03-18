@@ -39,8 +39,8 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> None:
         """Initialise le coordinator pour une caméra donnée.
 
-        event_source doit être injecté (HaMqttAdapter en production, fake en test).
-        Si None, une ValueError est levée — le coordinator ne connaît aucun adaptateur concret.
+        event_source doit être injecté : HaMqttAdapter en production, fake en tests.
+        TypeError si None.
         """
         if event_source is None:
             raise TypeError(
