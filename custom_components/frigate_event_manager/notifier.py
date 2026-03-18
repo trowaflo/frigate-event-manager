@@ -108,7 +108,7 @@ class HANotifier:
         message = self._render(self._message_tpl, variables)
         notification_id = f"frigate_{event.camera}_{event.review_id}"
 
-        # Données enrichies pour HA Companion (image preview + lien au tap)
+        # Données enrichies pour HA Companion (image preview + lien au tap + boutons)
         companion_data: dict[str, Any] = {"tag": notification_id}
         if media_urls["snapshot_url"]:
             companion_data["image"] = media_urls["snapshot_url"]
@@ -116,6 +116,17 @@ class HANotifier:
         if tap_url:
             companion_data["url"] = tap_url          # iOS
             companion_data["clickAction"] = tap_url  # Android
+
+        # Boutons d'action — uniquement les URLs disponibles
+        actions = []
+        if media_urls["clip_url"]:
+            actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
+        if media_urls["snapshot_url"]:
+            actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
+        if media_urls["preview_url"]:
+            actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
+        if actions:
+            companion_data["actions"] = actions
 
         if self._target == PERSISTENT_NOTIFICATION:
             await self._hass.services.async_call(
