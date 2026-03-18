@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable, Protocol, runtime_checkable
 
-from .coordinator import FrigateEvent
+from .domain.model import FrigateEvent
 
 
 @runtime_checkable

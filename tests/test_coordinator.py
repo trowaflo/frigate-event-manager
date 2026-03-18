@@ -15,9 +15,11 @@ from custom_components.frigate_event_manager.const import (
     DEFAULT_MQTT_TOPIC,
 )
 from custom_components.frigate_event_manager.coordinator import (
+    FrigateEventManagerCoordinator,
+)
+from custom_components.frigate_event_manager.domain.model import (
     CameraState,
     FrigateEvent,
-    FrigateEventManagerCoordinator,
     _parse_event,
 )
 

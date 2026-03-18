@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.frigate_event_manager.coordinator import FrigateEvent
+from custom_components.frigate_event_manager.domain.model import FrigateEvent
 from custom_components.frigate_event_manager.filter import (
     Filter,
     FilterChain,

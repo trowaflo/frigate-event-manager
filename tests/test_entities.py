@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 
 from custom_components.frigate_event_manager.binary_sensor import FrigateMotionSensor
-from custom_components.frigate_event_manager.coordinator import CameraState
+from custom_components.frigate_event_manager.domain.model import CameraState
 from custom_components.frigate_event_manager.switch import FrigateNotificationSwitch
 
 # ---------------------------------------------------------------------------

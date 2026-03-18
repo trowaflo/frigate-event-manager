@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from custom_components.frigate_event_manager.coordinator import FrigateEvent
+from custom_components.frigate_event_manager.domain.model import FrigateEvent
 from custom_components.frigate_event_manager.const import PERSISTENT_NOTIFICATION
 from custom_components.frigate_event_manager.notifier import HANotifier
 
