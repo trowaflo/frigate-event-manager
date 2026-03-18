@@ -9,13 +9,6 @@
           "username": "Username (optional)",
           "password": "Password (optional)"
         }
-      },
-      "notify": {
-        "title": "Default notification",
-        "description": "Select the default notification service. You can override it per camera.",
-        "data": {
-          "notify_target": "Notification service"
-        }
       }
     },
     "error": {
@@ -45,7 +38,10 @@
             "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
-            "tap_action": "Tap action"
+            "tap_action": "Tap action",
+            "cooldown": "Cooldown (seconds between alerts)",
+            "debounce": "Debounce (grouping window in seconds, 0 = disabled)",
+            "silent_duration": "Silent duration (minutes)"
           },
           "data_description": {
             "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
@@ -61,7 +57,10 @@
             "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
-            "tap_action": "Tap action"
+            "tap_action": "Tap action",
+            "cooldown": "Cooldown (seconds between alerts)",
+            "debounce": "Debounce (grouping window in seconds, 0 = disabled)",
+            "silent_duration": "Silent duration (minutes)"
           },
           "data_description": {
             "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
@@ -95,8 +94,7 @@
         "data": {
           "url": "Frigate URL",
           "username": "Username (optional)",
-          "password": "Password (optional)",
-          "notify_target": "Default notification service"
+          "password": "Password (optional)"
         }
       }
     },
@@ -117,6 +115,11 @@
     "binary_sensor": {
       "mouvement": {
         "name": "Motion"
+      }
+    },
+    "button": {
+      "silent_button": {
+        "name": "Silent"
       }
     }
   }

@@ -11,13 +11,19 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.frigate_event_manager.const import (
     CONF_CAMERA,
+    CONF_COOLDOWN,
+    CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_SILENT_DURATION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
+    DEFAULT_DEBOUNCE,
+    DEFAULT_SILENT_DURATION,
+    DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
     SUBENTRY_TYPE_CAMERA,
@@ -33,7 +39,6 @@ VALID_USER_INPUT = {
     CONF_USERNAME: "",
     CONF_PASSWORD: "",
 }
-VALID_NOTIFY_INPUT = {CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION}
 CAMERAS_LIST = ["entree", "garage", "jardin"]
 
 # ---------------------------------------------------------------------------
@@ -96,12 +101,12 @@ async def test_step_user_cannot_connect(hass: HomeAssistant) -> None:
     assert result2["errors"]["base"] == "cannot_connect"
 
 
-async def test_step_user_valide_passe_a_notify(hass: HomeAssistant) -> None:
-    """Connexion valide → passage à l'étape notify."""
+async def test_step_user_valide_cree_entry(hass: HomeAssistant) -> None:
+    """Connexion valide → entry créée directement (plus d'étape notify)."""
     with (
         patch(PATCH_DETECT, return_value={}),
         patch(PATCH_CLIENT, return_value=_mock_client([])),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
@@ -109,31 +114,28 @@ async def test_step_user_valide_passe_a_notify(hass: HomeAssistant) -> None:
         result2 = await hass.config_entries.flow.async_configure(
             result["flow_id"], user_input=VALID_USER_INPUT
         )
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["step_id"] == "notify"
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["data"][CONF_URL] == VALID_URL
+    # Pas de notify_target dans l'entry principale (feature 6)
+    assert CONF_NOTIFY_TARGET not in result2["data"]
 
 
 async def test_flow_complet_cree_entry(hass: HomeAssistant) -> None:
-    """Flow complet (user + notify) → entry créée avec les bonnes données."""
+    """Flow (user) → entry créée avec les bonnes données."""
     with (
         patch(PATCH_DETECT, return_value={}),
         patch(PATCH_CLIENT, return_value=_mock_client([])),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
         patch(PATCH_SETUP, return_value=True),
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
-        await hass.config_entries.flow.async_configure(
-            result["flow_id"], user_input=VALID_USER_INPUT
-        )
         result_final = await hass.config_entries.flow.async_configure(
-            result["flow_id"], user_input=VALID_NOTIFY_INPUT
+            result["flow_id"], user_input=VALID_USER_INPUT
         )
 
     assert result_final["type"] == FlowResultType.CREATE_ENTRY
     assert result_final["data"][CONF_URL] == VALID_URL
-    assert result_final["data"][CONF_NOTIFY_TARGET] == PERSISTENT_NOTIFICATION
 
 
 async def test_flow_already_configured(hass: HomeAssistant) -> None:
@@ -141,7 +143,6 @@ async def test_flow_already_configured(hass: HomeAssistant) -> None:
     with (
         patch(PATCH_DETECT, return_value={}),
         patch(PATCH_CLIENT, return_value=_mock_client([])),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
         patch(PATCH_SETUP, return_value=True),
     ):
         r1 = await hass.config_entries.flow.async_init(
@@ -149,9 +150,6 @@ async def test_flow_already_configured(hass: HomeAssistant) -> None:
         )
         await hass.config_entries.flow.async_configure(
             r1["flow_id"], user_input=VALID_USER_INPUT
-        )
-        await hass.config_entries.flow.async_configure(
-            r1["flow_id"], user_input=VALID_NOTIFY_INPUT
         )
 
     r2 = await hass.config_entries.flow.async_init(
@@ -166,7 +164,6 @@ async def _create_entry(hass: HomeAssistant) -> str:
     with (
         patch(PATCH_DETECT, return_value={}),
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
         patch(PATCH_SETUP, return_value=True),
     ):
         r = await hass.config_entries.flow.async_init(
@@ -174,9 +171,6 @@ async def _create_entry(hass: HomeAssistant) -> str:
         )
         await hass.config_entries.flow.async_configure(
             r["flow_id"], user_input=VALID_USER_INPUT
-        )
-        await hass.config_entries.flow.async_configure(
-            r["flow_id"], user_input=VALID_NOTIFY_INPUT
         )
     # Récupère l'entry_id réel depuis le registre HA
     entries = hass.config_entries.async_entries(DOMAIN)
@@ -226,6 +220,63 @@ async def test_subentry_cree_camera(hass: HomeAssistant) -> None:
 
     assert r2["type"] == FlowResultType.CREATE_ENTRY
     assert r2["title"] == "Caméra entree"
+
+
+async def test_subentry_cree_camera_avec_cooldown_debounce_silent(hass: HomeAssistant) -> None:
+    """Ajout d'une caméra avec cooldown, debounce, silent_duration → données correctes."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={
+                CONF_CAMERA: "jardin",
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_COOLDOWN: 120,
+                CONF_DEBOUNCE: 5,
+                CONF_SILENT_DURATION: 60,
+            },
+        )
+
+    assert r2["type"] == FlowResultType.CREATE_ENTRY
+    assert r2["data"][CONF_COOLDOWN] == 120
+    assert r2["data"][CONF_DEBOUNCE] == 5
+    assert r2["data"][CONF_SILENT_DURATION] == 60
+
+
+async def test_subentry_cooldown_debounce_valeurs_defaut(hass: HomeAssistant) -> None:
+    """Sans cooldown/debounce/silent dans l'input → valeurs par défaut appliquées."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={
+                CONF_CAMERA: "garage",
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+            },
+        )
+
+    assert r2["type"] == FlowResultType.CREATE_ENTRY
+    assert r2["data"][CONF_COOLDOWN] == DEFAULT_THROTTLE_COOLDOWN
+    assert r2["data"][CONF_DEBOUNCE] == DEFAULT_DEBOUNCE
+    assert r2["data"][CONF_SILENT_DURATION] == DEFAULT_SILENT_DURATION
 
 
 async def test_subentry_cameras_deja_configurees_exclues(hass: HomeAssistant) -> None:

@@ -11,9 +11,12 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.const import (
     CONF_CAMERA,
+    CONF_COOLDOWN,
+    CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
     CONF_NOTIFY_TARGET,
+    CONF_SILENT_DURATION,
     CONF_ZONES,
     DEFAULT_MQTT_TOPIC,
 )
@@ -505,3 +508,219 @@ class TestFilterChainDepuisSubentry:
                 end_time=None,
             )
         ) is True
+
+
+# ---------------------------------------------------------------------------
+# Tests du cooldown configurable
+# ---------------------------------------------------------------------------
+
+
+class TestCooldownConfigurable:
+    async def test_cooldown_depuis_subentry(self, hass: HomeAssistant) -> None:
+        """Le Throttler utilise le cooldown configuré dans la subentry."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_COOLDOWN] = 120
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
+        )
+        assert coordinator._throttler._cooldown == 120
+
+    async def test_cooldown_defaut_si_absent(self, hass: HomeAssistant) -> None:
+        """Sans CONF_COOLDOWN dans subentry → cooldown par défaut (60)."""
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+        assert coordinator._throttler._cooldown == 60
+
+
+# ---------------------------------------------------------------------------
+# Tests du silent mode
+# ---------------------------------------------------------------------------
+
+
+class TestSilentMode:
+    async def test_activate_silent_mode_bloque_notifications(
+        self, hass: HomeAssistant
+    ) -> None:
+        """En mode silencieux, les événements new ne déclenchent pas de notification."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_SILENT_DURATION] = 30
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator.activate_silent_mode()
+
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_not_called()
+
+    async def test_activate_silent_mode_met_a_jour_silent_until(
+        self, hass: HomeAssistant
+    ) -> None:
+        """activate_silent_mode met _silent_until dans le futur."""
+        import time
+        coordinator = _make_coordinator(hass)
+        before = time.time()
+        coordinator.activate_silent_mode()
+        assert coordinator._silent_until > before
+
+    async def test_silent_duration_depuis_subentry(self, hass: HomeAssistant) -> None:
+        """_silent_duration correspond à la valeur de la subentry."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_SILENT_DURATION] = 45
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
+        )
+        assert coordinator._silent_duration == 45
+
+
+# ---------------------------------------------------------------------------
+# Tests du debounce
+# ---------------------------------------------------------------------------
+
+
+class TestDebounce:
+    async def test_debounce_zero_envoie_immediatement(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Avec debounce=0, la notification est envoyée immédiatement."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 0
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_called_once()
+
+    async def test_debounce_positif_differe_notification(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Avec debounce > 0, la notification n'est pas envoyée immédiatement."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 5
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        # Pas de await block_till_done — la task est planifiée mais pas exécutée
+        notifier.async_notify.assert_not_called()
+        # Nettoyage
+        if coordinator._debounce_task:
+            coordinator._debounce_task.cancel()
+
+    async def test_debounce_end_annule_task_et_libere_throttler(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Un événement end annule le debounce task en cours."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 5
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        assert coordinator._debounce_task is not None
+
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_END))
+        await hass.async_block_till_done()
+
+        # La task a été annulée → aucune notification envoyée
+        notifier.async_notify.assert_not_called()
+        assert coordinator._debounce_task is None
+
+    async def test_debounce_accumule_objects(self, hass: HomeAssistant) -> None:
+        """Avec debounce, _pending_objects accumule les objets des événements."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 5
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))  # objects=["personne"]
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_UPDATE))  # objects=["chien"]
+
+        assert "personne" in coordinator._pending_objects
+        assert "chien" in coordinator._pending_objects
+
+        if coordinator._debounce_task:
+            coordinator._debounce_task.cancel()
+
+
+# ---------------------------------------------------------------------------
+# Tests de la notification sur type=update
+# ---------------------------------------------------------------------------
+
+
+class TestNotificationUpdate:
+    async def test_type_update_notifie_si_conditions_reunies(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Un événement update entraîne une notification si le throttle le permet."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_UPDATE))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_called_once()
+
+    async def test_type_end_ne_notifie_pas(self, hass: HomeAssistant) -> None:
+        """Un événement end ne déclenche jamais de notification."""
+        notifier = AsyncMock()
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            _make_subentry("jardin"),
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_END))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_not_called()
+
+    async def test_camera_disabled_ne_notifie_pas(self, hass: HomeAssistant) -> None:
+        """Caméra désactivée → aucune notification même sur new."""
+        notifier = AsyncMock()
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            _make_subentry("jardin"),
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator.set_camera_enabled(False)
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_not_called()

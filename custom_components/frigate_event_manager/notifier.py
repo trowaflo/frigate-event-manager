@@ -94,7 +94,7 @@ class HANotifier:
         }
 
     async def async_notify(self, event: FrigateEvent) -> None:
-        """Envoie une notification pour un événement Frigate de type 'new'."""
+        """Envoie une notification pour un événement Frigate de type 'new' ou 'update'."""
         escaped_objects = [html.escape(o) for o in event.objects]
         media_urls = self._build_media_urls(event)
 
@@ -114,31 +114,18 @@ class HANotifier:
         message = self._render(self._message_tpl, variables)
         notification_id = f"frigate_{event.camera}_{event.review_id}"
 
-        # Données enrichies pour HA Companion (image preview + lien au tap + boutons)
-        companion_data: dict[str, Any] = {"tag": notification_id}
-        if media_urls["snapshot_url"]:
-            companion_data["image"] = media_urls["snapshot_url"]
-        tap_url = {
-            TAP_ACTION_CLIP: media_urls["clip_url"],
-            TAP_ACTION_SNAPSHOT: media_urls["snapshot_url"],
-            TAP_ACTION_PREVIEW: media_urls["preview_url"],
-        }.get(self._tap_action, media_urls["clip_url"])
-        if tap_url:
-            companion_data["url"] = tap_url          # iOS
-            companion_data["clickAction"] = tap_url  # Android
-
-        # Boutons d'action — uniquement les URLs disponibles
-        actions = []
-        if media_urls["clip_url"]:
-            actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
-        if media_urls["snapshot_url"]:
-            actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
-        if media_urls["preview_url"]:
-            actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
-        if actions:
-            companion_data["actions"] = actions
-
         if self._target == PERSISTENT_NOTIFICATION:
+            # persistent_notification : liens markdown dans le message, pas de data enrichie
+            if any(media_urls.get(k) for k in ("clip_url", "snapshot_url", "preview_url")):
+                links = []
+                if media_urls.get("clip_url"):
+                    links.append(f"[Clip]({media_urls['clip_url']})")
+                if media_urls.get("snapshot_url"):
+                    links.append(f"[Snapshot]({media_urls['snapshot_url']})")
+                if media_urls.get("preview_url"):
+                    links.append(f"[Preview]({media_urls['preview_url']})")
+                message += "\n" + " · ".join(links)
+
             await self._hass.services.async_call(
                 "persistent_notification",
                 "create",
@@ -149,6 +136,35 @@ class HANotifier:
                 },
             )
         else:
+            # HA Companion : données enrichies (image, tap, boutons, group)
+            companion_data: dict[str, Any] = {"tag": notification_id}
+
+            # Group iOS — regroupe les notifications par caméra
+            companion_data["group"] = f"frigate-{html.escape(event.camera)}"
+
+            if media_urls["snapshot_url"]:
+                companion_data["image"] = media_urls["snapshot_url"]
+
+            tap_url = {
+                TAP_ACTION_CLIP: media_urls["clip_url"],
+                TAP_ACTION_SNAPSHOT: media_urls["snapshot_url"],
+                TAP_ACTION_PREVIEW: media_urls["preview_url"],
+            }.get(self._tap_action, media_urls["clip_url"])
+            if tap_url:
+                companion_data["url"] = tap_url          # iOS
+                companion_data["clickAction"] = tap_url  # Android
+
+            # Boutons d'action — uniquement les URLs disponibles
+            actions = []
+            if media_urls["clip_url"]:
+                actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
+            if media_urls["snapshot_url"]:
+                actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
+            if media_urls["preview_url"]:
+                actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
+            if actions:
+                companion_data["actions"] = actions
+
             parts = self._target.split(".", 1)
             if len(parts) == 2:
                 domain, service = parts

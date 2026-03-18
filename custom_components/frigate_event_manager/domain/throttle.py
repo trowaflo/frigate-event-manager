@@ -41,3 +41,7 @@ class Throttler:
         """Enregistre le timestamp de la dernière notification pour une caméra."""
         instant = now if now is not None else self._clock()
         self._last_notified[camera] = instant
+
+    def release(self, camera: str) -> None:
+        """Supprime le cooldown d'une caméra (event terminé)."""
+        self._last_notified.pop(camera, None)

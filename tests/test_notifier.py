@@ -185,3 +185,93 @@ async def test_template_vide_utilise_defaut(hass: HomeAssistant) -> None:
     data = calls[0].data
     assert "cour" in data["title"]
     assert "dog" in data["message"]
+
+
+# ---------------------------------------------------------------------------
+# Tests feature 3 — group companion_data
+# ---------------------------------------------------------------------------
+
+
+async def test_companion_data_contient_group(hass: HomeAssistant) -> None:
+    """companion_data contient 'group' avec le nom de la caméra."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    await notifier.async_notify(_make_event(camera="jardin"))
+
+    data = calls[0].data["data"]
+    assert "group" in data
+    assert data["group"] == "frigate-jardin"
+
+
+async def test_companion_data_group_escape_camera(hass: HomeAssistant) -> None:
+    """Le nom de caméra dans 'group' est HTML-escaped."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    await notifier.async_notify(_make_event(camera="<cam>"))
+
+    data = calls[0].data["data"]
+    assert "<cam>" not in data["group"]
+    assert "&lt;cam&gt;" in data["group"]
+
+
+# ---------------------------------------------------------------------------
+# Tests feature 7 — fix persistent_notification
+# ---------------------------------------------------------------------------
+
+
+async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) -> None:
+    """persistent_notification n'ajoute pas image/url/clickAction/actions."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        PERSISTENT_NOTIFICATION,
+        frigate_url="http://frigate.local",
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    # persistent_notification.create reçoit seulement title/message/notification_id
+    data = calls[0].data
+    assert "image" not in data
+    assert "url" not in data
+    assert "clickAction" not in data
+    assert "actions" not in data
+
+
+async def test_persistent_notification_liens_markdown_dans_message(hass: HomeAssistant) -> None:
+    """persistent_notification ajoute des liens markdown dans le message si URLs disponibles."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        PERSISTENT_NOTIFICATION,
+        frigate_url="http://frigate.local",
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    message = calls[0].data["message"]
+    assert "[Clip]" in message or "[Snapshot]" in message
+
+
+async def test_persistent_notification_sans_urls_pas_de_liens(hass: HomeAssistant) -> None:
+    """persistent_notification sans URLs disponibles → pas de section liens."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
+    event = _make_event(review_id="")  # pas de review_id → pas d'URLs
+    await notifier.async_notify(event)
+
+    message = calls[0].data["message"]
+    assert "[Clip]" not in message
+    assert "[Snapshot]" not in message
+
+
+async def test_companion_pas_persistent_notification_contient_tag(hass: HomeAssistant) -> None:
+    """Pour un target Companion, companion_data contient tag."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    await notifier.async_notify(_make_event(camera="entree", review_id="abc"))
+
+    data = calls[0].data["data"]
+    assert "tag" in data
+    assert "entree" in data["tag"]
+    assert "abc" in data["tag"]

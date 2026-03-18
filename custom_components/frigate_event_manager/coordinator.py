@@ -2,19 +2,28 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+from dataclasses import replace
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_CAMERA,
+    CONF_COOLDOWN,
+    CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
+    CONF_SILENT_DURATION,
     CONF_ZONES,
+    DEFAULT_DEBOUNCE,
     DEFAULT_MQTT_TOPIC,
+    DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
 )
@@ -54,7 +63,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._unsubscribe_mqtt: Any = None
         self._notifier: NotifierPort | None = notifier
         self._event_source: EventSourcePort = event_source
-        self._throttler = Throttler(cooldown=DEFAULT_THROTTLE_COOLDOWN)
+        self._throttler = Throttler(
+            cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)
+        )
         zones = subentry.data.get(CONF_ZONES, [])
         labels = subentry.data.get(CONF_LABELS, [])
         disabled_hours = subentry.data.get(CONF_DISABLED_HOURS, [])
@@ -63,6 +74,16 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             LabelFilter(labels),
             TimeFilter(disabled_hours),
         ])
+
+        # Debounce
+        self._debounce_seconds: int = subentry.data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)
+        self._debounce_task: asyncio.Task | None = None
+        self._pending_objects: set[str] = set()
+        self._pending_event: Any = None  # FrigateEvent dernier reçu
+
+        # Silent mode
+        self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
+        self._silent_until: float = 0.0
 
     @property
     def camera(self) -> str:
@@ -79,6 +100,20 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
 
+    def activate_silent_mode(self) -> None:
+        """Active le mode silencieux pour la durée configurée."""
+        self._silent_until = time.time() + self._silent_duration * 60
+        async_call_later(
+            self.hass,
+            self._silent_duration * 60,
+            lambda _: setattr(self, "_silent_until", 0.0),
+        )
+        _LOGGER.info(
+            "Mode silencieux activé — caméra=%s durée=%d min",
+            self._camera,
+            self._silent_duration,
+        )
+
     async def async_start(self) -> None:
         """Souscrit au topic MQTT Frigate via l'adaptateur injecté."""
         self._unsubscribe_mqtt = await self._event_source.async_subscribe(
@@ -89,6 +124,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_stop(self) -> None:
         """Désabonnement MQTT."""
+        if self._debounce_task is not None:
+            self._debounce_task.cancel()
+            self._debounce_task = None
         if self._unsubscribe_mqtt is not None:
             self._unsubscribe_mqtt()
             self._unsubscribe_mqtt = None
@@ -121,17 +159,60 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             event.camera, event.type, event.severity, event.objects,
         )
 
-        if (
-            event.type == "new"
-            and state.enabled
-            and self._notifier is not None
-            and self._filter_chain.apply(event)
-            and self._throttler.should_notify(self._camera)
-        ):
-            self.hass.async_create_task(self._notifier.async_notify(event))
-            self._throttler.record(self._camera)
+        if event.type in ("new", "update"):
+            if (
+                state.enabled
+                and self._notifier is not None
+                and self._filter_chain.apply(event)
+                and self._throttler.should_notify(self._camera)
+                and time.time() > self._silent_until
+            ):
+                if self._debounce_seconds == 0:
+                    # Envoi immédiat — comportement sans debounce
+                    self.hass.async_create_task(self._notifier.async_notify(event))
+                    self._throttler.record(self._camera)
+                else:
+                    # Accumulation pour debounce
+                    self._pending_objects.update(event.objects)
+                    self._pending_event = event
+                    if self._debounce_task is not None:
+                        self._debounce_task.cancel()
+                    self._debounce_task = self.hass.async_create_task(
+                        self._debounce_send()
+                    )
+        elif event.type == "end":
+            # Annulation du debounce + libération du cooldown à la fin de l'événement
+            if self._debounce_task is not None:
+                self._debounce_task.cancel()
+                self._debounce_task = None
+            self._pending_objects.clear()
+            self._pending_event = None
+            self._throttler.release(self._camera)
 
         self.async_set_updated_data(state.as_dict())
+
+    async def _debounce_send(self) -> None:
+        """Envoie la notification groupée après la fenêtre de debounce."""
+        try:
+            await asyncio.sleep(self._debounce_seconds)
+        except asyncio.CancelledError:
+            return
+
+        if self._pending_event is None or self._notifier is None:
+            return
+
+        # Event synthétique avec tous les objets accumulés
+        grouped_event = replace(
+            self._pending_event,
+            objects=list(self._pending_objects),
+        )
+        await self._notifier.async_notify(grouped_event)
+        self._throttler.record(self._camera)
+
+        # Réinitialisation
+        self._pending_objects.clear()
+        self._pending_event = None
+        self._debounce_task = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Non utilisé — coordinator en mode push MQTT uniquement."""

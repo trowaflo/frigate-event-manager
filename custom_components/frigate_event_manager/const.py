@@ -25,6 +25,15 @@ PERSISTENT_NOTIFICATION = "persistent_notification"
 
 # Throttle
 DEFAULT_THROTTLE_COOLDOWN = 60
+CONF_COOLDOWN = "cooldown"
+
+# Debounce
+CONF_DEBOUNCE = "debounce"
+DEFAULT_DEBOUNCE = 0
+
+# Silent mode
+CONF_SILENT_DURATION = "silent_duration"
+DEFAULT_SILENT_DURATION = 30
 
 # Templates de notification
 CONF_NOTIF_TITLE = "notification_title"

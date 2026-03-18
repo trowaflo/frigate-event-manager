@@ -19,6 +19,7 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_TAP_ACTION,
     MEDIA_URL_TTL,
+    PERSISTENT_NOTIFICATION,
     PROXY_CLIENT_KEY,
     PROXY_PATH_PREFIX,
     PROXY_VIEW_KEY,
@@ -34,9 +35,29 @@ from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "binary_sensor"]
+PLATFORMS = ["switch", "binary_sensor", "button"]
 
 type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
+    """Migration des config entries vers la version actuelle."""
+    _LOGGER.debug(
+        "Migration de la version %d.%d vers 3.1",
+        entry.version,
+        entry.minor_version,
+    )
+
+    if entry.version == 2:
+        # v2 -> v3 : suppression de notify_target global de entry.data
+        new_data = {k: v for k, v in entry.data.items() if k != "notify_target"}
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, version=3, minor_version=1
+        )
+        _LOGGER.info("Migration v2 -> v3 terminee")
+        return True
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
@@ -76,22 +97,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
 
     for subentry_id, subentry in entry.subentries.items():
         if subentry.subentry_type == SUBENTRY_TYPE_CAMERA:
-            notify_target = (
-                subentry.data.get(CONF_NOTIFY_TARGET)
-                or entry.data.get(CONF_NOTIFY_TARGET)
-            )
-            notifier = (
-                HANotifier(
-                    hass,
-                    notify_target,
-                    title_tpl=subentry.data.get(CONF_NOTIF_TITLE) or None,
-                    message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
-                    signer=signer,
-                    frigate_url=entry.data.get(CONF_URL),
-                    tap_action=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
-                )
-                if notify_target
-                else None
+            # notify_target depuis subentry uniquement — fallback persistent_notification
+            notify_target = subentry.data.get(CONF_NOTIFY_TARGET) or PERSISTENT_NOTIFICATION
+            notifier = HANotifier(
+                hass,
+                notify_target,
+                title_tpl=subentry.data.get(CONF_NOTIF_TITLE) or None,
+                message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
+                signer=signer,
+                frigate_url=entry.data.get(CONF_URL),
+                tap_action=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
             )
             coordinator = FrigateEventManagerCoordinator(
                 hass, entry, subentry,

@@ -230,6 +230,90 @@
     Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
     Validation humaine obligatoire avant merge.
 
+---
+
+## Phase 5 — Gestion avancée des notifications
+
+### T-513 | Notification features — implémentation
+
+- Status: DONE
+- Owner: python-architect
+- Scope: `const.py`, `coordinator.py`, `notifier.py`, `config_flow.py`, `__init__.py`, `button.py` (nouveau), `strings.json`, `translations/fr.json`, `translations/en.json`
+- Locks: —
+- Depends: —
+- Blocks: T-514, T-515
+- Notes: |
+    7 features à implémenter en un seul bloc (tous les fichiers se recoupent) :
+    1. Cooldown configurable par caméra (CONF_COOLDOWN, subentry config flow, Throttler)
+    2. Debounce configurable + groupement objets + cleanup sur `end`
+       - CONF_DEBOUNCE dans const.py et subentry config flow
+       - _debounce_task, _pending_objects, _pending_event dans coordinator
+       - _send_debounced() : event synthétique, throttler.record, reset
+       - Sur `end` : annuler debounce task + libérer throttler
+    3. Regroupement iOS : ajouter "group": f"frigate-{html.escape(event.camera)}" dans companion_data (notifier.py)
+    4. Notification sur `update` events (même logique que `new` — tag identique → mise à jour notif)
+    5. Silent mode par caméra :
+       - CONF_SILENT_DURATION (int, minutes, default 30) dans const.py + subentry config flow
+       - button.py : SilentButton (unique_id=fem_{cam}_silent, name="Silencieux")
+       - coordinator : _silent_until:float=0, activate_silent_mode(), _deactivate_silent_mode()
+       - condition notif : and time.time() > self._silent_until
+       - "button" dans PLATFORMS (`__init__.py`)
+    6. Suppression global notify_target :
+       - Supprimer async_step_notify du config flow principal
+       - config flow principal = 1 seule étape (user → create entry)
+       - Supprimer CONF_NOTIFY_TARGET de entry.data (garder uniquement dans subentry)
+       - Supprimer async_step_reconfigure CONF_NOTIFY_TARGET global
+       - `__init__.py` : supprimer fallback `or entry.data.get(CONF_NOTIFY_TARGET)`
+       - VERSION=3, MINOR_VERSION=1
+       - async_migrate_entry : v2→v3 supprime notify_target de entry.data
+       - strings.json + translations : supprimer step `notify` et champ `notify_target` global
+    7. Fix persistent_notification :
+       - Détecter PERSISTENT_NOTIFICATION dans notifier.py
+       - Ne pas mettre data.image/url/clickAction/actions
+       - Ajouter liens markdown dans message : [Clip](url) · [Snapshot](url) · [Preview](url)
+
+### T-514 | Notification features — review
+
+- Status: TODO
+- Owner: reviewer
+- Scope: tous les fichiers modifiés par T-513
+- Locks: —
+- Depends: T-513
+- Blocks: T-516
+- Notes: —
+
+### T-515 | Notification features — tests
+
+- Status: TODO
+- Owner: quality-guard
+- Scope: `tests/test_coordinator.py`, `tests/test_notifier.py`, `tests/test_config_flow.py`, `tests/test_button.py` (nouveau)
+- Locks: —
+- Depends: T-513
+- Blocks: T-516
+- Notes: Coverage ≥80% obligatoire. Vérifier les 7 features + migration v2→v3.
+
+### T-516 | Notification features — simplification
+
+- Status: TODO
+- Owner: code-simplifier
+- Scope: tous les fichiers modifiés par T-513
+- Locks: —
+- Depends: T-514, T-515
+- Blocks: T-517
+- Notes: Si reviewer émet REVIEW_NEEDED BLOCKING → HITL avant de continuer. Si quality-guard émet REJECTED → python-architect reprend avant T-516.
+
+### T-517 | Notification features — PR
+
+- Status: TODO
+- Owner: orchestrator
+- Scope: `feat/python-migration` → `main`
+- Locks: —
+- Depends: T-516
+- Blocks: —
+- Notes: |
+    Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
+    Validation humaine obligatoire avant merge.
+
 <!--
 ### T-XXX | [Titre]
 

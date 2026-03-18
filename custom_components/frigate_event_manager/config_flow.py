@@ -19,17 +19,22 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CAMERA,
+    CONF_COOLDOWN,
+    CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
     CONF_NOTIF_MESSAGE,
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_SILENT_DURATION,
     CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
+    DEFAULT_SILENT_DURATION,
     DEFAULT_TAP_ACTION,
+    DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
     SUBENTRY_TYPE_CAMERA,
@@ -44,7 +49,7 @@ def _parse_csv_str(value: str) -> list[str]:
 
 
 def _parse_csv_int(value: str) -> list[int]:
-    """Parse une string CSV en liste d'entiers (ex: '0,1,2' → [0,1,2])."""
+    """Parse une string CSV en liste d'entiers (ex: '0,1,2' -> [0,1,2])."""
     if not value.strip():
         return []
     try:
@@ -87,9 +92,9 @@ def _configured_cameras(entry: ConfigEntry) -> set[str]:
 
 
 class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Config flow — 2 étapes : connexion Frigate + notification par défaut."""
+    """Config flow — 1 étape : connexion Frigate."""
 
-    VERSION = 2
+    VERSION = 3
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
@@ -109,7 +114,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Étape 1 : connexion Frigate (URL + credentials)."""
+        """Étape unique : connexion Frigate (URL + credentials)."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
 
@@ -128,10 +133,14 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
             except (aiohttp.ClientError, TimeoutError, ValueError):
                 errors["base"] = "cannot_connect"
             else:
-                self._url = user_input[CONF_URL]
-                self._username = user_input.get(CONF_USERNAME) or None
-                self._password = user_input.get(CONF_PASSWORD) or None
-                return await self.async_step_notify()
+                return self.async_create_entry(
+                    title="Frigate Event Manager",
+                    data={
+                        CONF_URL: user_input[CONF_URL],
+                        CONF_USERNAME: user_input.get(CONF_USERNAME) or None,
+                        CONF_PASSWORD: user_input.get(CONF_PASSWORD) or None,
+                    },
+                )
 
         return self.async_show_form(
             step_id="user",
@@ -143,41 +152,10 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_notify(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Étape 2 : sélection du service de notification par défaut."""
-        if user_input is not None:
-            return self.async_create_entry(
-                title="Frigate Event Manager",
-                data={
-                    CONF_URL: self._url,
-                    CONF_USERNAME: self._username,
-                    CONF_PASSWORD: self._password,
-                    CONF_NOTIFY_TARGET: user_input[CONF_NOTIFY_TARGET],
-                },
-            )
-
-        notify_options = _get_notify_options(self.hass)
-        return self.async_show_form(
-            step_id="notify",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_NOTIFY_TARGET,
-                    default=notify_options[0] if notify_options else PERSISTENT_NOTIFICATION,
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=notify_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-            }),
-        )
-
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Reconfiguration : modifier URL, credentials et notify par défaut."""
+        """Reconfiguration : modifier URL et credentials Frigate."""
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
 
@@ -199,11 +177,9 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_URL: user_input[CONF_URL],
                         CONF_USERNAME: user_input.get(CONF_USERNAME) or None,
                         CONF_PASSWORD: user_input.get(CONF_PASSWORD) or None,
-                        CONF_NOTIFY_TARGET: user_input[CONF_NOTIFY_TARGET],
                     },
                 )
 
-        notify_options = _get_notify_options(self.hass)
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({
@@ -214,15 +190,6 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_PASSWORD, default=entry.data.get(CONF_PASSWORD) or ""
                 ): str,
-                vol.Required(
-                    CONF_NOTIFY_TARGET,
-                    default=entry.data.get(CONF_NOTIFY_TARGET, PERSISTENT_NOTIFICATION),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=notify_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
             }),
             errors=errors,
         )
@@ -252,6 +219,11 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
                     CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
                     CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+                    CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
+                    CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, 0)),
+                    CONF_SILENT_DURATION: int(
+                        user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
+                    ),
                 },
                 unique_id=f"fem_{camera_name}",
             )
@@ -277,7 +249,6 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             return self.async_abort(reason="no_cameras_available")
 
         notify_options = _get_notify_options(self.hass)
-        default_notify = entry.data.get(CONF_NOTIFY_TARGET, PERSISTENT_NOTIFICATION)
 
         camera_field: object = (
             selector.SelectSelector(
@@ -295,7 +266,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             data_schema=vol.Schema({
                 vol.Required(CONF_CAMERA): camera_field,
                 vol.Required(
-                    CONF_NOTIFY_TARGET, default=default_notify
+                    CONF_NOTIFY_TARGET, default=PERSISTENT_NOTIFICATION
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=notify_options,
@@ -314,6 +285,34 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                         translation_key=CONF_TAP_ACTION,
                     )
                 ),
+                vol.Optional(
+                    CONF_COOLDOWN, default=DEFAULT_THROTTLE_COOLDOWN
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=3600,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
+                vol.Optional(CONF_DEBOUNCE, default=0): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=60,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
+                vol.Optional(
+                    CONF_SILENT_DURATION, default=DEFAULT_SILENT_DURATION
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=480,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="min",
+                    )
+                ),
             }),
             errors=errors,
         )
@@ -321,7 +320,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfiguration d'une caméra — modifier le service de notification."""
+        """Reconfiguration d'une caméra — modifier notifications et filtres."""
         subentry = self._get_reconfigure_subentry()
 
         if user_input is not None:
@@ -336,6 +335,11 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
                     CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
                     CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+                    CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
+                    CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, 0)),
+                    CONF_SILENT_DURATION: int(
+                        user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
+                    ),
                 },
             )
 
@@ -346,6 +350,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         existing_title = subentry.data.get(CONF_NOTIF_TITLE) or ""
         existing_message = subentry.data.get(CONF_NOTIF_MESSAGE) or ""
         existing_tap = subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION)
+        existing_cooldown = subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)
+        existing_debounce = subentry.data.get(CONF_DEBOUNCE, 0)
+        existing_silent = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
+
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({
@@ -368,6 +376,36 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                         options=TAP_ACTION_OPTIONS,
                         mode=selector.SelectSelectorMode.LIST,
                         translation_key=CONF_TAP_ACTION,
+                    )
+                ),
+                vol.Optional(
+                    CONF_COOLDOWN, default=existing_cooldown
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=3600,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
+                vol.Optional(
+                    CONF_DEBOUNCE, default=existing_debounce
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=60,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
+                vol.Optional(
+                    CONF_SILENT_DURATION, default=existing_silent
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=480,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="min",
                     )
                 ),
             }),
