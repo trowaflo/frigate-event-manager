@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import html
 import logging
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 
 from .const import PERSISTENT_NOTIFICATION
+from .domain.model import FrigateEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class HANotifier:
         self._hass = hass
         self._target = notify_target
 
-    async def async_notify(self, event: Any) -> None:
+    async def async_notify(self, event: FrigateEvent) -> None:
         """Envoie une notification pour un événement Frigate de type 'new'."""
         camera = html.escape(str(event.camera))
         objects = html.escape(", ".join(event.objects) if event.objects else "objet inconnu")

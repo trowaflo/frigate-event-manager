@@ -11,15 +11,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import CONF_CAMERA, DEFAULT_MQTT_TOPIC, DOMAIN
-from .domain.model import (  # noqa: F401 — re-export rétrocompatibilité
-    CameraState,
-    FrigateEvent,
-    _parse_event,
-    _to_float,
-)
+from .domain.filter import FilterChain
+from .domain.model import CameraState, _parse_event
 from .domain.ports import NotifierPort
-from .filter import FilterChain
-from .throttle import Throttler
+from .domain.throttle import Throttler
 
 _LOGGER = logging.getLogger(__name__)
 
