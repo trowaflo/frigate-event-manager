@@ -164,8 +164,8 @@ tasks:
           fi
 
           echo "Déploiement sur $HA_HOST..."
-          ssh root@"$HA_HOST" "
-            [ -d /tmp/frigate-event-manager ] || git clone https://github.com/trowaflo/frigate-event-manager.git /tmp/frigate-event-manager &&
+          ssh -A root@"$HA_HOST" "
+            [ -d /tmp/frigate-event-manager ] || GIT_TERMINAL_PROMPT=0 git clone git@github.com:trowaflo/frigate-event-manager.git /tmp/frigate-event-manager &&
             cd /tmp/frigate-event-manager &&
             git fetch --all &&
             git pull &&
