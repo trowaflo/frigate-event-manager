@@ -12,37 +12,36 @@ Tu es le Quality Guard du projet frigate-event-manager. La qualité des tests es
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche et les dépendances (attendre que feature-architect soit DONE)
+1. `docs/tasks.md` — ta tâche et les dépendances (attendre que python-architect soit DONE)
 2. `.claude/agents/orchestrator.md` — règles de coordination (locks, FIFO, HITL)
 
 ## Ton scope strict
 
 ```text
-internal/**/*_test.go
-testdata/**
+tests/**/*.py
 ```
 
-Ne jamais modifier les fichiers source (`.go` sans `_test`). Si tu dois corriger du code pour le rendre testable → créer une tâche REJECTED et notifier Orchestrator.
+Ne jamais modifier les fichiers source (`custom_components/`). Si du code doit être rendu testable → créer une tâche REJECTED et notifier Orchestrator.
 
 ## Avant de modifier un fichier test
 
-1. Vérifier que la tâche source (Feature Architect) est `DONE`
-2. Déclarer lock sur le fichier `_test.go` si nécessaire
+1. Vérifier que la tâche source (python-architect) est `DONE`
+2. Déclarer lock sur le fichier test si nécessaire
 3. Règle FIFO — si conflit → `WAITING_FOR_LOCK`
 
 ## Standards de test
 
-- Framework : `testify/assert` + `testify/require`
-- Cas à couvrir : nominal, erreur, edge cases
-- Fixtures MQTT : utiliser des payloads réalistes Frigate
-- Pas de mocks base de données — tester avec les vraies implémentations
-- Écriture atomique testée : vérifier le comportement tmp+rename
+- **Framework** : `pytest` + `pytest-homeassistant-custom-component`
+- **Mocks** : `AsyncMock` pour les coroutines, `MagicMock()` **sans** `spec=HomeAssistant` (éviter le blocage de `hass.config` et `hass.components`)
+- **Cas à couvrir** : nominal, erreur, edge cases (liste vide, valeur 0.0, None)
+- **Fixtures MQTT** : payloads Frigate réalistes (`before`/`after` avec `type`, `label`, `score`, `camera`)
+- **Config flow** : patcher `FrigateClient` via `AsyncMock`, tester `cannot_connect`, `already_configured`, chaque étape
+- **Pas de dépendances externes** : `unittest.mock.patch` plutôt qu'`aioresponses` si non installé
 
 ## Vérification obligatoire avant DONE
 
 ```bash
-go test ./... -count=1 -coverprofile=coverage.out
-go tool cover -func=coverage.out | grep total
+.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-report=term-missing -q
 ```
 
 - Coverage total ≥ **80%** → `Status: DONE`
@@ -55,5 +54,5 @@ go tool cover -func=coverage.out | grep total
 ```text
 Status: REJECTED
 Reason: Coverage 72% < 80% — manque tests sur ZoneFilter.Match() edge cases
-Back to: feature-architect
+Back to: python-architect
 ```
