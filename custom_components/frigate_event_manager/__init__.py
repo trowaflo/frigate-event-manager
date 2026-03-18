@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import CONF_NOTIFY_TARGET, SUBENTRY_TYPE_CAMERA
+from .const import CONF_NOTIF_MESSAGE, CONF_NOTIF_TITLE, CONF_NOTIFY_TARGET, SUBENTRY_TYPE_CAMERA
 from .coordinator import FrigateEventManagerCoordinator
 from .ha_mqtt import HaMqttAdapter
 from .notifier import HANotifier
@@ -36,7 +36,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                 subentry.data.get(CONF_NOTIFY_TARGET)
                 or entry.data.get(CONF_NOTIFY_TARGET)
             )
-            notifier = HANotifier(hass, notify_target) if notify_target else None
+            notifier = (
+                HANotifier(
+                    hass,
+                    notify_target,
+                    title_tpl=subentry.data.get(CONF_NOTIF_TITLE) or None,
+                    message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
+                )
+                if notify_target
+                else None
+            )
             coordinator = FrigateEventManagerCoordinator(
                 hass, entry, subentry,
                 notifier=notifier,

@@ -42,7 +42,13 @@
             "notify_target": "Notification service",
             "zones": "Required zones (comma-separated, empty = all)",
             "labels": "Detected objects (comma-separated, empty = all)",
-            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)"
+            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
+            "notification_title": "Notification title (Jinja2 template, empty = default)",
+            "notification_message": "Notification message (Jinja2 template, empty = default)"
+          },
+          "data_description": {
+            "notification_title": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: Frigate — [camera]",
+            "notification_message": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
           }
         },
         "reconfigure": {
@@ -51,7 +57,13 @@
             "notify_target": "Notification service",
             "zones": "Required zones (comma-separated, empty = all)",
             "labels": "Detected objects (comma-separated, empty = all)",
-            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)"
+            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
+            "notification_title": "Notification title (Jinja2 template, empty = default)",
+            "notification_message": "Notification message (Jinja2 template, empty = default)"
+          },
+          "data_description": {
+            "notification_title": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: Frigate — [camera]",
+            "notification_message": "Available variables: camera, objects (list), zones (list), severity, score, review_id. Default: [objects] detected ([severity])"
           }
         }
       },

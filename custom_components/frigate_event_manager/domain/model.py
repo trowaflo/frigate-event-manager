@@ -75,14 +75,19 @@ def _parse_event(payload: str) -> FrigateEvent | None:
     if not camera:
         return None
 
+    # Frigate stocke objects/zones/score dans after.data pour les reviews MQTT
+    data: dict[str, Any] = after.get("data") or {}
+
     return FrigateEvent(
         type=event_type,
         camera=str(camera),
         severity=str(after.get("severity") or raw.get("severity") or "detection"),
-        objects=list(after.get("objects") or raw.get("objects") or []),
-        zones=list(after.get("current_zones") or raw.get("zones") or []),
+        objects=list(after.get("objects") or data.get("objects") or raw.get("objects") or []),
+        zones=list(after.get("current_zones") or data.get("zones") or raw.get("zones") or []),
         score=_to_float(
-            after.get("score") if after.get("score") is not None else raw.get("score"),
+            after.get("score") if after.get("score") is not None
+            else data.get("top_score") if data.get("top_score") is not None
+            else raw.get("score"),
             default=0.0,
         ),
         thumb_path=str(after.get("thumb_path") or raw.get("thumb_path") or ""),

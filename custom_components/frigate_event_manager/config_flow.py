@@ -21,6 +21,8 @@ from .const import (
     CONF_CAMERA,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
+    CONF_NOTIF_MESSAGE,
+    CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
     CONF_URL,
@@ -244,6 +246,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_ZONES: _parse_csv_str(user_input.get(CONF_ZONES, "")),
                     CONF_LABELS: _parse_csv_str(user_input.get(CONF_LABELS, "")),
                     CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
+                    CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
+                    CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
                 },
                 unique_id=f"fem_{camera_name}",
             )
@@ -297,6 +301,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 vol.Optional(CONF_ZONES, default=""): str,
                 vol.Optional(CONF_LABELS, default=""): str,
                 vol.Optional(CONF_DISABLED_HOURS, default=""): str,
+                vol.Optional(CONF_NOTIF_TITLE, default=""): str,
+                vol.Optional(CONF_NOTIF_MESSAGE, default=""): str,
             }),
             errors=errors,
         )
@@ -316,6 +322,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                     CONF_ZONES: _parse_csv_str(user_input.get(CONF_ZONES, "")),
                     CONF_LABELS: _parse_csv_str(user_input.get(CONF_LABELS, "")),
                     CONF_DISABLED_HOURS: _parse_csv_int(user_input.get(CONF_DISABLED_HOURS, "")),
+                    CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
+                    CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
                 },
             )
 
@@ -323,6 +331,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         existing_zones = ",".join(subentry.data.get(CONF_ZONES, []))
         existing_labels = ",".join(subentry.data.get(CONF_LABELS, []))
         existing_hours = ",".join(str(h) for h in subentry.data.get(CONF_DISABLED_HOURS, []))
+        existing_title = subentry.data.get(CONF_NOTIF_TITLE) or ""
+        existing_message = subentry.data.get(CONF_NOTIF_MESSAGE) or ""
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema({
@@ -338,5 +348,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 vol.Optional(CONF_ZONES, default=existing_zones): str,
                 vol.Optional(CONF_LABELS, default=existing_labels): str,
                 vol.Optional(CONF_DISABLED_HOURS, default=existing_hours): str,
+                vol.Optional(CONF_NOTIF_TITLE, default=existing_title): str,
+                vol.Optional(CONF_NOTIF_MESSAGE, default=existing_message): str,
             }),
         )

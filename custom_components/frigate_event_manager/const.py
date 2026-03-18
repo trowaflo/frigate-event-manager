@@ -25,3 +25,9 @@ PERSISTENT_NOTIFICATION = "persistent_notification"
 
 # Throttle
 DEFAULT_THROTTLE_COOLDOWN = 60
+
+# Templates de notification
+CONF_NOTIF_TITLE = "notification_title"
+CONF_NOTIF_MESSAGE = "notification_message"
+DEFAULT_NOTIF_TITLE = "Frigate — {{ camera }}"
+DEFAULT_NOTIF_MESSAGE = "{{ objects | join(', ') or 'objet inconnu' }} détecté ({{ severity }})"

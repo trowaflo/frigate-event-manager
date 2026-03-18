@@ -42,7 +42,13 @@
             "notify_target": "Service de notification",
             "zones": "Zones requises (virgule, vide = toutes)",
             "labels": "Objets détectés (virgule, vide = tous)",
-            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)"
+            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)",
+            "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
+            "notification_message": "Message de la notification (template Jinja2, vide = défaut)"
+          },
+          "data_description": {
+            "notification_title": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
+            "notification_message": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
           }
         },
         "reconfigure": {
@@ -51,7 +57,13 @@
             "notify_target": "Service de notification",
             "zones": "Zones requises (virgule, vide = toutes)",
             "labels": "Objets détectés (virgule, vide = tous)",
-            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)"
+            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)",
+            "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
+            "notification_message": "Message de la notification (template Jinja2, vide = défaut)"
+          },
+          "data_description": {
+            "notification_title": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : Frigate — [camera]",
+            "notification_message": "Variables disponibles : camera, objects (liste), zones (liste), severity, score, review_id. Défaut : [objects] détecté ([severity])"
           }
         }
       },
