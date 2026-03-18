@@ -11,7 +11,7 @@ Un filtre implemente le protocole `Filter` de `custom_components/frigate_event_m
 
 ## Etapes
 
-1. **Creer** la classe dans `custom_components/frigate_event_manager/filter.py` (etendre le fichier existant). Modeles : `ZoneFilter` (multi-valeurs + ordre), `LabelFilter` (ensemble), `TimeFilter` (clock injectable). Regle absolue : **liste vide = tout passe**.
+1. **Creer** la classe dans `custom_components/frigate_event_manager/domain/filter.py` (etendre le fichier existant). Le fichier `filter.py` a la racine du composant est un shim de re-export — ne pas l'editer. Modeles : `ZoneFilter` (multi-valeurs + ordre), `LabelFilter` (ensemble), `TimeFilter` (clock injectable). Regle absolue : **liste vide = tout passe**.
 2. **Tester** dans `tests/test_filter.py` — cas vide, match, no-match, edge case (valeur 0.0, None, liste vide).
 3. **Brancher** dans le coordinator (`coordinator.py`) : ajouter le filtre dans la `FilterChain(...)` construite a partir de la config.
 4. **Config** si necessaire : champ dans `config_flow.py` + constante dans `const.py`. Champs liste : `str` UI → `_parse_csv()` → `list` dans `async_create_entry`.

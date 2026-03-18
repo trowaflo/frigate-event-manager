@@ -24,6 +24,13 @@ custom_components/frigate_event_manager/**
 
 Ne jamais modifier `maquette/`, `Dockerfile`, `.github/`, `docs/`, `tests/`.
 
+### Règle d'architecture hexagonale
+
+- **`domain/`** : zéro import HA ou bibliothèque externe — stdlib uniquement
+- **Nouveaux ports** : déclarer l'interface dans `domain/ports.py` AVANT d'écrire l'adaptateur
+- **Adaptateurs** : `ha_mqtt.py`, `notifier.py`, `frigate_client.py` — importent HA/aiohttp
+- **Injection** : le coordinator reçoit `EventSourcePort` et `NotifierPort` en paramètres (injectables en tests)
+
 ## Avant de modifier ou créer un fichier
 
 1. **Lire TOUS les fichiers Python existants** dans `custom_components/frigate_event_manager/` — éviter les doublons, comprendre le coordinator et les entités existantes
@@ -35,11 +42,11 @@ Ne jamais modifier `maquette/`, `Dockerfile`, `.github/`, `docs/`, `tests/`.
 ### Flux principal
 
 ```text
-MQTT Broker → FrigateEventManagerCoordinator → FilterChain → Throttler → HANotifier
+MQTT Broker → HaMqttAdapter (EventSourcePort) → FrigateEventManagerCoordinator → FilterChain → Throttler → HANotifier
 ```
 
-- Le coordinator souscrit au topic MQTT Frigate via `hass.components.mqtt`
-- Chaque `ConfigEntry` représente une caméra unique (`CONF_CAMERA`)
+- Le coordinator souscrit via `EventSourcePort.async_subscribe()` — l'adaptateur MQTT est **injecté** (`HaMqttAdapter` par défaut, fake en tests)
+- Une `ConfigEntry` principale + une `ConfigSubentry` par caméra (`SUBENTRY_TYPE_CAMERA`)
 - Pas d'appels HTTP dans les entités — toutes les données viennent de `coordinator.data`
 
 ### Patterns obligatoires
@@ -57,11 +64,12 @@ MQTT Broker → FrigateEventManagerCoordinator → FilterChain → Throttler →
 
 ### Config flow
 
-- Étape 1 `async_step_user` : saisie URL Frigate + notify_target
-- Étape 2 `async_step_camera` : sélection caméra via `FrigateClient.get_cameras()`
-- `_abort_if_unique_id_configured()` — toujours appeler pour éviter les doublons
-- Valider la connexion avant `async_create_entry`
-- Champs liste (zones, labels) : `str` en UI → `_parse_csv()` → `list` dans `async_create_entry`
+- **Flow principal** (`FrigateEventManagerConfigFlow`) : 2 étapes — `async_step_user` (URL + credentials) + `async_step_notify` (service par défaut)
+- **Subentry** (`CameraSubentryFlow`) : `async_step_user` sélectionne la caméra + `notify_target` + filtres CSV optionnels
+- `_abort_if_unique_id_configured()` — toujours appeler dans le flow principal
+- Valider la connexion Frigate avant `async_create_entry`
+- Champs liste (zones, labels, disabled_hours) : `str` en UI → `_parse_csv_str()` / `_parse_csv_int()` → `list` dans `async_create_entry`
+- **Ne jamais** utiliser `vol.Coerce(list)` — chaque caractère devient un élément
 
 ### Nouvelles plateformes
 

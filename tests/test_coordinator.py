@@ -11,7 +11,10 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.const import (
     CONF_CAMERA,
+    CONF_DISABLED_HOURS,
+    CONF_LABELS,
     CONF_NOTIFY_TARGET,
+    CONF_ZONES,
     DEFAULT_MQTT_TOPIC,
 )
 from custom_components.frigate_event_manager.coordinator import (
@@ -371,25 +374,19 @@ class TestAsyncStartStop:
         assert coordinator._unsubscribe_mqtt is None
         await coordinator.async_stop()  # ne doit pas lever d'exception
 
-    async def test_async_start_appelle_subscribe(self) -> None:
+    async def test_async_start_appelle_subscribe(self, hass: HomeAssistant) -> None:
+        """async_start souscrit via l'EventSourcePort injecté."""
         mock_unsubscribe = MagicMock()
-        mock_subscribe = AsyncMock(return_value=mock_unsubscribe)
-        mock_hass = MagicMock()
+        mock_source = AsyncMock()
+        mock_source.async_subscribe = AsyncMock(return_value=mock_unsubscribe)
 
-        coordinator = object.__new__(FrigateEventManagerCoordinator)
-        coordinator._camera = "jardin"
-        coordinator._camera_state = CameraState(name="jardin")
-        coordinator._unsubscribe_mqtt = None
-        coordinator.hass = mock_hass
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), _make_subentry("jardin"), event_source=mock_source
+        )
+        await coordinator.async_start()
 
-        with patch(
-            "custom_components.frigate_event_manager.coordinator.mqtt.async_subscribe",
-            mock_subscribe,
-        ):
-            await coordinator.async_start()
-
-        mock_subscribe.assert_called_once_with(
-            mock_hass, DEFAULT_MQTT_TOPIC, coordinator._handle_mqtt_message
+        mock_source.async_subscribe.assert_called_once_with(
+            DEFAULT_MQTT_TOPIC, coordinator._handle_mqtt_message
         )
         assert coordinator._unsubscribe_mqtt is mock_unsubscribe
 
@@ -412,3 +409,84 @@ class TestAsyncUpdateData:
         result = await coordinator._async_update_data()
         assert isinstance(result, dict)
         assert result["name"] == "jardin"
+
+
+# ---------------------------------------------------------------------------
+# Tests de FilterChain construite depuis subentry.data
+# ---------------------------------------------------------------------------
+
+
+class TestFilterChainDepuisSubentry:
+    async def test_filtre_labels_bloque_mauvais_objet(self, hass: HomeAssistant) -> None:
+        """LabelFilter: un événement avec objet non autorisé est bloqué."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_ZONES] = []
+        subentry.data[CONF_LABELS] = ["person"]
+        subentry.data[CONF_DISABLED_HOURS] = []
+        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+
+        # PAYLOAD_NEW a objects=["personne"] — ne correspond pas à "person"
+        assert coordinator._filter_chain.apply(
+            __import__(
+                "custom_components.frigate_event_manager.domain.model",
+                fromlist=["FrigateEvent"],
+            ).FrigateEvent(
+                type="new",
+                camera="jardin",
+                severity="alert",
+                objects=["car"],
+                zones=["jardin"],
+                score=0.9,
+                review_id="r1",
+                start_time=0.0,
+                end_time=None,
+            )
+        ) is False
+
+    async def test_filtre_labels_accepte_bon_objet(self, hass: HomeAssistant) -> None:
+        """LabelFilter: un événement avec objet autorisé est accepté."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_ZONES] = []
+        subentry.data[CONF_LABELS] = ["person"]
+        subentry.data[CONF_DISABLED_HOURS] = []
+        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+
+        assert coordinator._filter_chain.apply(
+            FrigateEvent(
+                type="new",
+                camera="jardin",
+                severity="alert",
+                objects=["person"],
+                zones=["jardin"],
+                score=0.9,
+                review_id="r1",
+                start_time=0.0,
+                end_time=None,
+            )
+        ) is True
+
+    async def test_filtres_vides_acceptent_tout(self, hass: HomeAssistant) -> None:
+        """Sans filtres configurés, tous les événements sont acceptés."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_ZONES] = []
+        subentry.data[CONF_LABELS] = []
+        subentry.data[CONF_DISABLED_HOURS] = []
+        coordinator = FrigateEventManagerCoordinator(hass, _make_entry(), subentry)
+
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+
+        assert coordinator._filter_chain.apply(
+            FrigateEvent(
+                type="new",
+                camera="jardin",
+                severity="alert",
+                objects=["anything"],
+                zones=[],
+                score=0.5,
+                review_id="r2",
+                start_time=0.0,
+                end_time=None,
+            )
+        ) is True

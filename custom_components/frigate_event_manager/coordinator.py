@@ -5,21 +5,29 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import CONF_CAMERA, DEFAULT_MQTT_TOPIC, DOMAIN
-from .domain.filter import FilterChain
+from .const import (
+    CONF_CAMERA,
+    CONF_DISABLED_HOURS,
+    CONF_LABELS,
+    CONF_ZONES,
+    DEFAULT_MQTT_TOPIC,
+    DEFAULT_THROTTLE_COOLDOWN,
+    DOMAIN,
+)
+from .domain.filter import FilterChain, LabelFilter, TimeFilter, ZoneFilter
 from .domain.model import CameraState, _parse_event
-from .domain.ports import NotifierPort
+from .domain.ports import EventSourcePort, NotifierPort
 from .domain.throttle import Throttler
+from .ha_mqtt import HaMqttAdapter
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
+class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator MQTT — push uniquement, par caméra (subentry)."""
 
     def __init__(
@@ -28,6 +36,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         entry: ConfigEntry,
         subentry: ConfigSubentry,
         notifier: NotifierPort | None = None,
+        event_source: EventSourcePort | None = None,
     ) -> None:
         """Initialise le coordinator pour une caméra donnée."""
         super().__init__(
@@ -41,8 +50,16 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         self._camera_state = CameraState(name=self._camera)
         self._unsubscribe_mqtt: Any = None
         self._notifier: NotifierPort | None = notifier
-        self._throttler = Throttler()
-        self._filter_chain = FilterChain([])
+        self._event_source: EventSourcePort = event_source or HaMqttAdapter(hass)
+        self._throttler = Throttler(cooldown=DEFAULT_THROTTLE_COOLDOWN)
+        zones = subentry.data.get(CONF_ZONES, [])
+        labels = subentry.data.get(CONF_LABELS, [])
+        disabled_hours = subentry.data.get(CONF_DISABLED_HOURS, [])
+        self._filter_chain = FilterChain([
+            ZoneFilter(zones),
+            LabelFilter(labels),
+            TimeFilter(disabled_hours),
+        ])
 
     @property
     def camera(self) -> str:
@@ -60,9 +77,8 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
         self.async_set_updated_data(self._camera_state.as_dict())
 
     async def async_start(self) -> None:
-        """Souscrit au topic MQTT Frigate."""
-        self._unsubscribe_mqtt = await mqtt.async_subscribe(
-            self.hass,
+        """Souscrit au topic MQTT Frigate via l'adaptateur injecté."""
+        self._unsubscribe_mqtt = await self._event_source.async_subscribe(
             DEFAULT_MQTT_TOPIC,
             self._handle_mqtt_message,
         )
@@ -111,6 +127,6 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict]):
 
         self.async_set_updated_data(state.as_dict())
 
-    async def _async_update_data(self) -> dict:
+    async def _async_update_data(self) -> dict[str, Any]:
         """Non utilisé — coordinator en mode push MQTT uniquement."""
         return self.data or {}

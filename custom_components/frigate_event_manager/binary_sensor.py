@@ -14,7 +14,7 @@ from .coordinator import FrigateEventManagerCoordinator
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry,
+    entry: object,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Crée une entité binary_sensor par caméra configurée."""

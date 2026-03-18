@@ -6,5 +6,4 @@ from .domain.filter import (  # noqa: F401
     LabelFilter,
     TimeFilter,
     ZoneFilter,
-    _est_sous_sequence,
 )

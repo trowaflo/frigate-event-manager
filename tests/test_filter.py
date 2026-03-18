@@ -11,8 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from custom_components.frigate_event_manager.domain.model import FrigateEvent
-from custom_components.frigate_event_manager.filter import (
+from custom_components.frigate_event_manager.domain.filter import (
     Filter,
     FilterChain,
     LabelFilter,
@@ -20,6 +19,7 @@ from custom_components.frigate_event_manager.filter import (
     ZoneFilter,
     _est_sous_sequence,
 )
+from custom_components.frigate_event_manager.domain.model import FrigateEvent
 
 
 # ---------------------------------------------------------------------------
