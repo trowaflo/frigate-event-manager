@@ -128,3 +128,50 @@ tasks:
           echo ""
           echo "Review republié — le coordinator devrait logger la réception."
     silent: true
+
+  deploy:init:
+    desc: "Stocke l'hôte SSH Home Assistant (Keychain macOS ou dev/.env)"
+    cmds:
+      - cmd: |
+          {{if eq OS "darwin"}}
+          printf "HA_HOST (ex: homeassistant.local ou IP): " && read HA_HOST
+          security add-generic-password -a frigate-event-manager -s ha-host -w "$HA_HOST" -U
+          echo "HA_HOST stocké dans le Keychain macOS"
+          {{else}}
+          printf "HA_HOST (ex: homeassistant.local ou IP): " && read HA_HOST
+          mkdir -p dev
+          grep -v '^HA_HOST=' dev/.env 2>/dev/null > dev/.env.tmp || true
+          echo "HA_HOST='$HA_HOST'" >> dev/.env.tmp
+          mv dev/.env.tmp dev/.env
+          chmod 600 dev/.env
+          echo "HA_HOST stocké dans dev/.env"
+          {{end}}
+    silent: true
+
+  deploy:
+    desc: "Déploie l'intégration sur Home Assistant via SSH (nécessite deploy:init)"
+    cmds:
+      - cmd: |
+          {{if eq OS "darwin"}}
+          HA_HOST=$(security find-generic-password -a frigate-event-manager -s ha-host -w 2>/dev/null)
+          {{else}}
+          set -a && . dev/.env && set +a
+          {{end}}
+
+          if [ -z "$HA_HOST" ]; then
+            echo "HA_HOST non configuré — lance d'abord: task deploy:init"
+            exit 1
+          fi
+
+          echo "Déploiement sur $HA_HOST..."
+          ssh root@"$HA_HOST" "
+            [ -d /tmp/frigate-event-manager ] || git clone https://github.com/trowaflo/frigate-event-manager.git /tmp/frigate-event-manager &&
+            cd /tmp/frigate-event-manager &&
+            git fetch --all &&
+            git pull &&
+            rm -rf /config/custom_components/frigate_event_manager &&
+            cp -r ./custom_components/frigate_event_manager /config/custom_components/ &&
+            ha core restart
+          "
+          echo "Déploiement et redémarrage HA Core terminés."
+    silent: true
