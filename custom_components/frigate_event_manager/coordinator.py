@@ -34,19 +34,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         entry: ConfigEntry,
         subentry: ConfigSubentry,
+        *,
         notifier: NotifierPort | None = None,
-        event_source: EventSourcePort | None = None,
+        event_source: EventSourcePort,
     ) -> None:
         """Initialise le coordinator pour une caméra donnée.
 
         event_source doit être injecté : HaMqttAdapter en production, fake en tests.
-        TypeError si None.
         """
-        if event_source is None:
-            raise TypeError(
-                "event_source est requis — injecter HaMqttAdapter en production, "
-                "un fake EventSourcePort en tests."
-            )
         super().__init__(
             hass,
             _LOGGER,
