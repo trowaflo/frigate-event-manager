@@ -112,8 +112,10 @@ class HANotifier:
         companion_data: dict[str, Any] = {"tag": notification_id}
         if media_urls["snapshot_url"]:
             companion_data["image"] = media_urls["snapshot_url"]
-        if media_urls["clip_url"] or media_urls["preview_url"]:
-            companion_data["clickAction"] = media_urls["clip_url"] or media_urls["preview_url"]
+        tap_url = media_urls["clip_url"] or media_urls["preview_url"]
+        if tap_url:
+            companion_data["url"] = tap_url          # iOS
+            companion_data["clickAction"] = tap_url  # Android
 
         if self._target == PERSISTENT_NOTIFICATION:
             await self._hass.services.async_call(
