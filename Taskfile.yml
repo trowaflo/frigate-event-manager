@@ -111,6 +111,12 @@ tasks:
                   'objects': data.get('objects', []),
                   'current_zones': data.get('zones', []),
                   'score': data.get('top_score', 0.0),
+                  'data': {
+                      'detections': data.get('detections', []),
+                      'objects': data.get('objects', []),
+                      'zones': data.get('zones', []),
+                      'top_score': data.get('top_score', 0.0),
+                  },
               }
           }
           print(json.dumps(payload))

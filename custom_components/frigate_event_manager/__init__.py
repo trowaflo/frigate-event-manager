@@ -85,6 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                     title_tpl=subentry.data.get(CONF_NOTIF_TITLE) or None,
                     message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
                     signer=signer,
+                    frigate_url=entry.data.get(CONF_URL),
                 )
                 if notify_target
                 else None
