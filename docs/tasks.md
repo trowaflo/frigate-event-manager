@@ -302,11 +302,11 @@
       ultérieur à activate_silent_mode() appellera _cancel_silent() sur un callable inopérant
       (sans effet fonctionnel, mais état incohérent). A corriger en T-516 : la lambda doit
       aussi remettre _cancel_silent à None.
-    MINOR — __init__.py:55-58 : async_migrate_entry retourne True pour les versions non
+    MINOR — `__init__.py`:55-58 : async_migrate_entry retourne True pour les versions non
       gérées (>3). Convention HA : retourner False pour signaler échec de migration sur
       version inconnue, afin d'éviter le chargement avec données incompatibles (downgrade).
       A corriger en T-516.
-    INFO — __init__.py:57 : "Migration v2 -> v3 terminee" — accent manquant sur "terminée".
+    INFO — `__init__.py`:57 : "Migration v2 -> v3 terminee" — accent manquant sur "terminée".
     DOC — docs/architecture.md : button.py (SilentButton) toujours absent du diagramme
       entités (ligne 165-170), de la table adaptateurs entrants (ligne 60), et de la
       séquence démarrage (ligne 184, affiche "switch / binary_sensor" au lieu de
@@ -322,20 +322,11 @@
 - Blocks: T-516
 - Notes: |
     289 tests passent, coverage global 99% (≥80%). 0 erreur ruff.
-    Ajouts :
-    - test_coordinator.py : TestSilentModeAvance (4 tests) — _cancel_silent stocké,
-      double activation annule le premier timer, async_stop annule _cancel_silent.
-      TestParseEvent : _to_float ValueError/TypeError.
-    - tests/test_init.py (nouveau, 12 tests) : async_migrate_entry v2→v3 (notify_target
-      supprimé, url conservée, v3 retourne True), async_setup_entry (MQTT non dispo,
-      sans subentries, avec subentry caméra, proxy client, signer, warning URL absente),
-      async_unload_entry (coordinators arrêtés, sans runtime_data).
-    - tests/test_ha_mqtt.py (nouveau, 3 tests) : init, async_subscribe délègue, retourne callable.
-    - tests/test_config_flow.py : _parse_csv_int ValueError+vide, _detect_frigate_config,
-      _get_notify_options, invalid_auth step_user, async_step_reconfigure principal
-      (formulaire/succès/cannot_connect/invalid_auth), subentry invalid_auth,
-      subentry async_step_reconfigure (formulaire/succès).
-    Lignes résiduelles : __init__.py:135 (_async_reload_entry — reload HA complet non
+    Ajouts : test_coordinator.py (TestSilentModeAvance 4 tests, `_cancel_silent` stocké,
+    double activation, async_stop). tests/test_init.py nouveau 12 tests (migrate v2→v3,
+    setup_entry, unload_entry). tests/test_ha_mqtt.py nouveau 3 tests. tests/test_config_flow.py
+    17 tests (csv, reconfigure, invalid_auth).
+    Lignes résiduelles : `__init__.py`:135 (_async_reload_entry — reload HA complet non
     testable unitairement), binary_sensor/button/switch:22-23 (platform async_setup_entry).
 
 ### T-516 | Notification features — simplification
@@ -351,9 +342,9 @@
       pour éviter le cooldown en cas d'échec de notification (chemin debounce=0).
     coordinator.py : _on_silent_expired() — _cancel_silent remis à None après expiration
       naturelle du timer silent mode (état cohérent + libération de référence).
-    __init__.py : async_migrate_entry — return False sur version inconnue (>3),
+    `__init__.py` : async_migrate_entry — return False sur version inconnue (>3),
       convention HA pour bloquer le chargement avec données incompatibles.
-    __init__.py : accent corrigé "terminée".
+    `__init__.py` : accent corrigé "terminée".
     docs/architecture.md : button.py / SilentButton ajouté dans le diagramme entités,
       la table adaptateurs entrants, le diagramme entités par caméra (unique_id fem_{cam}_silent),
       et la séquence de démarrage (PLATFORMS = switch / binary_sensor / button).
