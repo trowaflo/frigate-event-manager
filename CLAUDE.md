@@ -59,6 +59,17 @@ Apres **toute** correction de l'utilisateur :
 - Iterer sur ces regles jusqu'a ce que le taux d'erreur baisse
 - Relire les fichiers memory au demarrage de chaque session
 
+**Format des regles en memoire :**
+
+```text
+[NL]   → langage naturel  : preferences, contexte, style, definitions de roles
+[RULE] → pseudo-code      : guards, invariants, interdictions techniques
+```
+
+Lors de chaque learn cycle, convertir en `[RULE]` toute regle qui est une interdiction explicite (`NEVER`, `FORBIDDEN`), un invariant technique (`ALWAYS`, `REQUIRE`), ou un guard avec consequence mesurable (`IF violation → consequence`).
+
+Conserver `[NL]` pour les preferences de communication et les regles de style.
+
 ### Suivi inter-sessions
 
 Le contexte est perdu entre les sessions et entre les subagents. Utiliser `docs/tasks.md` comme memoire persistante partagee :
