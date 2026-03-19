@@ -108,16 +108,19 @@ class TimeFilter:
 
 
 class SeverityFilter:
-    """Filtre par severity Frigate — liste vide = tout accepter."""
+    """Filtre par severity Frigate — liste vide = tout accepter.
+
+    Convention : si `severities` est vide, tous les événements sont acceptés.
+    """
 
     def __init__(self, severities: list[str]) -> None:
-        self._severities = severities
+        self.severities = severities
 
     def apply(self, event: FrigateEvent) -> bool:
         """Retourne True si la severity de l'événement est dans la liste autorisée."""
-        if not self._severities:
+        if not self.severities:
             return True
-        return event.severity in self._severities
+        return event.severity in self.severities
 
 
 class FilterChain:
