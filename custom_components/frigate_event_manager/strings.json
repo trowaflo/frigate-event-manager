@@ -31,11 +31,16 @@
           "title": "Add a camera",
           "description": "Select a camera from your Frigate instance.",
           "data": {
-            "camera": "Camera",
+            "camera": "Camera"
+          }
+        },
+        "configure": {
+          "title": "Configure camera",
+          "data": {
             "notify_target": "Notification service",
-            "zones": "Required zones (comma-separated, empty = all)",
-            "labels": "Detected objects (comma-separated, empty = all)",
-            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
+            "zones": "Required zones (empty = all)",
+            "labels": "Detected objects (empty = all)",
+            "disabled_hours": "Blocked hours (empty = none)",
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
             "tap_action": "Tap action",
@@ -52,9 +57,9 @@
           "title": "Edit camera",
           "data": {
             "notify_target": "Notification service",
-            "zones": "Required zones (comma-separated, empty = all)",
-            "labels": "Detected objects (comma-separated, empty = all)",
-            "disabled_hours": "Blocked hours 0-23 (comma-separated, empty = none)",
+            "zones": "Required zones (empty = all)",
+            "labels": "Detected objects (empty = all)",
+            "disabled_hours": "Blocked hours (empty = none)",
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
             "tap_action": "Tap action",

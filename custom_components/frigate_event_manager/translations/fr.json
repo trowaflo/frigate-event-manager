@@ -31,11 +31,16 @@
           "title": "Ajouter une caméra",
           "description": "Sélectionnez une caméra depuis votre instance Frigate.",
           "data": {
-            "camera": "Caméra",
+            "camera": "Caméra"
+          }
+        },
+        "configure": {
+          "title": "Configurer la caméra",
+          "data": {
             "notify_target": "Service de notification",
-            "zones": "Zones requises (virgule, vide = toutes)",
-            "labels": "Objets détectés (virgule, vide = tous)",
-            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)",
+            "zones": "Zones requises (vide = toutes)",
+            "labels": "Objets détectés (vide = tous)",
+            "disabled_hours": "Heures bloquées (vide = aucune)",
             "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
             "notification_message": "Message de la notification (template Jinja2, vide = défaut)",
             "tap_action": "Action au tap",
@@ -52,9 +57,9 @@
           "title": "Modifier la caméra",
           "data": {
             "notify_target": "Service de notification",
-            "zones": "Zones requises (virgule, vide = toutes)",
-            "labels": "Objets détectés (virgule, vide = tous)",
-            "disabled_hours": "Heures bloquées 0-23 (virgule, vide = aucune)",
+            "zones": "Zones requises (vide = toutes)",
+            "labels": "Objets détectés (vide = tous)",
+            "disabled_hours": "Heures bloquées (vide = aucune)",
             "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
             "notification_message": "Message de la notification (template Jinja2, vide = défaut)",
             "tap_action": "Action au tap",
