@@ -62,6 +62,6 @@ class SilentUntilSensor(
     def native_value(self) -> datetime | None:
         """Retourne la date de fin du silence, None si silence inactif."""
         silent_until = self.coordinator._silent_until
-        if silent_until == 0.0 or time.time() >= silent_until:
+        if time.time() >= silent_until:
             return None
         return datetime.fromtimestamp(silent_until, tz=timezone.utc)

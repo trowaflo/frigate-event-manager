@@ -106,9 +106,21 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Accès direct au CameraState."""
         return self._camera_state
 
+    @property
+    def silent_until(self) -> float:
+        """Timestamp de fin du mode silencieux (0.0 si inactif)."""
+        return self._silent_until
+
     def set_camera_enabled(self, enabled: bool) -> None:
         """Active ou désactive les notifications pour cette caméra."""
         self._camera_state.enabled = enabled
+        self.async_set_updated_data(self._camera_state.as_dict())
+
+    def _on_silent_expired(self, _: Any) -> None:
+        """Réinitialise le mode silencieux après expiration du timer."""
+        self._silent_until = 0.0
+        self._cancel_silent = None
+        self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
         self.async_set_updated_data(self._camera_state.as_dict())
 
     def activate_silent_mode(self) -> None:
@@ -117,17 +129,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._cancel_silent()
         self._silent_until = time.time() + self._silent_duration * 60
 
-        def _on_silent_expired(_: Any) -> None:
-            self._silent_until = 0.0
-            self._cancel_silent = None
-            # Persister la réinitialisation du mode silencieux
-            self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
-            self.async_set_updated_data(self._camera_state.as_dict())
-
         self._cancel_silent = async_call_later(
             self.hass,
             self._silent_duration * 60,
-            _on_silent_expired,
+            self._on_silent_expired,
         )
         # Persister la valeur pour survivre à un redémarrage HA
         self.hass.async_create_task(
@@ -160,16 +165,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 remaining,
             )
 
-            def _on_silent_expired_restored(_: Any) -> None:
-                self._silent_until = 0.0
-                self._cancel_silent = None
-                self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
-                self.async_set_updated_data(self._camera_state.as_dict())
-
             self._cancel_silent = async_call_later(
                 self.hass,
                 remaining,
-                _on_silent_expired_restored,
+                self._on_silent_expired,
             )
 
     async def async_stop(self) -> None:
