@@ -243,44 +243,49 @@
 - Depends: —
 - Blocks: T-514, T-515
 - Notes: |
-    7 features à implémenter en un seul bloc (tous les fichiers se recoupent) :
-    1. Cooldown configurable par caméra (CONF_COOLDOWN, subentry config flow, Throttler)
-    2. Debounce configurable + groupement objets + cleanup sur `end`
-       - CONF_DEBOUNCE dans const.py et subentry config flow
-       - _debounce_task, _pending_objects, _pending_event dans coordinator
-       - _send_debounced() : event synthétique, throttler.record, reset
-       - Sur `end` : annuler debounce task + libérer throttler
-    3. Regroupement iOS : ajouter "group": f"frigate-{html.escape(event.camera)}" dans companion_data (notifier.py)
-    4. Notification sur `update` events (même logique que `new` — tag identique → mise à jour notif)
-    5. Silent mode par caméra :
-       - CONF_SILENT_DURATION (int, minutes, default 30) dans const.py + subentry config flow
-       - button.py : SilentButton (unique_id=fem_{cam}_silent, name="Silencieux")
-       - coordinator : _silent_until:float=0, activate_silent_mode(), _deactivate_silent_mode()
-       - condition notif : and time.time() > self._silent_until
-       - "button" dans PLATFORMS (`__init__.py`)
-    6. Suppression global notify_target :
-       - Supprimer async_step_notify du config flow principal
-       - config flow principal = 1 seule étape (user → create entry)
-       - Supprimer CONF_NOTIFY_TARGET de entry.data (garder uniquement dans subentry)
-       - Supprimer async_step_reconfigure CONF_NOTIFY_TARGET global
-       - `__init__.py` : supprimer fallback `or entry.data.get(CONF_NOTIFY_TARGET)`
-       - VERSION=3, MINOR_VERSION=1
-       - async_migrate_entry : v2→v3 supprime notify_target de entry.data
-       - strings.json + translations : supprimer step `notify` et champ `notify_target` global
-    7. Fix persistent_notification :
-       - Détecter PERSISTENT_NOTIFICATION dans notifier.py
-       - Ne pas mettre data.image/url/clickAction/actions
-       - Ajouter liens markdown dans message : [Clip](url) · [Snapshot](url) · [Preview](url)
+    7 features implémentées — ruff 0 erreur, 232 tests passent, coverage 82%.
+    1. CONF_COOLDOWN + DEFAULT_THROTTLE_COOLDOWN dans subentry config flow (NumberSelector 0-3600s)
+       coordinator : Throttler(cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN))
+    2. CONF_DEBOUNCE (0-60s) dans const.py + subentry flow
+       coordinator : `_debounce_task`, `_pending_objects`, `_pending_event`
+       _debounce_send() avec dataclasses.replace() pour event synthétique groupé
+       Sur `end` : cancel task + throttler.release(camera)
+    3. notifier.py : "group": f"frigate-{html.escape(event.camera)}" pour non-persistent_notification
+    4. Condition élargie à type in ("new", "update") dans coordinator._handle_mqtt_message
+    5. CONF_SILENT_DURATION (0-480 min) + DEFAULT_SILENT_DURATION=30 dans const.py + subentry flow.
+       button.py : SilentButton, unique_id `fem_{cam}_silent`.
+       coordinator : `activate_silent_mode()` + `async_call_later`, `_silent_until` check.
+       "button" ajouté à PLATFORMS dans `__init__.py`.
+    6. `async_step_notify` supprimé, VERSION=3 MINOR=1.
+       `async_migrate_entry` v2 vers v3 : supprime `notify_target` de `entry.data`.
+       `__init__.py` : fallback PERSISTENT_NOTIFICATION.
+       strings.json + fr.json + en.json mis à jour : step notify supprimé, cooldown/debounce/silent_duration ajoutés.
+    7. persistent_notification : liens markdown Clip, Snapshot, Preview dans message, pas de data enrichie.
 
 ### T-514 | Notification features — review
 
-- Status: TODO
+- Status: APPROVED
 - Owner: reviewer
-- Scope: tous les fichiers modifiés par T-513
-- Locks: —
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: UPDATE_NEEDED
+- Severity: MINOR
 - Depends: T-513
 - Blocks: T-516
-- Notes: —
+- Notes: |
+    MINOR — coordinator.py:106-110 : async_call_later retourne un callable d'annulation
+      non stocké. Si async_stop() est appelé avant l'expiration du timer silent mode
+      (jusqu'à 480 min), la référence self dans la lambda maintient le coordinator en mémoire.
+      Stocker le cancel callback et l'appeler dans async_stop().
+    MINOR — notifier.py:122-126 : les URLs dans les liens markdown persistent_notification
+      ne sont pas protégées contre les caractères spéciaux Markdown. Angle bracket syntax
+      recommandée.
+    INFO — docs/architecture.md désynchronisé : button.py (SilentButton) absent du
+      diagramme entités, de la table adaptateurs entrants et de la séquence démarrage.
+      PLATFORMS dans la séquence affiche encore ["switch", "binary_sensor"]. A corriger
+      par python-architect ou code-simplifier lors du prochain passage.
+    INFO — manifest.json version="2.0.0" non incrémentée malgré ajout de features
+      majeures (debounce, silent mode, button platform). A aligner en T-517.
 
 ### T-515 | Notification features — tests
 
