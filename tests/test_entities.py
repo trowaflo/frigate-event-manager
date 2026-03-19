@@ -237,6 +237,15 @@ class TestSilentStateSensor:
         sensor = self._build("terrasse")
         assert sensor._attr_device_info["name"] == "Caméra terrasse"
 
+    def test_is_on_reflecte_mise_a_jour_silent_until(self) -> None:
+        """is_on reflète le changement de _silent_until après async_set_updated_data."""
+        sensor = self._build(silent_until=0.0)
+        assert sensor.is_on is False
+
+        # Simuler la mise à jour par le coordinator (comme async_set_updated_data ferait)
+        sensor.coordinator._silent_until = time.time() + 3600.0
+        assert sensor.is_on is True
+
 
 # ---------------------------------------------------------------------------
 # SilentUntilSensor

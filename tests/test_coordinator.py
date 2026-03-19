@@ -412,6 +412,32 @@ class TestHandleMqttMessage:
         coordinator._handle_mqtt_message(_make_msg(payload_end_2))
         assert coordinator.camera_state.motion is False  # plus aucun review actif
 
+    async def test_review_id_vide_pas_ajoute_a_active_reviews(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Un event new avec review_id vide ne doit pas polluer _active_reviews."""
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+
+        payload_new_sans_id = {
+            "type": "new",
+            "after": {
+                "camera": "jardin",
+                "severity": "alert",
+                "objects": ["personne"],
+                "current_zones": [],
+                "score": 0.8,
+                "id": "",  # review_id vide
+                "start_time": 1710000000.0,
+                "end_time": None,
+            },
+        }
+        coordinator._handle_mqtt_message(_make_msg(payload_new_sans_id))
+
+        # _active_reviews doit rester vide — chaîne vide est falsy
+        assert coordinator._active_reviews == set()
+        # motion passe quand même à True (c'est un event new)
+        assert coordinator.camera_state.motion is True
+
     async def test_payload_invalide_ne_crash_pas(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass, cam_name="jardin")
         coordinator._handle_mqtt_message(_make_msg("pas du json {{{"))
