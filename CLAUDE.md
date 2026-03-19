@@ -101,7 +101,18 @@ Agents avec scopes stricts pour les taches multi-composants :
 | `frontend-designer` | Maquettes HTML interactives `maquette/` |
 | `sre-cloud` | CI/CD, Taskfile |
 
-**Pipeline obligatoire** (toute feature) : implement (python-architect) → review + tests (parallele) → simplify → PR.
+**Pipeline obligatoire** (toute feature) :
+
+```text
+[RULE] feature_pipeline:
+    ORDER:  implement → review + quality-guard (PARALLEL) → simplify → commit → PR
+    NEVER:  simplify avant quality-guard
+    NEVER:  declarer DONE sans commit
+    tasks.md: T-XXXb (review)   Depends T-XXX,  Blocks T-XXXc + T-XXXd
+              T-XXXd (tests)    Depends T-XXXb, Blocks T-XXXc
+              T-XXXc (simplify) Depends T-XXXb + T-XXXd
+    VIOLATION → issues manquees, commits groupes illisibles
+```
 
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
@@ -111,14 +122,46 @@ Agents avec scopes stricts pour les taches multi-composants :
 
 ## Pieges connus
 
+```text
+[RULE] mock_hass:
+    ALWAYS: MagicMock()                   # sans spec=
+    NEVER:  MagicMock(spec=HomeAssistant)
+    VIOLATION → AttributeError sur hass.config / hass.components
+
+[RULE] markdownlint:
+    ALWAYS: markdownlint-cli2 '**/*.md' '!.venv/**'
+    NEVER:  npx markdownlint-cli2 / omettre '!.venv/**'
+
+[RULE] plan_vs_execute:
+    IF: demande contient "planifier" / "ajouter a la liste" / "noter"
+    THEN: modifier ONLY docs/tasks.md
+    NEVER: modifier les fichiers concernes par la demande
+    VIOLATION → edition non sollicitee
+
+[RULE] tasks_md_identifiers:
+    ALWAYS: entourer les identifiants Python de backticks dans les Notes tasks.md
+    EXAMPLES: `_cancel_silent`, `__init__.py`, `async_step_user`
+    NEVER:  underscores en texte brut dans les Notes YAML
+    VIOLATION → MD037 markdownlint
+
+[RULE] translations_en_required:
+    ALWAYS: creer translations/en.json en meme temps que fr.json
+    NEVER:  fr.json sans en.json
+    VIOLATION → config flow invisible dans l'UI HA
+
+[RULE] config_flow_list_fields:
+    ALWAYS: str + _parse_csv() pour les champs liste dans le config flow
+    NEVER:  vol.Coerce(list) sur une string UI
+    VIOLATION → chaque caractere devient un element de liste
+
+[RULE] agents_no_bash:
+    INVARIANT: agents specialises ne peuvent pas executer pytest/ruff (permission default)
+    ALWAYS: orchestrateur principal verifie tests + lint apres chaque livraison d'agent
+    BEFORE: tout commit
+```
+
 - **`skill-creator` → `run_loop.py`** : ~300 appels API (5 iter × 20 requetes × 3 repetitions). Estimer et confirmer le cout avant de lancer. Requiert `ANTHROPIC_API_KEY` separe de Claude Code.
 - **Skills != Agents** : creer un skill qui duplique un agent existant est une erreur — spawner l'agent directement.
-- **`MagicMock(spec=HomeAssistant)`** bloque `hass.config` et `hass.components` → toujours utiliser `MagicMock()` sans spec pour les mocks HA dans les tests.
-- **`markdownlint-cli2`** : sans `npx`, exclure `.venv/` : `markdownlint-cli2 '**/*.md' '!.venv/**'`
-- **Agents sans Bash** : les agents specialises ne peuvent pas lancer `pytest` — l'orchestrateur principal verifie toujours les tests apres chaque livraison.
-- **Planifier ≠ executer** : si l'utilisateur demande d'ajouter quelque chose a un plan ou une liste, NE PAS modifier les fichiers concernes — uniquement mettre a jour `docs/tasks.md`.
-- **Config flow — champs liste** : `vol.Coerce(list)` sur une string UI convertit chaque *caractere* en element. Toujours utiliser `str` + `_parse_csv()` pour les champs liste, convertir en liste dans `async_step_user` avant `async_create_entry`.
-- **`translations/en.json` obligatoire** : HA exige ce fichier comme langue de fallback. Sans lui, le config flow ne s'affiche pas dans l'UI. Toujours creer `translations/en.json` en meme temps que `fr.json`.
 
 ## Project
 
@@ -126,10 +169,19 @@ Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT nat
 
 ## Commits
 
-Format : titre court uniquement. Pas d'identifiant de tâche, pas de corps, pas de Co-Authored-By.
+```text
+[RULE] commit_format:
+    ALWAYS: git commit -m "type: titre court"
+    NEVER:  identifiant de tache (T-XXX), corps de commit, Co-Authored-By
 
-```bash
-git commit -m "type: titre court"
+[RULE] commit_granularity:
+    ALWAYS: un commit par etape logique (implementation, tests, simplification)
+    NEVER:  grouper toutes les etapes d'un pipeline en un seul commit de fin
+    VIOLATION → git log illisible, bisect impossible
+
+[RULE] no_auto_push:
+    NEVER:  git push sans demande explicite de l'utilisateur
+    ALWAYS: s'arreter apres le commit
 ```
 
 ## Commands

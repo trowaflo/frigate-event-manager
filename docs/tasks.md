@@ -681,6 +681,24 @@
     Impact majeur : nécessite review architecture + migration subentry.
     PLATFORM : ajouter `"number"`, `"select"`, `"text"` à `PLATFORMS` dans `__init__.py`.
 
+### T-526 | Logo de l'intégration
+
+- Status: TODO (choix humain requis)
+- Owner: —
+- Priority: P2
+- Scope: `custom_components/frigate_event_manager/icon.png`, `hacs.json`
+- Locks: —
+- Depends: —
+- Blocks: —
+- Notes: |
+    HA affiche `custom_components/frigate_event_manager/icon.png` dans la page Intégrations.
+    HACS affiche l'image référencée dans `hacs.json` ("icon": "...", optionnel).
+    Taille recommandée : 256×256px ou 512×512px, fond transparent, format PNG.
+    Deux options à présenter à l'utilisateur pour validation avant implémentation :
+    Option 1 — Généré SVG→PNG : icône caméra stylisée + éclair/alerte, palette HA (bleu #03A9F4).
+    Option 3 — Adapté Frigate : logo Frigate officiel (caméra verte) retravaillé aux couleurs FEM.
+    Action requise : présenter les deux visuels à l'utilisateur → valider → placer le fichier.
+
 <!--
 ### T-XXX | [Titre]
 
