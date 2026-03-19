@@ -795,6 +795,34 @@ async def _create_subentry(hass: HomeAssistant, entry_id: str, camera: str = "en
     return _get_subentry_id(hass, entry_id)
 
 
+async def test_subentry_erreur_reseau_sur_step_configure_fallback(hass: HomeAssistant) -> None:
+    """Erreur réseau sur get_camera_config en step_configure → fallback champ texte, formulaire affiché."""
+    import aiohttp
+
+    entry_id = await _create_entry(hass)
+
+    mock = _mock_client(CAMERAS_LIST)
+    mock.get_camera_config = AsyncMock(side_effect=aiohttp.ClientError)
+
+    with (
+        patch(PATCH_CLIENT, return_value=mock),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+
+    # Le formulaire configure s'affiche quand même (fallback zones/labels vides)
+    assert r2["type"] == FlowResultType.FORM
+    assert r2["step_id"] == "configure"
+
+
 async def test_subentry_reconfigure_affiche_formulaire(hass: HomeAssistant) -> None:
     """Reconfigure subentry caméra affiche le formulaire pré-rempli."""
     entry_id = await _create_entry(hass)

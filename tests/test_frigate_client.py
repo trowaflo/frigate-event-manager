@@ -502,3 +502,42 @@ async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
         client = FrigateClient("http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_camera_config("jardin")
+
+
+async def test_get_camera_config_reponse_non_dict_retourne_vide() -> None:
+    """Réponse JSON non-dict sur get_camera_config → retourne zones et labels vides."""
+    response = _make_response(["pas", "un", "dict"])
+    cm_session = _make_session(response)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local")
+        result = await client.get_camera_config("jardin")
+
+    assert result == {"zones": [], "labels": []}
+
+
+async def test_get_camera_config_avec_credentials_appelle_login() -> None:
+    """get_camera_config() avec credentials → POST /api/login avant GET /api/config."""
+    login_resp = MagicMock()
+    login_resp.raise_for_status = MagicMock()
+    token_cookie = MagicMock()
+    token_cookie.value = "jwt_token_xyz"
+    login_resp.cookies = {"frigate_token": token_cookie}
+
+    config_resp = _make_response({
+        "cameras": {
+            "jardin": {
+                "zones": {"jardin_zone": {}},
+                "objects": {"track": ["person"]},
+            }
+        }
+    })
+    cm_session = _make_session_with_login(login_resp, config_resp)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local", username="admin", password="secret")
+        result = await client.get_camera_config("jardin")
+
+    assert result["zones"] == ["jardin_zone"]
+    assert result["labels"] == ["person"]
+    cm_session.__aenter__.return_value.post.assert_called_once()
