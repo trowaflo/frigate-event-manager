@@ -33,6 +33,20 @@ La simplicité d'une tâche n'est pas une excuse : même une tâche triviale et 
 | UI / HTML / CSS | `frontend-designer` |
 | CI/CD, Taskfile | `sre-cloud` |
 
+## Comment spawner un agent
+
+**TOUJOURS utiliser l'outil `Agent` de Claude Code — jamais la CLI Bash.**
+
+```python
+# CORRECT
+Agent(subagent_type="python-architect", prompt="...")
+
+# INTERDIT — ne jamais faire ça
+Bash("claude --agent python-architect --print '...'")
+```
+
+Les agents `.claude/agents/` sont des identités invocables via le tool `Agent` dans la session courante. Ils ne sont PAS des processus CLI indépendants. `claude --agent` n'est pas une commande valide dans ce contexte.
+
 ## Séquence d'orchestration
 
 1. **CCOF** si la demande est vague — reformule et valide avec l'humain avant de continuer
