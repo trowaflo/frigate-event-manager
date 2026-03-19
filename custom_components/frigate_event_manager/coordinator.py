@@ -20,15 +20,17 @@ from .const import (
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
+    CONF_SEVERITY,
     CONF_SILENT_DURATION,
     CONF_ZONES,
     DEFAULT_DEBOUNCE,
     DEFAULT_MQTT_TOPIC,
+    DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
 )
-from .domain.filter import FilterChain, LabelFilter, TimeFilter, ZoneFilter
+from .domain.filter import FilterChain, LabelFilter, SeverityFilter, TimeFilter, ZoneFilter
 from .domain.model import CameraState, _parse_event
 from .domain.ports import EventSourcePort, NotifierPort
 from .domain.throttle import Throttler
@@ -70,10 +72,12 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         zones = subentry.data.get(CONF_ZONES, [])
         labels = subentry.data.get(CONF_LABELS, [])
         disabled_hours = subentry.data.get(CONF_DISABLED_HOURS, [])
+        severities = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
         self._filter_chain = FilterChain([
             ZoneFilter(zones),
             LabelFilter(labels),
             TimeFilter(disabled_hours),
+            SeverityFilter(severities),
         ])
 
         # Debounce

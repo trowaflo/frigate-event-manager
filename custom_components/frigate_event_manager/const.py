@@ -13,6 +13,11 @@ CONF_CAMERA = "camera"
 CONF_ZONES = "zones"
 CONF_LABELS = "labels"
 CONF_DISABLED_HOURS = "disabled_hours"
+CONF_SEVERITY = "severity"
+
+# Severity Frigate
+SEVERITY_OPTIONS = ["alert", "detection"]
+DEFAULT_SEVERITY = ["alert", "detection"]
 
 # MQTT
 DEFAULT_MQTT_TOPIC = "frigate/reviews"

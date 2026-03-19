@@ -27,16 +27,19 @@ from .const import (
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_SEVERITY,
     CONF_SILENT_DURATION,
     CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
+    DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
     DEFAULT_TAP_ACTION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
+    SEVERITY_OPTIONS,
     SUBENTRY_TYPE_CAMERA,
     TAP_ACTION_OPTIONS,
 )
@@ -93,6 +96,7 @@ def _build_configure_schema(
     default_zones: list[str] | None = None,
     default_labels: list[str] | None = None,
     default_hours: list[str] | None = None,
+    default_severity: list[str] | None = None,
     default_title: str = "",
     default_message: str = "",
     default_tap: str = DEFAULT_TAP_ACTION,
@@ -150,6 +154,16 @@ def _build_configure_schema(
                 options=_HOUR_OPTIONS,
                 multiple=True,
                 mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            CONF_SEVERITY, default=default_severity if default_severity is not None else DEFAULT_SEVERITY
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=SEVERITY_OPTIONS,
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+                translation_key=CONF_SEVERITY,
             )
         ),
         vol.Optional(CONF_NOTIF_TITLE, default=default_title): str,
@@ -224,6 +238,7 @@ def _parse_configure_input(
         CONF_ZONES: zones,
         CONF_LABELS: labels,
         CONF_DISABLED_HOURS: disabled_hours,
+        CONF_SEVERITY: user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY),
         CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
         CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
         CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
@@ -489,6 +504,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         existing_labels = subentry.data.get(CONF_LABELS, [])
         # Heures : list[int] → list[str] pour le selector
         existing_hours = [str(h) for h in subentry.data.get(CONF_DISABLED_HOURS, [])]
+        existing_severity = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -500,6 +516,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 default_zones=existing_zones,
                 default_labels=existing_labels,
                 default_hours=existing_hours,
+                default_severity=existing_severity,
                 default_title=subentry.data.get(CONF_NOTIF_TITLE) or "",
                 default_message=subentry.data.get(CONF_NOTIF_MESSAGE) or "",
                 default_tap=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
