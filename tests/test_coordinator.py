@@ -724,3 +724,149 @@ class TestNotificationUpdate:
         await hass.async_block_till_done()
 
         notifier.async_notify.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests de _debounce_send — exécution complète de la coroutine
+# ---------------------------------------------------------------------------
+
+
+class TestDebounceSend:
+    async def test_debounce_send_envoie_notification_groupee(
+        self, hass: HomeAssistant
+    ) -> None:
+        """_debounce_send() envoie une notification avec les objets accumulés."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 1  # 1 seconde
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+
+        # Simuler l'accumulation d'objets
+        coordinator._pending_objects = {"personne", "chien"}
+        coordinator._pending_event = _make_msg(PAYLOAD_NEW)
+
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+        coordinator._pending_event = FrigateEvent(
+            type="new",
+            camera="jardin",
+            severity="alert",
+            objects=["personne"],
+            zones=["entree"],
+            score=0.9,
+            review_id="r1",
+            start_time=1710000000.0,
+            end_time=None,
+        )
+        coordinator._debounce_seconds = 0  # pas d'attente pour le test
+
+        await coordinator._debounce_send()
+
+        notifier.async_notify.assert_called_once()
+        call_args = notifier.async_notify.call_args[0][0]
+        assert set(call_args.objects) == {"personne", "chien"}
+
+    async def test_debounce_send_reinitialise_pending(
+        self, hass: HomeAssistant
+    ) -> None:
+        """_debounce_send() vide _pending_objects et _pending_event après envoi."""
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+        coordinator._pending_objects = {"chat"}
+        coordinator._pending_event = FrigateEvent(
+            type="new", camera="jardin", severity="detection",
+            objects=["chat"], zones=[], score=0.8, review_id="r2",
+            start_time=1710000000.0, end_time=None,
+        )
+        coordinator._debounce_seconds = 0
+
+        await coordinator._debounce_send()
+
+        assert coordinator._pending_objects == set()
+        assert coordinator._pending_event is None
+        assert coordinator._debounce_task is None
+
+    async def test_debounce_send_sans_pending_event_ne_notifie_pas(
+        self, hass: HomeAssistant
+    ) -> None:
+        """_debounce_send() sans _pending_event ne notifie pas."""
+        notifier = AsyncMock()
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            _make_subentry("jardin"),
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._debounce_seconds = 0
+        # _pending_event vaut None par défaut
+
+        await coordinator._debounce_send()
+
+        notifier.async_notify.assert_not_called()
+
+    async def test_debounce_send_cancellation_ne_notifie_pas(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Si _debounce_send() est annulée, aucune notification n'est envoyée."""
+        import asyncio
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 10  # 10 secondes → sera annulée
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+        coordinator._pending_event = FrigateEvent(
+            type="new", camera="jardin", severity="alert",
+            objects=["personne"], zones=[], score=0.9, review_id="r3",
+            start_time=0.0, end_time=None,
+        )
+
+        task = hass.async_create_task(coordinator._debounce_send())
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        notifier.async_notify.assert_not_called()
+
+    async def test_async_stop_annule_debounce_task_en_cours(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_stop() annule le debounce_task si actif."""
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 10
+        notifier = AsyncMock()
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        # Déclencher le debounce via un événement new
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        assert coordinator._debounce_task is not None
+
+        await coordinator.async_stop()
+
+        assert coordinator._debounce_task is None
