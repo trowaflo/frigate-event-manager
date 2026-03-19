@@ -416,6 +416,23 @@
     Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
     Validation humaine obligatoire avant merge.
 
+### T-520 | Zones + labels + heures en multi-select depuis Frigate
+
+- Status: DONE
+- Owner: python-architect
+- Locks: —
+- Depends: T-519
+- Blocks: —
+- Notes: |
+    frigate_client.py : get_camera_config(camera) → zones + labels depuis /api/config.
+    config_flow.py : flow 2 étapes (user=caméra, configure=multi-selects).
+      _build_configure_schema() centralise le schéma configure/reconfigure.
+      _parse_configure_input() gère le fallback CSV si zones/labels vides.
+      reconfigure : fetch Frigate + valeurs pré-sélectionnées.
+    strings.json + fr.json + en.json : step "configure" ajoutée.
+    325 tests passent, coverage 97%, ruff 0 erreur, markdownlint 0 erreur.
+    Commits : 8a0a4b1, eaff1c9, 9b0ef40, 25ec9f9.
+
 <!--
 ### T-XXX | [Titre]
 
