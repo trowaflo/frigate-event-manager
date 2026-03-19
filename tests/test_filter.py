@@ -15,6 +15,7 @@ from custom_components.frigate_event_manager.domain.filter import (
     Filter,
     FilterChain,
     LabelFilter,
+    SeverityFilter,
     TimeFilter,
     ZoneFilter,
     _est_sous_sequence,
@@ -69,6 +70,9 @@ class TestFilterProtocol:
 
     def test_time_filter_implements_protocol(self) -> None:
         assert isinstance(TimeFilter([]), Filter)
+
+    def test_severity_filter_implements_protocol(self) -> None:
+        assert isinstance(SeverityFilter([]), Filter)
 
     def test_filter_chain_implements_protocol(self) -> None:
         assert isinstance(FilterChain([]), Filter)
@@ -472,3 +476,77 @@ class TestFilterChain:
         assert chain.apply(event_ok) is True
         assert chain.apply(event_mauvaise_zone) is False
         assert chain.apply(event_mauvais_label) is False
+
+    def test_chaine_avec_severity_filter(self) -> None:
+        """SeverityFilter intégré dans la chaîne — severity non autorisée bloque."""
+        chain = FilterChain([
+            LabelFilter([]),
+            SeverityFilter(["alert"]),
+        ])
+        assert chain.apply(make_event(severity="alert")) is True
+        assert chain.apply(make_event(severity="detection")) is False
+
+
+# ---------------------------------------------------------------------------
+# Tests SeverityFilter
+# ---------------------------------------------------------------------------
+
+
+class TestSeverityFilter:
+    """Tests du filtre par severity Frigate."""
+
+    # --- Liste vide = tout accepter ---
+
+    def test_liste_vide_accepte_alert(self) -> None:
+        """Filtre sans severities accepte une severity alert."""
+        f = SeverityFilter([])
+        assert f.apply(make_event(severity="alert")) is True
+
+    def test_liste_vide_accepte_detection(self) -> None:
+        """Filtre sans severities accepte une severity detection."""
+        f = SeverityFilter([])
+        assert f.apply(make_event(severity="detection")) is True
+
+    def test_liste_vide_accepte_severity_inconnue(self) -> None:
+        """Filtre sans severities accepte n'importe quelle severity."""
+        f = SeverityFilter([])
+        assert f.apply(make_event(severity="unknown")) is True
+
+    # --- Severity dans la liste → True ---
+
+    def test_alert_dans_filtre_alert(self) -> None:
+        """Severity alert avec filtre ["alert"] → True."""
+        f = SeverityFilter(["alert"])
+        assert f.apply(make_event(severity="alert")) is True
+
+    def test_detection_dans_filtre_detection(self) -> None:
+        """Severity detection avec filtre ["detection"] → True."""
+        f = SeverityFilter(["detection"])
+        assert f.apply(make_event(severity="detection")) is True
+
+    def test_alert_dans_filtre_alert_et_detection(self) -> None:
+        """Severity alert avec filtre ["alert", "detection"] → True."""
+        f = SeverityFilter(["alert", "detection"])
+        assert f.apply(make_event(severity="alert")) is True
+
+    def test_detection_dans_filtre_alert_et_detection(self) -> None:
+        """Severity detection avec filtre ["alert", "detection"] → True."""
+        f = SeverityFilter(["alert", "detection"])
+        assert f.apply(make_event(severity="detection")) is True
+
+    # --- Severity hors liste → False ---
+
+    def test_detection_bloquee_par_filtre_alert(self) -> None:
+        """Severity detection avec filtre ["alert"] → False."""
+        f = SeverityFilter(["alert"])
+        assert f.apply(make_event(severity="detection")) is False
+
+    def test_alert_bloquee_par_filtre_detection(self) -> None:
+        """Severity alert avec filtre ["detection"] → False."""
+        f = SeverityFilter(["detection"])
+        assert f.apply(make_event(severity="alert")) is False
+
+    def test_severity_inconnue_bloquee(self) -> None:
+        """Severity non listée dans le filtre → False."""
+        f = SeverityFilter(["alert"])
+        assert f.apply(make_event(severity="unknown")) is False

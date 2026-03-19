@@ -16,11 +16,13 @@ from custom_components.frigate_event_manager.const import (
     CONF_LABELS,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
+    CONF_SEVERITY,
     CONF_SILENT_DURATION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
     DEFAULT_DEBOUNCE,
+    DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
@@ -919,3 +921,65 @@ async def test_subentry_reconfigure_erreur_reseau_get_camera_config(hass: HomeAs
     # Le formulaire s'affiche quand même (fallback champ texte)
     assert r3["type"] == FlowResultType.FORM
     assert r3["step_id"] == "reconfigure"
+
+
+# ---------------------------------------------------------------------------
+# Tests subentry — filtre severity
+# ---------------------------------------------------------------------------
+
+
+async def test_subentry_cree_camera_avec_severity_alert(hass: HomeAssistant) -> None:
+    """Subentry avec severity=["alert"] → données stockées correctement."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_SEVERITY: ["alert"],
+            },
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_SEVERITY] == ["alert"]
+
+
+async def test_subentry_cree_camera_severity_defaut(hass: HomeAssistant) -> None:
+    """Sans severity dans l'input → DEFAULT_SEVERITY appliqué."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "jardin"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_SEVERITY] == DEFAULT_SEVERITY
