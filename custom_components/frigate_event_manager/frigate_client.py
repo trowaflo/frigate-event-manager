@@ -52,6 +52,44 @@ class FrigateClient(FrigatePort):
                     return []
                 return list(data.get("cameras", {}).keys())
 
+    async def get_camera_config(self, camera: str) -> dict:
+        """Retourne les zones et labels configurés pour une caméra.
+
+        Appelle GET {url}/api/config et extrait :
+        - zones : list(data["cameras"][camera]["zones"].keys())
+        - labels : data["cameras"][camera].get("objects", {}).get("track", [])
+
+        Retourne {"zones": [], "labels": []} si la caméra est absente.
+        Lève aiohttp.ClientError si la connexion est impossible.
+        """
+        timeout = aiohttp.ClientTimeout(total=10)
+        headers: dict[str, str] = {}
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            if self._username:
+                async with session.post(
+                    f"{self._url}/api/login",
+                    json={"user": self._username, "password": self._password},
+                ) as resp:
+                    resp.raise_for_status()
+                    token_cookie = resp.cookies.get("frigate_token")
+                    if token_cookie:
+                        headers["Cookie"] = f"frigate_token={token_cookie.value}"
+
+            async with session.get(
+                f"{self._url}/api/config", headers=headers
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+                if not isinstance(data, dict):
+                    return {"zones": [], "labels": []}
+                cam_data = data.get("cameras", {}).get(camera, None)
+                if cam_data is None:
+                    return {"zones": [], "labels": []}
+                zones = list(cam_data.get("zones", {}).keys())
+                labels = cam_data.get("objects", {}).get("track", [])
+                return {"zones": zones, "labels": labels}
+
     async def get_media(self, path: str) -> tuple[bytes, str]:
         """Récupère un média Frigate (image, clip, preview) avec auth.
 
