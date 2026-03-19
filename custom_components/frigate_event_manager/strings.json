@@ -141,7 +141,7 @@
     },
     "sensor": {
       "silent_until": {
-        "name": "Reprise des notifications"
+        "name": "Notifications resume"
       }
     }
   }
