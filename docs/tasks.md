@@ -418,20 +418,76 @@
 
 ### T-520 | Zones + labels + heures en multi-select depuis Frigate
 
-- Status: DONE
+- Status: REVIEW_NEEDED
 - Owner: python-architect
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: UPDATE_NEEDED
+- Severity: MINOR
 - Locks: —
 - Depends: T-519
 - Blocks: —
 - Notes: |
-    frigate_client.py : get_camera_config(camera) → zones + labels depuis /api/config.
+    frigate_client.py : `get_camera_config(camera)` → zones + labels depuis /api/config.
     config_flow.py : flow 2 étapes (user=caméra, configure=multi-selects).
-      _build_configure_schema() centralise le schéma configure/reconfigure.
-      _parse_configure_input() gère le fallback CSV si zones/labels vides.
+      `_build_configure_schema()` centralise le schéma configure/reconfigure.
+      `_parse_configure_input()` gère le fallback CSV si zones/labels vides.
       reconfigure : fetch Frigate + valeurs pré-sélectionnées.
     strings.json + fr.json + en.json : step "configure" ajoutée.
     325 tests passent, coverage 97%, ruff 0 erreur, markdownlint 0 erreur.
     Commits : 8a0a4b1, eaff1c9, 9b0ef40, 25ec9f9.
+
+    --- REVIEW (reviewer) ---
+    MINOR — frigate_client.py:55-91 : `get_camera_config` duplique intégralement
+      le bloc login/session de `get_cameras()` et `get_media()` (même pattern ×3).
+      Extraire une méthode privée `_make_authenticated_session()` ou factoriser
+      le bloc login dans un helper interne. Signalé à code-simplifier.
+    MINOR — config_flow.py:54-61 : `_parse_csv_int` définie mais jamais appelée
+      dans le flow actuel (les heures sont traitées dans `_parse_configure_input`
+      via `int(h)` directement). Fonction morte à supprimer ou à utiliser.
+    MINOR UX — config_flow.py:442-445 : en cas d'échec réseau sur
+      `get_camera_config` lors de la step configure, le fallback est silencieux
+      (pas de message d'erreur affiché). L'utilisateur voit des champs texte
+      libre sans comprendre pourquoi les multi-selects sont absents.
+      Afficher un warning dans la description du formulaire si Frigate est
+      inaccessible à cette étape (non bloquant, décision python-architect).
+    DOC — docs/architecture.md:199 : section "Filtres configurables par caméra"
+      indique "saisis en CSV" ; avec T-520 le mode primaire est multi-select
+      depuis l'API Frigate (CSV uniquement en fallback). Mettre à jour.
+
+    POINTS VÉRIFIÉS — OK :
+    - strings.json : 0 français, step configure bien formée, step reconfigure présente.
+    - en.json / fr.json : symétriques et complets pour configure + reconfigure.
+    - Fallback zones/labels vides : `_build_configure_schema` bascule sur `str`,
+      `_parse_configure_input` parse CSV. Comportement correct.
+    - Conversion `disabled_hours` `list[str]` → `list[int]` : `.isdigit()` guard
+      correct pour les heures 0-23.
+    - Reconfigure pré-sélection : `existing_zones`, `existing_labels`, heures
+      converties en `list[str]` avant passage au schéma. Correct.
+    - `_zones_available` / `_labels_available` persistés dans `self` entre les
+      deux appels de la step configure (GET puis POST). Correct.
+    - Aucun password/token dans les logs.
+    - `_parse_configure_input` : `CONF_NOTIFY_TARGET` manquant dans l'input
+      lèverait `KeyError` (ligne 233). Accepté car `vol.Required` garantit
+      la présence du champ à ce stade.
+
+### T-520b | Tests — Zones + labels + heures multi-select (quality-guard)
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_frigate_client.py`, `tests/test_config_flow.py`
+- Locks: —
+- Depends: T-520
+- Blocks: —
+- Notes: |
+    328 tests passent, coverage global 98% (≥80%). 3 tests ajoutés.
+    `frigate_client.py` : 100% — ajouts :
+      `test_get_camera_config_reponse_non_dict_retourne_vide` (branche ligne 85).
+      `test_get_camera_config_avec_credentials_appelle_login` (branche login lignes 70-77).
+    `config_flow.py` : 100% — ajout :
+      `test_subentry_erreur_reseau_sur_step_configure_fallback` (fallback lignes 442-445
+      de `async_step_configure` lors d'une erreur réseau sur `get_camera_config` en ajout caméra).
+    Commit : 68c7e91.
 
 <!--
 ### T-XXX | [Titre]
