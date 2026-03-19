@@ -51,15 +51,6 @@ def _parse_csv_str(value: str) -> list[str]:
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
-def _parse_csv_int(value: str) -> list[int]:
-    """Parse une string CSV en liste d'entiers (ex: '0,1,2' -> [0,1,2])."""
-    if not value.strip():
-        return []
-    try:
-        return [int(x.strip()) for x in value.split(",") if x.strip()]
-    except ValueError:
-        return []
-
 
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
     """Retourne url/username/password depuis l'intégration Frigate HA si présente."""

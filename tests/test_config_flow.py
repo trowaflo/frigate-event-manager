@@ -506,25 +506,6 @@ async def test_const_persistent_notification() -> None:
     assert PERSISTENT_NOTIFICATION == "persistent_notification"
 
 
-# ---------------------------------------------------------------------------
-# Tests _parse_csv_int — edge cases
-# ---------------------------------------------------------------------------
-
-
-async def test_parse_csv_int_valeurs_invalides_retourne_liste_vide() -> None:
-    """_parse_csv_int avec valeurs non-entières retourne liste vide."""
-    from custom_components.frigate_event_manager.config_flow import _parse_csv_int
-
-    result = _parse_csv_int("abc,xyz")
-    assert result == []
-
-
-async def test_parse_csv_int_chaine_vide_retourne_liste_vide() -> None:
-    """_parse_csv_int avec chaîne vide retourne liste vide."""
-    from custom_components.frigate_event_manager.config_flow import _parse_csv_int
-
-    assert _parse_csv_int("") == []
-    assert _parse_csv_int("   ") == []
 
 
 # ---------------------------------------------------------------------------
