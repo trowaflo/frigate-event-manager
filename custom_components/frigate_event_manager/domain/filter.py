@@ -107,6 +107,19 @@ class TimeFilter:
         return heure_courante not in self.disabled_hours
 
 
+class SeverityFilter:
+    """Filtre par severity Frigate — liste vide = tout accepter."""
+
+    def __init__(self, severities: list[str]) -> None:
+        self._severities = severities
+
+    def apply(self, event: FrigateEvent) -> bool:
+        """Retourne True si la severity de l'événement est dans la liste autorisée."""
+        if not self._severities:
+            return True
+        return event.severity in self._severities
+
+
 class FilterChain:
     """Chaîne de filtres appliqués en séquence à chaque événement.
 
