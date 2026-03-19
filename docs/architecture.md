@@ -28,8 +28,9 @@ graph TB
 
         subgraph Entities["Entites HA (par camera, via subentry)"]
             SWITCH["switch.py\n1 switch — notifications"]
-            BINSENSOR["binary_sensor.py\n1 binary_sensor — mouvement"]
+            BINSENSOR["binary_sensor.py\n2 binary_sensor — mouvement + silence actif"]
             BUTTON["button.py\n1 button — mode silencieux"]
+            SENSOR["sensor.py\n1 sensor — timestamp fin silence"]
         end
     end
 
@@ -58,7 +59,7 @@ Le projet suit le pattern Ports & Adaptateurs :
 | **Domain** (noyau) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib uniquement |
 | **Application** | `coordinator.py` | domain + ports |
 | **Adaptateurs sortants** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
-| **Adaptateurs entrants** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py` | HA |
+| **Adaptateurs entrants** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py` | HA |
 
 ### Ports déclarés (`domain/ports.py`)
 
@@ -165,7 +166,9 @@ graph LR
     subgraph camera["Pour chaque camera (subentry)"]
         D["switch — Notifications\nunique_id: fem_{cam}_switch"]
         E["binary_sensor — Mouvement\nunique_id: fem_{cam}_motion\ndevice_class: motion"]
+        E2["binary_sensor — Silence actif\nunique_id: fem_{cam}_silent_state\ndevice_class: running"]
         F["button — Mode silencieux\nunique_id: fem_{cam}_silent"]
+        G["sensor — Fin du silence\nunique_id: fem_{cam}_silent_until\ndevice_class: timestamp"]
     end
 
     style camera fill:#0a1a2a,stroke:#58a6ff
@@ -181,7 +184,7 @@ graph TD
     S1["1. async_setup_entry(hass, entry)"]
     S2["2. Pour chaque subentry camera :\n   instancier HANotifier + FrigateEventManagerCoordinator"]
     S3["3. coordinator.async_start()\n   → HaMqttAdapter.async_subscribe(topic, callback)"]
-    S4["4. async_forward_entry_setups(entry, PLATFORMS)\n   switch / binary_sensor / button"]
+    S4["4. async_forward_entry_setups(entry, PLATFORMS)\n   switch / binary_sensor / button / sensor"]
     S5["5. Entités créées depuis entry.runtime_data\n   (coordinators par subentry_id)"]
     S6["6. Boucle asyncio HA\n   _handle_mqtt_message() sur chaque event"]
 

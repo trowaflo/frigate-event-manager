@@ -145,7 +145,14 @@ async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
     """Décharge l'intégration et arrête toutes les souscriptions MQTT."""
-    for coordinator in getattr(entry, "runtime_data", {}).values():
+    old_coordinators: dict[str, FrigateEventManagerCoordinator] = getattr(entry, "runtime_data", {})
+
+    # Nettoyer les stores des subentries supprimées (avant unload, entry.subentries est déjà à jour)
+    for subentry_id, coordinator in old_coordinators.items():
+        if subentry_id not in entry.subentries:
+            await coordinator._store.async_remove()
+
+    for coordinator in old_coordinators.values():
         await coordinator.async_stop()
 
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

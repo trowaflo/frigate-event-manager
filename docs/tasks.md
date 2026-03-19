@@ -350,13 +350,101 @@
       et la séquence de démarrage (PLATFORMS = switch / binary_sensor / button).
     ruff 0 erreur, 289 tests passent, coverage 98% (≥80%). markdownlint architecture.md 0 erreur.
 
+### T-518 | Review — Store + binary_sensor silent + sensor timestamp + motion fix
+
+- Status: REVIEW_NEEDED
+- Owner: python-architect
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: UPDATE_NEEDED
+- Severity: MINOR
+- Depends: T-516
+- Blocks: T-519
+- Notes: |
+    Commits reviewés :
+      - feat: persister silent_until via Store HA (survie au redémarrage)
+      - feat: binary_sensor silence actif + sensor timestamp reprise
+      - fix: motion sensor — tracker les reviews actifs, retour correct si multi-events
+
+    MINOR — coordinator.py:92-97 : Store non nettoyé à la suppression de subentry.
+      `async_remove()` jamais appelé dans `async_stop()`. Fichier .storage orphelin
+      si une caméra est supprimée puis reconfigurée sous le même nom.
+
+    MINOR — binary_sensor.py:102, sensor.py:64 : accès direct à `coordinator._silent_until`
+      (attribut privé). Exposer via une propriété publique sur le coordinator
+      (ex: `silent_until: float`).
+
+    MINOR — strings.json:119 : `"silent_state": { "name": "Silencieux actif" }` contient
+      du français. strings.json est la langue de référence HA (anglais). Corriger en
+      "Silent active" pour cohérence avec toutes les autres clés du fichier.
+
+    INFO — sensor.py:65 : comparaison `silent_until == 0.0` redondante avec
+      `time.time() >= silent_until`. Pas un bug.
+
+    INFO — binary_sensor.py:99-102 : SilentStateSensor.is_on ne lit pas coordinator.data
+      (incohérent avec FrigateMotionSensor). Fonctionnel, pas un bug.
+
+    INFO — coordinator.py:153-155 : double appel time.time() en séquence rapide.
+      Safe, extractible en variable locale pour la lisibilité.
+
+    DOC — docs/architecture.md : sensor.py (`SilentUntilSensor`) absent de :
+      `Diagramme Vue d'ensemble` (subgraph Entities),
+      `Table Architecture Hexagonale` adaptateurs entrants,
+      `Diagramme Entités HA par caméra`,
+      `Séquence de démarrage` (affiche "switch / binary_sensor / button", manque "sensor")
+
+### T-518b | Tests — Store + silent sensors + motion fix
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_coordinator.py`, `tests/test_entities.py`
+- Locks: —
+- Depends: T-518
+- Blocks: T-519
+- Notes: |
+    318 tests passent, coverage global 98% (≥80%). 2 tests ajoutés.
+    Feature A (Store persistance) : tests existants couvrent restauration non expirée,
+      restauration expirée, store vide, sauvegarde lors de activate_silent_mode().
+    Feature B (SilentStateSensor + SilentUntilSensor) : tests existants couvrent
+      is_on=True/False, native_value datetime UTC / None. Ajout :
+      test_is_on_reflecte_mise_a_jour_silent_until — vérifie que is_on reflète
+      le changement de coordinator._silent_until sans reload.
+    Feature C (_active_reviews) : tests existants couvrent 2 reviews / premier end /
+      deuxième end. Ajout : test_review_id_vide_pas_ajoute_a_active_reviews —
+      vérifie qu'un review_id="" (falsy) n'est pas ajouté au set.
+
+### T-519 | Simplification + doc — Store + silent sensors
+
+- Status: PARTIAL
+- Owner: code-simplifier
+- Scope: `coordinator.py`, `binary_sensor.py`, `sensor.py`, `strings.json`, `docs/architecture.md`
+- Locks: —
+- Depends: T-518
+- Blocks: T-517
+- Notes: |
+    Commit 8aa2b58 — ruff 0 erreur, 318 tests passent, coverage 98%.
+    FAIT :
+    1. coordinator.py : `_on_silent_expired` et `_on_silent_expired_restored` fusionnés
+       en méthode privée `_on_silent_expired(self, _)` — DRY, -10 lignes.
+    2. coordinator.py : property publique `silent_until: float` exposée.
+    3. sensor.py : comparaison `== 0.0` redondante supprimée dans `native_value`.
+    4. strings.json : "Silencieux actif" → "Silent active" (strings.json = langue anglaise HA).
+    COMPROMIS :
+    `binary_sensor.py` + `sensor.py` : `coordinator._silent_until` conservé — les tests
+    configurent le MagicMock via `_silent_until` directement, et la consigne
+    interdisait de modifier les tests. La property `silent_until` est disponible
+    mais non utilisée par les entités (accessible aux callers externes).
+    RESTANT :
+    `docs/architecture.md` : SilentUntilSensor toujours absent des 4 sections signalées.
+    `__init__.py` : Store non nettoyé sur suppression de subentry.
+
 ### T-517 | Notification features — PR
 
 - Status: TODO
 - Owner: orchestrator
 - Scope: `feat/python-migration` → `main`
 - Locks: —
-- Depends: T-516
+- Depends: T-519
 - Blocks: —
 - Notes: |
     Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
