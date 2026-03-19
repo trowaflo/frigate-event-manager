@@ -51,7 +51,6 @@ def _parse_csv_str(value: str) -> list[str]:
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
-
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
     """Retourne url/username/password depuis l'intégration Frigate HA si présente."""
     for entry in hass.config_entries.async_entries("frigate"):  # type: ignore[union-attr]
@@ -350,6 +349,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         # Zones et labels récupérés depuis Frigate (mémorisés pour le parsing)
         self._zones_available: list[str] = []
         self._labels_available: list[str] = []
+        # Vrai si Frigate était inaccessible lors du fetch de la config caméra
+        self._frigate_unreachable: bool = False
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -430,12 +431,15 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             ).get_camera_config(self._camera)
             self._zones_available = cam_config.get("zones", [])
             self._labels_available = cam_config.get("labels", [])
+            self._frigate_unreachable = False
         except (aiohttp.ClientError, TimeoutError, ValueError):
-            # Fallback silencieux : l'utilisateur saisira les zones/labels manuellement
+            # Fallback : l'utilisateur saisira les zones/labels manuellement
             self._zones_available = []
             self._labels_available = []
+            self._frigate_unreachable = True
 
         notify_options = _get_notify_options(self.hass)
+        warning = "⚠ Frigate inaccessible — saisissez les zones et labels manuellement." if self._frigate_unreachable else ""
 
         return self.async_show_form(
             step_id="configure",
@@ -444,6 +448,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 self._zones_available,
                 self._labels_available,
             ),
+            description_placeholders={"warning": warning},
         )
 
     async def async_step_reconfigure(

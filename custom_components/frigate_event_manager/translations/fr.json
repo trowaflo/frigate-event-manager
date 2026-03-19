@@ -36,6 +36,7 @@
         },
         "configure": {
           "title": "Configurer la caméra",
+          "description": "{warning}",
           "data": {
             "notify_target": "Service de notification",
             "zones": "Zones requises (vide = toutes)",

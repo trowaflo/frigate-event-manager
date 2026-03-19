@@ -35,10 +35,9 @@ class FrigateClient(FrigatePort):
                     headers["Cookie"] = f"frigate_token={token_cookie.value}"
         return headers
 
-    async def get_cameras(self) -> list[str]:
-        """Retourne la liste des noms de caméras depuis GET {url}/api/config.
+    async def _fetch_frigate_config(self) -> dict:
+        """Récupère le JSON complet depuis GET {url}/api/config avec auth.
 
-        Retourne [] si aucune caméra n'est trouvée.
         Lève aiohttp.ClientError si la connexion est impossible.
         """
         timeout = aiohttp.ClientTimeout(total=10)
@@ -49,9 +48,16 @@ class FrigateClient(FrigatePort):
             ) as response:
                 response.raise_for_status()
                 data = await response.json()
-                if not isinstance(data, dict):
-                    return []
-                return list(data.get("cameras", {}).keys())
+                return data if isinstance(data, dict) else {}
+
+    async def get_cameras(self) -> list[str]:
+        """Retourne la liste des noms de caméras depuis GET {url}/api/config.
+
+        Retourne [] si aucune caméra n'est trouvée.
+        Lève aiohttp.ClientError si la connexion est impossible.
+        """
+        data = await self._fetch_frigate_config()
+        return list(data.get("cameras", {}).keys())
 
     async def get_camera_config(self, camera: str) -> dict:
         """Retourne les zones et labels configurés pour une caméra depuis GET {url}/api/config.
@@ -59,22 +65,13 @@ class FrigateClient(FrigatePort):
         Retourne {"zones": [], "labels": []} si la caméra est absente.
         Lève aiohttp.ClientError si la connexion est impossible.
         """
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            headers = await self._get_auth_headers(session)
-            async with session.get(
-                f"{self._url}/api/config", headers=headers
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                if not isinstance(data, dict):
-                    return {"zones": [], "labels": []}
-                cam_data = data.get("cameras", {}).get(camera)
-                if cam_data is None:
-                    return {"zones": [], "labels": []}
-                zones = list(cam_data.get("zones", {}).keys())
-                labels = cam_data.get("objects", {}).get("track", [])
-                return {"zones": zones, "labels": labels}
+        data = await self._fetch_frigate_config()
+        cam_data = data.get("cameras", {}).get(camera)
+        if cam_data is None:
+            return {"zones": [], "labels": []}
+        zones = list(cam_data.get("zones", {}).keys())
+        labels = cam_data.get("objects", {}).get("track", [])
+        return {"zones": zones, "labels": labels}
 
     async def get_media(self, path: str) -> tuple[bytes, str]:
         """Récupère un média Frigate (image, clip, preview) avec auth.
