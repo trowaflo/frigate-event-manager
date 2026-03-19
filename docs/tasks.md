@@ -262,7 +262,7 @@
        strings.json + fr.json + en.json mis à jour : step notify supprimé, cooldown/debounce/silent_duration ajoutés.
     7. persistent_notification : liens markdown Clip, Snapshot, Preview dans message, pas de data enrichie.
 
-### T-514 | Notification features — review
+### T-514 | Notification features — review (round 2 — commits 963da2d et suivants)
 
 - Status: APPROVED
 - Owner: reviewer
@@ -273,39 +273,91 @@
 - Depends: T-513
 - Blocks: T-516
 - Notes: |
+    Round 1 (T-513 initial) :
     MINOR — coordinator.py:106-110 : async_call_later retourne un callable d'annulation
       non stocké. Si async_stop() est appelé avant l'expiration du timer silent mode
       (jusqu'à 480 min), la référence self dans la lambda maintient le coordinator en mémoire.
       Stocker le cancel callback et l'appeler dans async_stop().
+      → CORRIGÉ : _cancel_silent stocké et appelé dans async_stop() (coordinator.py:133-135).
     MINOR — notifier.py:122-126 : les URLs dans les liens markdown persistent_notification
       ne sont pas protégées contre les caractères spéciaux Markdown. Angle bracket syntax
       recommandée.
+      → CORRIGÉ : syntax [Clip](<url>) appliquée.
     INFO — docs/architecture.md désynchronisé : button.py (SilentButton) absent du
       diagramme entités, de la table adaptateurs entrants et de la séquence démarrage.
-      PLATFORMS dans la séquence affiche encore ["switch", "binary_sensor"]. A corriger
-      par python-architect ou code-simplifier lors du prochain passage.
-    INFO — manifest.json version="2.0.0" non incrémentée malgré ajout de features
-      majeures (debounce, silent mode, button platform). A aligner en T-517.
+      PLATFORMS dans la séquence affiche encore ["switch", "binary_sensor"].
+      → NON CORRIGÉ : toujours absent. Correction requise avant T-517.
+    INFO — manifest.json version="2.0.0" non incrémentée.
+      → CORRIGÉ : version="2.1.0" dans manifest.json.
+
+    Round 2 (review commits feat/cooldown-debounce-silent) :
+    MINOR — coordinator.py:176-179 : sur le chemin sans debounce (debounce=0),
+      throttler.record() est appelé via async_create_task avant que async_notify() soit
+      résolu. Si la notification échoue (exception), le cooldown est quand même enregistré
+      et les events suivants sont droppés silencieusement pendant toute la durée du cooldown.
+      Le chemin debounce (_debounce_send) est correct (record() après await).
+      A corriger en T-516 : déplacer record() dans une coroutine englobant async_notify().
+    MINOR — coordinator.py:112 : après expiration naturelle du timer silent, _cancel_silent
+      n'est pas remis à None dans la lambda. Le callable expired reste référencé. Un appel
+      ultérieur à activate_silent_mode() appellera _cancel_silent() sur un callable inopérant
+      (sans effet fonctionnel, mais état incohérent). A corriger en T-516 : la lambda doit
+      aussi remettre _cancel_silent à None.
+    MINOR — __init__.py:55-58 : async_migrate_entry retourne True pour les versions non
+      gérées (>3). Convention HA : retourner False pour signaler échec de migration sur
+      version inconnue, afin d'éviter le chargement avec données incompatibles (downgrade).
+      A corriger en T-516.
+    INFO — __init__.py:57 : "Migration v2 -> v3 terminee" — accent manquant sur "terminée".
+    DOC — docs/architecture.md : button.py (SilentButton) toujours absent du diagramme
+      entités (ligne 165-170), de la table adaptateurs entrants (ligne 60), et de la
+      séquence démarrage (ligne 184, affiche "switch / binary_sensor" au lieu de
+      "switch / binary_sensor / button"). A corriger avant T-517.
 
 ### T-515 | Notification features — tests
 
-- Status: TODO
+- Status: DONE
 - Owner: quality-guard
-- Scope: `tests/test_coordinator.py`, `tests/test_notifier.py`, `tests/test_config_flow.py`, `tests/test_button.py` (nouveau)
+- Scope: `tests/test_coordinator.py`, `tests/test_config_flow.py`, `tests/test_init.py` (nouveau), `tests/test_ha_mqtt.py` (nouveau)
 - Locks: —
 - Depends: T-513
 - Blocks: T-516
-- Notes: Coverage ≥80% obligatoire. Vérifier les 7 features + migration v2→v3.
+- Notes: |
+    289 tests passent, coverage global 99% (≥80%). 0 erreur ruff.
+    Ajouts :
+    - test_coordinator.py : TestSilentModeAvance (4 tests) — _cancel_silent stocké,
+      double activation annule le premier timer, async_stop annule _cancel_silent.
+      TestParseEvent : _to_float ValueError/TypeError.
+    - tests/test_init.py (nouveau, 12 tests) : async_migrate_entry v2→v3 (notify_target
+      supprimé, url conservée, v3 retourne True), async_setup_entry (MQTT non dispo,
+      sans subentries, avec subentry caméra, proxy client, signer, warning URL absente),
+      async_unload_entry (coordinators arrêtés, sans runtime_data).
+    - tests/test_ha_mqtt.py (nouveau, 3 tests) : init, async_subscribe délègue, retourne callable.
+    - tests/test_config_flow.py : _parse_csv_int ValueError+vide, _detect_frigate_config,
+      _get_notify_options, invalid_auth step_user, async_step_reconfigure principal
+      (formulaire/succès/cannot_connect/invalid_auth), subentry invalid_auth,
+      subentry async_step_reconfigure (formulaire/succès).
+    Lignes résiduelles : __init__.py:135 (_async_reload_entry — reload HA complet non
+    testable unitairement), binary_sensor/button/switch:22-23 (platform async_setup_entry).
 
 ### T-516 | Notification features — simplification
 
-- Status: TODO
+- Status: DONE
 - Owner: code-simplifier
-- Scope: tous les fichiers modifiés par T-513
+- Scope: `coordinator.py`, `__init__.py`, `docs/architecture.md`
 - Locks: —
 - Depends: T-514, T-515
 - Blocks: T-517
-- Notes: Si reviewer émet REVIEW_NEEDED BLOCKING → HITL avant de continuer. Si quality-guard émet REJECTED → python-architect reprend avant T-516.
+- Notes: |
+    coordinator.py : _notify_and_record() — record() déplacé après await async_notify()
+      pour éviter le cooldown en cas d'échec de notification (chemin debounce=0).
+    coordinator.py : _on_silent_expired() — _cancel_silent remis à None après expiration
+      naturelle du timer silent mode (état cohérent + libération de référence).
+    __init__.py : async_migrate_entry — return False sur version inconnue (>3),
+      convention HA pour bloquer le chargement avec données incompatibles.
+    __init__.py : accent corrigé "terminée".
+    docs/architecture.md : button.py / SilentButton ajouté dans le diagramme entités,
+      la table adaptateurs entrants, le diagramme entités par caméra (unique_id fem_{cam}_silent),
+      et la séquence de démarrage (PLATFORMS = switch / binary_sensor / button).
+    ruff 0 erreur, 289 tests passent, coverage 98% (≥80%). markdownlint architecture.md 0 erreur.
 
 ### T-517 | Notification features — PR
 
