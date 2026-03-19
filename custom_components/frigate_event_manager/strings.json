@@ -115,11 +115,19 @@
     "binary_sensor": {
       "mouvement": {
         "name": "Motion"
+      },
+      "silent_state": {
+        "name": "Silencieux actif"
       }
     },
     "button": {
       "silent_button": {
         "name": "Silent mode"
+      }
+    },
+    "sensor": {
+      "silent_until": {
+        "name": "Reprise des notifications"
       }
     }
   }
