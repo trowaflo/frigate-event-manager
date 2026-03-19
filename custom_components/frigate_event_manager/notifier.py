@@ -93,7 +93,7 @@ class HANotifier:
             "thumbnail_url": thumbnail_url,
         }
 
-    async def async_notify(self, event: FrigateEvent) -> None:
+    async def async_notify(self, event: FrigateEvent, *, critical: bool = False) -> None:
         """Envoie une notification pour un événement Frigate de type 'new' ou 'update'."""
         escaped_objects = [html.escape(o) for o in event.objects]
         media_urls = self._build_media_urls(event)
@@ -153,6 +153,13 @@ class HANotifier:
             if tap_url:
                 companion_data["url"] = tap_url          # iOS
                 companion_data["clickAction"] = tap_url  # Android
+
+            # Notification critique (iOS critical alert + Android channel haute priorité)
+            if critical:
+                companion_data["push"] = {
+                    "sound": {"name": "default", "critical": 1, "volume": 1.0}
+                }
+                companion_data["channel"] = "frigate_critical"
 
             # Boutons d'action — uniquement les URLs disponibles
             actions = []

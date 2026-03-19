@@ -20,6 +20,7 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_CAMERA,
     CONF_COOLDOWN,
+    CONF_CRITICAL_TEMPLATE,
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
@@ -99,6 +100,7 @@ def _build_configure_schema(
     default_severity: list[str] | None = None,
     default_title: str = "",
     default_message: str = "",
+    default_critical_template: str = "",
     default_tap: str = DEFAULT_TAP_ACTION,
     default_cooldown: int = DEFAULT_THROTTLE_COOLDOWN,
     default_debounce: int = 0,
@@ -168,6 +170,9 @@ def _build_configure_schema(
         ),
         vol.Optional(CONF_NOTIF_TITLE, default=default_title): str,
         vol.Optional(CONF_NOTIF_MESSAGE, default=default_message): str,
+        vol.Optional(
+            CONF_CRITICAL_TEMPLATE, default=default_critical_template
+        ): selector.TemplateSelector(),
         vol.Required(CONF_TAP_ACTION, default=default_tap): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=TAP_ACTION_OPTIONS,
@@ -241,6 +246,7 @@ def _parse_configure_input(
         CONF_SEVERITY: user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY),
         CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
         CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
+        CONF_CRITICAL_TEMPLATE: user_input.get(CONF_CRITICAL_TEMPLATE, "").strip() or None,
         CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
         CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
         CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, 0)),
@@ -519,6 +525,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 default_severity=existing_severity,
                 default_title=subentry.data.get(CONF_NOTIF_TITLE) or "",
                 default_message=subentry.data.get(CONF_NOTIF_MESSAGE) or "",
+                default_critical_template=subentry.data.get(CONF_CRITICAL_TEMPLATE) or "",
                 default_tap=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 default_cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN),
                 default_debounce=subentry.data.get(CONF_DEBOUNCE, 0),

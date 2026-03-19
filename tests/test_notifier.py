@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from custom_components.frigate_event_manager.const import PERSISTENT_NOTIFICATION
@@ -411,7 +410,7 @@ async def test_build_media_urls_sans_review_id_retourne_vide(hass: HomeAssistant
     """Sans review_id, toutes les URLs médias sont vides."""
     from unittest.mock import MagicMock
 
-    calls = _register_mock_services(hass)
+    _register_mock_services(hass)
     signer = MagicMock()
     signer.sign_url = MagicMock(return_value="https://signed/path")
 
@@ -438,3 +437,41 @@ async def test_persistent_notification_avec_signer_liens_markdown(hass: HomeAssi
     message = calls[0].data["message"]
     assert "[Clip]" in message or "[Snapshot]" in message
     assert "signed" in message
+
+
+# ---------------------------------------------------------------------------
+# Tests notification critique (critical=True)
+# ---------------------------------------------------------------------------
+
+
+async def test_critical_true_ajoute_push_sound_et_channel(hass: HomeAssistant) -> None:
+    """critical=True → companion_data contient push.sound.critical=1 et channel."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    await notifier.async_notify(_make_event(), critical=True)
+
+    data = calls[0].data["data"]
+    assert data["push"]["sound"]["critical"] == 1
+    assert data["channel"] == "frigate_critical"
+
+
+async def test_critical_false_pas_de_push_sound(hass: HomeAssistant) -> None:
+    """critical=False (défaut) → pas de push.sound ni channel dans companion_data."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    await notifier.async_notify(_make_event(), critical=False)
+
+    data = calls[0].data["data"]
+    assert "push" not in data
+    assert "channel" not in data
+
+
+async def test_critical_true_persistent_notification_pas_de_push(hass: HomeAssistant) -> None:
+    """critical=True avec persistent_notification → pas de push (non applicable)."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
+    await notifier.async_notify(_make_event(), critical=True)
+
+    # persistent_notification.create ne reçoit pas de champ "push"
+    assert calls[0].domain == "persistent_notification"
+    assert "push" not in calls[0].data

@@ -410,7 +410,7 @@
 - Owner: orchestrator
 - Scope: `feat/python-migration` → `main`
 - Locks: —
-- Depends: T-519
+- Depends: T-519, T-523c, T-525, T-524
 - Blocks: —
 - Notes: |
     Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
@@ -473,40 +473,89 @@
 
 ### T-521 | SelectSelector LIST + clarification zones vides
 
-- Status: TODO
+- Status: APPROVED
 - Owner: python-architect
-- Priority: P0
-- Scope: `config_flow.py`
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Severity: MINOR
 - Locks: —
 - Depends: T-520
 - Blocks: —
 - Notes: |
-    Passer zones et labels de `SelectSelectorMode.DROPDOWN` à `SelectSelectorMode.LIST`
-    pour afficher des cases à cocher directement visibles (pas de dropdown à ouvrir).
-    Comportement attendu si zones vides : champ texte libre = caméra sans zones
-    configurées dans Frigate, saisie manuelle possible, liste vide = tout accepter.
-    Ce comportement est correct et documenté — pas un bug.
+    `SelectSelectorMode.LIST` appliqué sur zones, labels, severity, tap_action,
+    disabled_hours. Conforme.
+    Fallback `str` (champ texte libre) sur zones/labels vides documenté et attendu.
+    MINOR — `strings.json:144` : `"name": "Reprise des notifications"` est du français
+      dans le fichier de référence anglais. Doit être `"Notifications resume"` pour
+      cohérence avec `translations/en.json`. À corriger dans le prochain passage.
 
 ### T-522 | Filtre severity — Alert / Detection
 
-- Status: TODO
+- Status: APPROVED
 - Owner: python-architect
-- Priority: P0
-- Scope: `const.py`, `coordinator.py`, `config_flow.py`, `strings.json`, `translations/`
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Severity: MINOR
 - Locks: —
 - Depends: T-521
 - Blocks: —
 - Notes: |
-    Frigate reviews : `severity = "alert"` (objet dans zone configurée) ou `"detection"`.
-    Ajouter `CONF_SEVERITY` : SelectSelector multi, options ["alert", "detection"],
-    default = les deux. Stocker comme `list[str]` dans subentry.data.
-    coordinator.py : ajouter `SeverityFilter(severities)` dans `FilterChain`.
-    Si liste vide = tout accepter (convention existante).
-    Inclure dans `_build_configure_schema()` + step reconfigure.
+    `SeverityFilter` respecte la convention liste vide = tout accepter (`filter.py:118`).
+    `DEFAULT_SEVERITY = ["alert", "detection"]` : les deux par défaut, comportement
+      plug & play cohérent.
+    `coordinator.py:75` : fallback `DEFAULT_SEVERITY` si clé absente — correct.
+    `strings.json` : entièrement en anglais, options selector bien formées. Conforme.
+    `translations/en.json` : identique à `strings.json` en structure. Conforme.
+    `translations/fr.json` : section `severity` traduite. Conforme.
+    Reconfigure (`config_flow.py:507`) : valeur existante passée comme `default_severity`. Conforme.
+    Tests `test_filter.py` : 12 cas `TestSeverityFilter` couvrent liste vide, alert, detection,
+      severity inconnue, intégration dans `FilterChain`. Complets.
+    Tests `test_config_flow.py` : cas severity présents dans les tests de création/reconfigure.
+    MINOR — `strings.json:144` : `"name": "Reprise des notifications"` — français dans
+      fichier de référence anglais (hérité T-519, hors scope T-522). À corriger au prochain passage.
+
+### T-522b | Tests — filtre severity (quality-guard)
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_filter.py`, `tests/test_config_flow.py`
+- Locks: —
+- Depends: T-522
+- Blocks: —
+- Notes: |
+    340 tests passent, coverage global 98% (≥80%). Aucun test ajouté — coverage déjà complète.
+    `domain/filter.py` : 100% — `TestSeverityFilter` (10 cas) couvre liste vide = tout accepter,
+      `alert` seul, `detection` seul, les deux, severity inconnue bloquée.
+    `FilterChain` + `SeverityFilter` : couvert par `test_chaine_avec_severity_filter`.
+    `config_flow.py` : 100% — `CONF_SEVERITY` stocké comme `list[str]` dans
+      `test_subentry_cree_camera_avec_severity_alert` et valeur par défaut dans
+      `test_subentry_cree_camera_severity_defaut`. Reconfigure pré-sélectionnée via
+      `existing_severity` → `default_severity` dans `_build_configure_schema()` (ligne 507-519),
+      chemin exercé par `test_subentry_reconfigure_met_a_jour_donnees`.
+
+### T-521+T-522 | Simplification — SelectSelectorMode.LIST + SeverityFilter (code-simplifier)
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `domain/filter.py`
+- Locks: —
+- Depends: T-521, T-522, T-522b
+- Blocks: —
+- Notes: |
+    `domain/filter.py` : `SeverityFilter._severities` → `SeverityFilter.severities` (attribut public)
+      pour uniformiser avec `ZoneFilter.zone_multi`, `LabelFilter.labels`, `TimeFilter.disabled_hours`.
+      Docstring enrichie sur le pattern liste vide = tout accepter.
+    `config_flow.py` : aucune modification — code déjà propre, pas de duplication.
+    `strings.json` : MINOR T-521/T-522 déjà corrigée (ligne 144 = "Notifications resume" en anglais).
+    Commit : 514cd30 — ruff 0 erreur, 340 tests passent, coverage 98%.
+
+---
 
 ### T-523 | Notifications critiques — template Jinja2 sur plage horaire
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P1
 - Scope: `const.py`, `coordinator.py`, `notifier.py`, `config_flow.py`, `strings.json`, `translations/`
@@ -514,14 +563,82 @@
 - Depends: T-522
 - Blocks: —
 - Notes: |
-    Ajouter `CONF_CRITICAL_TEMPLATE` (str, optionnel) dans subentry.
-    Exemple utilisateur : `"{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}"`.
-    coordinator.py : évaluer le template via `hass.config.components` ou `template.async_render`
-    avant d'appeler le notifier. Passer un flag `critical=True/False`.
-    notifier.py : si `critical=True` → ajouter `data.push.sound.critical: 1` (iOS)
-    et `data.channel: "frigate_critical"` (Android). Hors `persistent_notification`.
-    Config flow : champ texte libre + placeholder exemple.
-    Jinja2 est interprété via HA nativement — pas de eval custom.
+    CONF_CRITICAL_TEMPLATE ajouté dans const.py.
+    coordinator.py : import template_helper, `_is_critical()` évalue le template Jinja2
+      avec variables camera/severity/objects/zones/start_time. Passe critical=True/False
+      aux deux chemins notify (immédiat + debounce). Template invalide → False + warning log.
+    notifier.py : `async_notify(*, critical=False)` — si critical=True et pas persistent_notification :
+      push.sound.critical=1 + volume=1.0 (iOS) + channel="frigate_critical" (Android).
+    config_flow.py : champ TemplateSelector dans `_build_configure_schema` + `_parse_configure_input`.
+      default_critical_template pré-rempli dans `async_step_reconfigure`.
+    strings.json + fr.json + en.json : data + data_description pour configure et reconfigure.
+    347 tests passent, coverage 98%, ruff 0 erreur.
+
+### T-523b | Review — notifications critiques
+
+- Status: APPROVED
+- Owner: reviewer
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Severity: MINOR
+- Depends: T-523
+- Blocks: T-523c, T-523d
+- Notes: |
+    SECURITY_OK — évaluation template Jinja2 via `template_helper.Template.async_render(parse_result=False)`.
+      Variables issues du payload MQTT interne, pas d'entrée utilisateur directe. Comparaison via
+      `str(result).strip().lower() == "true"` — pas d'évaluation récursive. `html.escape()` appliqué
+      sur tous les champs dynamiques dans `notifier.py:98-110`. Aucun secret loggé.
+    MINOR — `coordinator.py:304` + `tests/test_coordinator.py` (TestDebounceSend) : le chemin debounce
+      appelle `_is_critical(grouped_event)` mais aucun test ne vérifie que `critical=True/False` est
+      correctement transmis à `async_notify` dans ce chemin. Les tests existants vérifient uniquement
+      `assert_called_once()` sans inspecter le kwarg `critical`. À couvrir en T-523c ou T-523d (quality-guard).
+    INFO — `coordinator.py:300-304` : `_debounce_send` évalue `_is_critical` sur l'événement synthétique
+      dont `severity` est celle du dernier `update` reçu (pas nécessairement la plus haute). Comportement
+      implicite, acceptable mais non documenté. Ajouter un commentaire en T-523c.
+    Traductions : strings.json / en.json / fr.json cohérentes. Clés `critical_template` présentes dans
+      `data` et `data_description` des steps configure et reconfigure. Aucune clé manquante.
+    Config flow : `TemplateSelector()` conforme, pré-remplissage reconfigure correct (`None` → `""`).
+      `_parse_configure_input:249` normalise correctement la valeur vide vers `None`.
+
+### T-523c | Simplification — notifications critiques
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `coordinator.py`, `tests/test_coordinator.py`
+- Locks: —
+- Depends: T-523b, T-523d
+- Blocks: —
+- Notes: |
+    coordinator.py : commentaire ajouté dans `_debounce_send` expliquant que `_is_critical`
+      est évalué sur `grouped_event` dont la severity est celle du dernier update reçu
+      (comportement intentionnel, cohérent avec le reste du debounce).
+    tests/test_coordinator.py (TestDebounceSend) : test ajouté
+      `test_debounce_send_transmet_critical_true_a_async_notify` — configure
+      `_critical_template="true"`, déclenche `_debounce_send()`, vérifie que
+      `notifier.async_notify` a été appelé avec `critical=True`.
+    ruff 0 erreur, 348 tests passent, coverage 98%.
+
+### T-523d | Tests — notifications critiques (quality-guard)
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_coordinator.py`, `tests/test_notifier.py`, `tests/test_config_flow.py`
+- Locks: —
+- Depends: T-523b
+- Blocks: T-523c
+- Notes: |
+    351 tests passent, coverage global 98% (≥80%). 3 tests ajoutés, 2 corrections ruff.
+    Cas couverts (tous les 8 demandés) :
+    1-4. _is_critical (sans template, vrai, faux, invalide) — existaient déjà (TestIsCritical).
+    5. Chemin immédiat debounce=0 + critical=True → async_notify(critical=True) — AJOUTÉ.
+    6. Chemin debounce + critical=True → async_notify(critical=True) — existait (T-523c).
+    7-9. notifier critical=True/False/persistent_notification — existaient déjà.
+    10. config_flow CONF_CRITICAL_TEMPLATE sauvegardé en création subentry — AJOUTÉ.
+    11. config_flow CONF_CRITICAL_TEMPLATE pré-rempli en reconfigure — AJOUTÉ.
+    Corrections ruff (test_notifier.py) : import pytest inutilisé supprimé, variable calls inutilisée.
+
+---
 
 ### T-525 | Exemples Jinja2 pour titre et message de notification
 

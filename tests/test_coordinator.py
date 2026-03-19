@@ -806,6 +806,31 @@ class TestDebounce:
         if coordinator._debounce_task:
             coordinator._debounce_task.cancel()
 
+    async def test_chemin_immediat_transmet_critical_true_a_async_notify(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Avec debounce=0 et critical_template='true', critical=True est transmis à async_notify."""
+        from custom_components.frigate_event_manager.const import CONF_CRITICAL_TEMPLATE
+
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        subentry.data[CONF_DEBOUNCE] = 0
+        subentry.data[CONF_CRITICAL_TEMPLATE] = "true"
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+
+        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
+        await hass.async_block_till_done()
+
+        notifier.async_notify.assert_called_once()
+        _, kwargs = notifier.async_notify.call_args
+        assert kwargs.get("critical") is True
+
 
 # ---------------------------------------------------------------------------
 # Tests de la notification sur type=update
@@ -1008,6 +1033,44 @@ class TestDebounceSend:
 
         assert coordinator._debounce_task is None
 
+    async def test_debounce_send_transmet_critical_true_a_async_notify(
+        self, hass: HomeAssistant
+    ) -> None:
+        """_debounce_send() transmet critical=True à async_notify quand le template le dicte."""
+        from custom_components.frigate_event_manager.const import CONF_CRITICAL_TEMPLATE
+        from custom_components.frigate_event_manager.domain.model import FrigateEvent
+
+        notifier = AsyncMock()
+        subentry = _make_subentry("jardin")
+        # Template qui retourne toujours True — chemin critical=True garanti
+        subentry.data[CONF_CRITICAL_TEMPLATE] = "true"
+        coordinator = FrigateEventManagerCoordinator(
+            hass,
+            _make_entry(),
+            subentry,
+            notifier=notifier,
+            event_source=_make_fake_event_source(),
+        )
+        coordinator._pending_objects = {"personne"}
+        coordinator._pending_event = FrigateEvent(
+            type="update",
+            camera="jardin",
+            severity="alert",
+            objects=["personne"],
+            zones=["entree"],
+            score=0.9,
+            review_id="r-critical",
+            start_time=1710000000.0,
+            end_time=None,
+        )
+        coordinator._debounce_seconds = 0
+
+        await coordinator._debounce_send()
+
+        notifier.async_notify.assert_called_once()
+        _, kwargs = notifier.async_notify.call_args
+        assert kwargs.get("critical") is True
+
 
 # ---------------------------------------------------------------------------
 # Tests du silent mode — cancel et async_stop
@@ -1154,3 +1217,48 @@ class TestSilentModePersistance:
         await coordinator.async_start()  # ne doit pas lever d'exception
 
         assert coordinator._silent_until == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Tests _is_critical
+# ---------------------------------------------------------------------------
+
+
+class TestIsCritical:
+    """Tests de la méthode _is_critical du coordinator."""
+
+    def _make_event(self, severity: str = "alert") -> FrigateEvent:
+        return FrigateEvent(
+            type="new",
+            camera="jardin",
+            severity=severity,
+            objects=["personne"],
+            zones=["entree"],
+            score=0.9,
+            review_id="r1",
+        )
+
+    def test_sans_template_retourne_false(self, hass: HomeAssistant) -> None:
+        """Pas de critical_template → _is_critical retourne toujours False."""
+        coordinator = _make_coordinator(hass)
+        coordinator._critical_template = None
+        assert coordinator._is_critical(self._make_event()) is False
+
+    def test_template_vrai_retourne_true(self, hass: HomeAssistant) -> None:
+        """Template qui évalue à 'True' → _is_critical retourne True."""
+        coordinator = _make_coordinator(hass)
+        coordinator._critical_template = "{{ severity == 'alert' }}"
+        assert coordinator._is_critical(self._make_event(severity="alert")) is True
+
+    def test_template_faux_retourne_false(self, hass: HomeAssistant) -> None:
+        """Template qui évalue à 'False' → _is_critical retourne False."""
+        coordinator = _make_coordinator(hass)
+        coordinator._critical_template = "{{ severity == 'alert' }}"
+        assert coordinator._is_critical(self._make_event(severity="detection")) is False
+
+    def test_template_invalide_retourne_false(self, hass: HomeAssistant) -> None:
+        """Template Jinja2 invalide → _is_critical retourne False sans lever d'exception."""
+        coordinator = _make_coordinator(hass)
+        coordinator._critical_template = "{{ this_is_not_valid_jinja2(((( }}"
+        # Ne doit pas lever d'exception
+        assert coordinator._is_critical(self._make_event()) is False

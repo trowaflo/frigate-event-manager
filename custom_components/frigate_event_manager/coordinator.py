@@ -10,6 +10,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import template as template_helper
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -17,6 +18,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .const import (
     CONF_CAMERA,
     CONF_COOLDOWN,
+    CONF_CRITICAL_TEMPLATE,
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
@@ -89,6 +91,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Tracker des reviews actifs — pour éviter motion=False prématuré si multi-events
         self._active_reviews: set[str] = set()
 
+        # Template critique
+        self._critical_template: str | None = subentry.data.get(CONF_CRITICAL_TEMPLATE) or None
+
         # Silent mode
         self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
@@ -119,6 +124,30 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Active ou désactive les notifications pour cette caméra."""
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
+
+    def _is_critical(self, event: Any) -> bool:
+        """Évalue le template critique — retourne True si la notification doit être critique."""
+        if not self._critical_template:
+            return False
+        variables = {
+            "camera": event.camera,
+            "severity": event.severity,
+            "objects": event.objects,
+            "zones": event.zones,
+            "start_time": event.start_time,
+        }
+        try:
+            result = template_helper.Template(
+                self._critical_template, self.hass
+            ).async_render(variables, parse_result=False)
+            return str(result).strip().lower() == "true"
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning(
+                "Erreur évaluation critical_template — caméra=%s template=%r",
+                self._camera,
+                self._critical_template,
+            )
+            return False
 
     def _on_silent_expired(self, _: Any) -> None:
         """Réinitialise le mode silencieux après expiration du timer."""
@@ -230,11 +259,13 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ):
                 if self._debounce_seconds == 0:
                     # Envoi immédiat — record() après await pour éviter le cooldown en cas d'échec
-                    async def _notify_and_record(evt: Any) -> None:
-                        await self._notifier.async_notify(evt)
+                    async def _notify_and_record(evt: Any, crit: bool) -> None:
+                        await self._notifier.async_notify(evt, critical=crit)
                         self._throttler.record(self._camera)
 
-                    self.hass.async_create_task(_notify_and_record(event))
+                    self.hass.async_create_task(
+                        _notify_and_record(event, self._is_critical(event))
+                    )
                 else:
                     # Accumulation pour debounce
                     self._pending_objects.update(event.objects)
@@ -270,7 +301,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._pending_event,
             objects=list(self._pending_objects),
         )
-        await self._notifier.async_notify(grouped_event)
+        # _is_critical est évalué sur grouped_event dont la severity est celle du dernier
+        # update reçu (pas nécessairement la plus haute) — comportement intentionnel,
+        # cohérent avec la logique debounce qui conserve le dernier état connu de la caméra.
+        await self._notifier.async_notify(grouped_event, critical=self._is_critical(grouped_event))
         self._throttler.record(self._camera)
 
         # Réinitialisation

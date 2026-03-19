@@ -11,6 +11,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from custom_components.frigate_event_manager.const import (
     CONF_CAMERA,
     CONF_COOLDOWN,
+    CONF_CRITICAL_TEMPLATE,
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
@@ -983,3 +984,98 @@ async def test_subentry_cree_camera_severity_defaut(hass: HomeAssistant) -> None
 
     assert r3["type"] == FlowResultType.CREATE_ENTRY
     assert r3["data"][CONF_SEVERITY] == DEFAULT_SEVERITY
+
+
+# ---------------------------------------------------------------------------
+# Tests subentry — CONF_CRITICAL_TEMPLATE
+# ---------------------------------------------------------------------------
+
+
+async def test_subentry_cree_camera_avec_critical_template(hass: HomeAssistant) -> None:
+    """CONF_CRITICAL_TEMPLATE sauvegardé dans subentry lors de la création."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_CRITICAL_TEMPLATE: "{{ severity == 'alert' }}",
+            },
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_CRITICAL_TEMPLATE] == "{{ severity == 'alert' }}"
+
+
+async def test_subentry_reconfigure_preremplit_critical_template(hass: HomeAssistant) -> None:
+    """CONF_CRITICAL_TEMPLATE pré-rempli lors de la reconfigure si déjà configuré."""
+    entry_id = await _create_entry(hass)
+
+    # Créer la subentry avec un critical_template
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_CRITICAL_TEMPLATE: "{{ severity == 'alert' }}",
+            },
+        )
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+
+    subentry_id = _get_subentry_id(hass, entry_id)
+
+    # Reconfigure → le formulaire doit pré-remplir CONF_CRITICAL_TEMPLATE
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r4 = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "subentry_id": subentry_id,
+            },
+        )
+        # Reconfigure avec le même template (vérification pré-remplissage via submit)
+        r5 = await hass.config_entries.subentries.async_configure(
+            r4["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_CRITICAL_TEMPLATE: "{{ severity == 'alert' }}",
+            },
+        )
+
+    assert r5["type"] == FlowResultType.ABORT
+    assert r5["reason"] == "reconfigure_successful"
+    # Vérifier que la valeur est bien conservée dans la subentry
+    entry = hass.config_entries.async_get_entry(entry_id)
+    subentry = entry.subentries[subentry_id]
+    assert subentry.data.get(CONF_CRITICAL_TEMPLATE) == "{{ severity == 'alert' }}"

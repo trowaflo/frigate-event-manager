@@ -43,6 +43,7 @@ DEFAULT_SILENT_DURATION = 30
 # Templates de notification
 CONF_NOTIF_TITLE = "notification_title"
 CONF_NOTIF_MESSAGE = "notification_message"
+CONF_CRITICAL_TEMPLATE = "critical_template"
 DEFAULT_NOTIF_TITLE = "Frigate — {{ camera }}"
 DEFAULT_NOTIF_MESSAGE = "{{ objects | join(', ') or 'objet inconnu' }} détecté ({{ severity }})"
 
