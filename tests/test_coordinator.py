@@ -300,12 +300,67 @@ class TestHandleMqttMessage:
         assert state.last_objects == ["chien"]
 
     async def test_type_end_passe_motion_false(self, hass: HomeAssistant) -> None:
+        """Un end avec le même review_id que le new termine le mouvement."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
         assert coordinator.camera_state.motion is True
 
-        coordinator._handle_mqtt_message(_make_msg(PAYLOAD_END))
+        # End du même review (review-001 = review-001)
+        payload_end_meme_review = {
+            "type": "end",
+            "after": {
+                "camera": "jardin",
+                "severity": "alert",
+                "objects": ["personne"],
+                "current_zones": ["entree"],
+                "score": 0.88,
+                "id": "review-001",  # même id que PAYLOAD_NEW
+                "start_time": 1710000020.0,
+                "end_time": 1710000060.0,
+            },
+        }
+        coordinator._handle_mqtt_message(_make_msg(payload_end_meme_review))
         assert coordinator.camera_state.motion is False
+
+    async def test_type_end_motion_reste_true_si_autre_review_actif(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Un end ne met pas motion=False si un autre review est encore actif."""
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+
+        # Premier review
+        payload_new_1 = {
+            "type": "new",
+            "after": {
+                "camera": "jardin", "severity": "alert",
+                "objects": ["personne"], "id": "review-A", "start_time": 1710000000.0,
+            },
+        }
+        # Deuxième review
+        payload_new_2 = {
+            "type": "new",
+            "after": {
+                "camera": "jardin", "severity": "detection",
+                "objects": ["chien"], "id": "review-B", "start_time": 1710000005.0,
+            },
+        }
+        # End du premier review seulement
+        payload_end_1 = {
+            "type": "end",
+            "after": {
+                "camera": "jardin", "severity": "alert",
+                "objects": ["personne"], "id": "review-A",
+                "start_time": 1710000000.0, "end_time": 1710000030.0,
+            },
+        }
+
+        coordinator._handle_mqtt_message(_make_msg(payload_new_1))
+        coordinator._handle_mqtt_message(_make_msg(payload_new_2))
+        assert coordinator.camera_state.motion is True
+
+        coordinator._handle_mqtt_message(_make_msg(payload_end_1))
+        # review-B est encore actif → motion doit rester True
+        assert coordinator.camera_state.motion is True
 
     async def test_type_end_last_event_time_est_end_time(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass, cam_name="jardin")
@@ -313,6 +368,49 @@ class TestHandleMqttMessage:
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_END))
 
         assert coordinator.camera_state.last_event_time == pytest.approx(1710000060.0)
+
+    async def test_type_end_motion_false_quand_tous_reviews_termines(
+        self, hass: HomeAssistant
+    ) -> None:
+        """motion passe à False quand tous les reviews actifs sont terminés."""
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+
+        payload_new_1 = {
+            "type": "new",
+            "after": {
+                "camera": "jardin", "severity": "alert",
+                "objects": ["personne"], "id": "review-A", "start_time": 1710000000.0,
+            },
+        }
+        payload_new_2 = {
+            "type": "new",
+            "after": {
+                "camera": "jardin", "severity": "detection",
+                "objects": ["chien"], "id": "review-B", "start_time": 1710000005.0,
+            },
+        }
+        payload_end_1 = {
+            "type": "end",
+            "after": {
+                "camera": "jardin", "id": "review-A",
+                "start_time": 1710000000.0, "end_time": 1710000030.0,
+            },
+        }
+        payload_end_2 = {
+            "type": "end",
+            "after": {
+                "camera": "jardin", "id": "review-B",
+                "start_time": 1710000005.0, "end_time": 1710000040.0,
+            },
+        }
+
+        coordinator._handle_mqtt_message(_make_msg(payload_new_1))
+        coordinator._handle_mqtt_message(_make_msg(payload_new_2))
+        coordinator._handle_mqtt_message(_make_msg(payload_end_1))
+        assert coordinator.camera_state.motion is True  # review-B encore actif
+
+        coordinator._handle_mqtt_message(_make_msg(payload_end_2))
+        assert coordinator.camera_state.motion is False  # plus aucun review actif
 
     async def test_payload_invalide_ne_crash_pas(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass, cam_name="jardin")

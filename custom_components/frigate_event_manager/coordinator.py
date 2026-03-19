@@ -82,6 +82,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._pending_objects: set[str] = set()
         self._pending_event: Any = None  # FrigateEvent dernier reçu
 
+        # Tracker des reviews actifs — pour éviter motion=False prématuré si multi-events
+        self._active_reviews: set[str] = set()
+
         # Silent mode
         self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
@@ -199,9 +202,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             state.last_objects = event.objects
             state.last_event_time = event.start_time
             if event.type == "new":
+                if event.review_id:
+                    self._active_reviews.add(event.review_id)
                 state.motion = True
         elif event.type == "end":
-            state.motion = False
+            if event.review_id:
+                self._active_reviews.discard(event.review_id)
+            # motion reste True si d'autres reviews sont encore actifs
+            state.motion = len(self._active_reviews) > 0
             state.last_event_time = event.end_time or event.start_time
 
         _LOGGER.debug(
