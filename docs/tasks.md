@@ -418,7 +418,7 @@
 
 ### T-520 | Zones + labels + heures en multi-select depuis Frigate
 
-- Status: REVIEW_NEEDED
+- Status: DONE
 - Owner: python-architect
 - Reviewer: reviewer
 - Security: SECURITY_OK
@@ -437,39 +437,17 @@
     325 tests passent, coverage 97%, ruff 0 erreur, markdownlint 0 erreur.
     Commits : 8a0a4b1, eaff1c9, 9b0ef40, 25ec9f9.
 
-    --- REVIEW (reviewer) ---
-    MINOR — frigate_client.py:55-91 : `get_camera_config` duplique intégralement
-      le bloc login/session de `get_cameras()` et `get_media()` (même pattern ×3).
-      Extraire une méthode privée `_make_authenticated_session()` ou factoriser
-      le bloc login dans un helper interne. Signalé à code-simplifier.
-    MINOR — config_flow.py:54-61 : `_parse_csv_int` définie mais jamais appelée
-      dans le flow actuel (les heures sont traitées dans `_parse_configure_input`
-      via `int(h)` directement). Fonction morte à supprimer ou à utiliser.
-    MINOR UX — config_flow.py:442-445 : en cas d'échec réseau sur
-      `get_camera_config` lors de la step configure, le fallback est silencieux
-      (pas de message d'erreur affiché). L'utilisateur voit des champs texte
-      libre sans comprendre pourquoi les multi-selects sont absents.
-      Afficher un warning dans la description du formulaire si Frigate est
-      inaccessible à cette étape (non bloquant, décision python-architect).
-    DOC — docs/architecture.md:199 : section "Filtres configurables par caméra"
-      indique "saisis en CSV" ; avec T-520 le mode primaire est multi-select
-      depuis l'API Frigate (CSV uniquement en fallback). Mettre à jour.
-
-    POINTS VÉRIFIÉS — OK :
-    - strings.json : 0 français, step configure bien formée, step reconfigure présente.
-    - en.json / fr.json : symétriques et complets pour configure + reconfigure.
-    - Fallback zones/labels vides : `_build_configure_schema` bascule sur `str`,
-      `_parse_configure_input` parse CSV. Comportement correct.
-    - Conversion `disabled_hours` `list[str]` → `list[int]` : `.isdigit()` guard
-      correct pour les heures 0-23.
-    - Reconfigure pré-sélection : `existing_zones`, `existing_labels`, heures
-      converties en `list[str]` avant passage au schéma. Correct.
-    - `_zones_available` / `_labels_available` persistés dans `self` entre les
-      deux appels de la step configure (GET puis POST). Correct.
-    - Aucun password/token dans les logs.
-    - `_parse_configure_input` : `CONF_NOTIFY_TARGET` manquant dans l'input
-      lèverait `KeyError` (ligne 233). Accepté car `vol.Required` garantit
-      la présence du champ à ce stade.
+    --- SIMPLIFICATION (code-simplifier) — commit b91fd5c ---
+    frigate_client.py : `_fetch_frigate_config()` extrait — `get_cameras` et
+      `get_camera_config` délèguent au helper (bloc ClientSession dupliqué supprimé).
+    config_flow.py : `_parse_csv_int` (fonction morte) supprimée.
+    config_flow.py : `_frigate_unreachable` tracke l'échec réseau vs caméra sans zones.
+      `async_step_configure` passe `description_placeholders={"warning": "..."}` uniquement
+      si Frigate était inaccessible — le formulaire affiche le warning inline.
+    strings.json + fr.json + en.json : `"description": "{warning}"` ajoutée au step configure.
+    326 tests passent, coverage 98%, ruff 0 erreur.
+    DOC UPDATE_NEEDED — docs/architecture.md:199 : section "saisis en CSV" → mettre à jour
+      pour refléter le mode primaire multi-select (CSV = fallback). À corriger avant T-517.
 
 ### T-520b | Tests — Zones + labels + heures multi-select (quality-guard)
 
