@@ -54,10 +54,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> boo
         hass.config_entries.async_update_entry(
             entry, data=new_data, version=3, minor_version=1
         )
-        _LOGGER.info("Migration v2 -> v3 terminee")
+        _LOGGER.info("Migration v2 -> v3 terminée")
         return True
 
-    return True
+    if entry.version == 3:
+        return True
+
+    # Version inconnue (supérieure) — bloquer le chargement pour éviter des données incompatibles
+    _LOGGER.error(
+        "Version de config entry %d non supportée — downgrade non pris en charge",
+        entry.version,
+    )
+    return False
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:

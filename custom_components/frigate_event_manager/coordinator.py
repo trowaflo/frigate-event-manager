@@ -106,10 +106,15 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._cancel_silent is not None:
             self._cancel_silent()
         self._silent_until = time.time() + self._silent_duration * 60
+
+        def _on_silent_expired(_: Any) -> None:
+            self._silent_until = 0.0
+            self._cancel_silent = None
+
         self._cancel_silent = async_call_later(
             self.hass,
             self._silent_duration * 60,
-            lambda _: setattr(self, "_silent_until", 0.0),
+            _on_silent_expired,
         )
         _LOGGER.info(
             "Mode silencieux activé — caméra=%s durée=%d min",
@@ -174,9 +179,12 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 and time.time() > self._silent_until
             ):
                 if self._debounce_seconds == 0:
-                    # Envoi immédiat — comportement sans debounce
-                    self.hass.async_create_task(self._notifier.async_notify(event))
-                    self._throttler.record(self._camera)
+                    # Envoi immédiat — record() après await pour éviter le cooldown en cas d'échec
+                    async def _notify_and_record(evt: Any) -> None:
+                        await self._notifier.async_notify(evt)
+                        self._throttler.record(self._camera)
+
+                    self.hass.async_create_task(_notify_and_record(event))
                 else:
                     # Accumulation pour debounce
                     self._pending_objects.update(event.objects)
