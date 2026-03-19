@@ -39,9 +39,9 @@
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
             "tap_action": "Tap action",
-            "cooldown": "Cooldown (seconds between alerts)",
-            "debounce": "Debounce (grouping window in seconds, 0 = disabled)",
-            "silent_duration": "Silent duration (minutes)"
+            "cooldown": "Anti-spam cooldown (s)",
+            "debounce": "Debounce window (s)",
+            "silent_duration": "Silent duration (min)"
           },
           "data_description": {
             "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
@@ -58,9 +58,9 @@
             "notification_title": "Notification title (Jinja2 template, empty = default)",
             "notification_message": "Notification message (Jinja2 template, empty = default)",
             "tap_action": "Tap action",
-            "cooldown": "Cooldown (seconds between alerts)",
-            "debounce": "Debounce (grouping window in seconds, 0 = disabled)",
-            "silent_duration": "Silent duration (minutes)"
+            "cooldown": "Anti-spam cooldown (s)",
+            "debounce": "Debounce window (s)",
+            "silent_duration": "Silent duration (min)"
           },
           "data_description": {
             "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
@@ -119,7 +119,7 @@
     },
     "button": {
       "silent_button": {
-        "name": "Silent"
+        "name": "Silent mode"
       }
     }
   }
