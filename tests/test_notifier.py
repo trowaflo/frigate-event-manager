@@ -275,3 +275,166 @@ async def test_companion_pas_persistent_notification_contient_tag(hass: HomeAssi
     assert "tag" in data
     assert "entree" in data["tag"]
     assert "abc" in data["tag"]
+
+
+# ---------------------------------------------------------------------------
+# Tests feature companion — image, tap URL, actions
+# ---------------------------------------------------------------------------
+
+
+async def test_companion_image_si_snapshot_url_disponible(hass: HomeAssistant) -> None:
+    """companion_data contient 'image' quand snapshot_url est disponible."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        frigate_url="http://frigate.local",
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "image" in data
+    assert "det1" in data["image"]
+
+
+async def test_companion_url_ios_et_clickaction_android(hass: HomeAssistant) -> None:
+    """companion_data contient 'url' (iOS) et 'clickAction' (Android) si tap_url disponible."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        frigate_url="http://frigate.local",
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "url" in data
+    assert "clickAction" in data
+
+
+async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
+    """companion_data contient 'actions' avec boutons URI pour clip/snapshot/preview."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        frigate_url="http://frigate.local",
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "actions" in data
+    action_titles = [a["title"] for a in data["actions"]]
+    assert "Clip" in action_titles
+    assert "Snapshot" in action_titles
+
+
+async def test_companion_pas_de_actions_sans_urls(hass: HomeAssistant) -> None:
+    """Sans URLs médias, companion_data n'a pas de 'actions'."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.mobile_app_iphone")
+    event = _make_event(review_id="")  # pas de review_id → pas d'URLs
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "actions" not in data
+    assert "image" not in data
+
+
+async def test_companion_tap_action_snapshot(hass: HomeAssistant) -> None:
+    """Avec tap_action='snapshot', 'url' pointe vers snapshot_url."""
+    from custom_components.frigate_event_manager.const import TAP_ACTION_SNAPSHOT
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        frigate_url="http://frigate.local",
+        tap_action=TAP_ACTION_SNAPSHOT,
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "snapshot" in data.get("url", "")
+
+
+async def test_companion_tap_action_preview(hass: HomeAssistant) -> None:
+    """Avec tap_action='preview', 'url' pointe vers preview_url."""
+    from custom_components.frigate_event_manager.const import TAP_ACTION_PREVIEW
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        frigate_url="http://frigate.local",
+        tap_action=TAP_ACTION_PREVIEW,
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    assert "preview" in data.get("url", "")
+
+
+# ---------------------------------------------------------------------------
+# Tests feature signer — presigned URLs
+# ---------------------------------------------------------------------------
+
+
+async def test_build_media_urls_avec_signer(hass: HomeAssistant) -> None:
+    """Avec un signer, les URLs sont presignées."""
+    from unittest.mock import MagicMock
+
+    calls = _register_mock_services(hass)
+
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://signed{path}")
+
+    notifier = HANotifier(
+        hass,
+        "notify.mobile_app_iphone",
+        signer=signer,
+    )
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    data = calls[0].data["data"]
+    # Le signer a été appelé → les URLs contiennent "signed"
+    assert signer.sign_url.called
+    if "image" in data:
+        assert "signed" in data["image"]
+
+
+async def test_build_media_urls_sans_review_id_retourne_vide(hass: HomeAssistant) -> None:
+    """Sans review_id, toutes les URLs médias sont vides."""
+    from unittest.mock import MagicMock
+
+    calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(return_value="https://signed/path")
+
+    notifier = HANotifier(hass, PERSISTENT_NOTIFICATION, signer=signer)
+    event = _make_event(review_id="")
+    await notifier.async_notify(event)
+
+    # Signer non appelé si pas de review_id
+    signer.sign_url.assert_not_called()
+
+
+async def test_persistent_notification_avec_signer_liens_markdown(hass: HomeAssistant) -> None:
+    """Avec signer, persistent_notification insère les liens presignés dans le message."""
+    from unittest.mock import MagicMock
+
+    calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://signed{path}")
+
+    notifier = HANotifier(hass, PERSISTENT_NOTIFICATION, signer=signer)
+    event = _make_event(review_id="rev1", detections=["det1"])
+    await notifier.async_notify(event)
+
+    message = calls[0].data["message"]
+    assert "[Clip]" in message or "[Snapshot]" in message
+    assert "signed" in message

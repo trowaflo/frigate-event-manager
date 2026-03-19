@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -223,6 +223,19 @@ class TestParseEvent:
 
     def test_json_liste_retourne_none(self) -> None:
         assert _parse_event(json.dumps(["new", "jardin"])) is None
+
+    def test_to_float_valeur_non_convertible_retourne_defaut(self) -> None:
+        """_to_float avec une valeur non-convertible retourne la valeur par défaut."""
+        from custom_components.frigate_event_manager.domain.model import _to_float
+
+        assert _to_float("not_a_float", default=None) is None
+        assert _to_float([], default=0.0) == 0.0
+
+    def test_to_float_none_retourne_defaut(self) -> None:
+        """_to_float(None) retourne default."""
+        from custom_components.frigate_event_manager.domain.model import _to_float
+
+        assert _to_float(None, default=42.0) == 42.0
 
 
 # ---------------------------------------------------------------------------
@@ -870,3 +883,69 @@ class TestDebounceSend:
         await coordinator.async_stop()
 
         assert coordinator._debounce_task is None
+
+
+# ---------------------------------------------------------------------------
+# Tests du silent mode — cancel et async_stop
+# ---------------------------------------------------------------------------
+
+
+class TestSilentModeAvance:
+    async def test_activate_silent_mode_stocke_cancel(
+        self, hass: HomeAssistant
+    ) -> None:
+        """activate_silent_mode stocke un callable d'annulation dans _cancel_silent."""
+        coordinator = _make_coordinator(hass)
+        assert coordinator._cancel_silent is None
+
+        coordinator.activate_silent_mode()
+
+        assert coordinator._cancel_silent is not None
+
+    async def test_activate_silent_mode_double_appel_annule_premier(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Un deuxième appel à activate_silent_mode annule le premier timer."""
+        coordinator = _make_coordinator(hass)
+
+        coordinator.activate_silent_mode()
+        premier_cancel = coordinator._cancel_silent
+        assert premier_cancel is not None
+
+        # Espionner l'appel du premier cancel
+        annule = MagicMock(wraps=premier_cancel)
+        coordinator._cancel_silent = annule
+
+        coordinator.activate_silent_mode()
+
+        # Le premier timer doit avoir été annulé
+        annule.assert_called_once()
+        # Un nouveau cancel doit être stocké
+        assert coordinator._cancel_silent is not None
+        assert coordinator._cancel_silent is not annule
+
+    async def test_async_stop_annule_cancel_silent(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_stop() appelle _cancel_silent et le met à None."""
+        coordinator = _make_coordinator(hass)
+        coordinator.activate_silent_mode()
+        assert coordinator._cancel_silent is not None
+
+        # Espionner le callable d'annulation
+        mock_cancel = MagicMock()
+        coordinator._cancel_silent = mock_cancel
+
+        await coordinator.async_stop()
+
+        mock_cancel.assert_called_once()
+        assert coordinator._cancel_silent is None
+
+    async def test_async_stop_sans_cancel_silent_ne_crash_pas(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_stop() sans silent mode actif ne lève aucune exception."""
+        coordinator = _make_coordinator(hass)
+        assert coordinator._cancel_silent is None
+
+        await coordinator.async_stop()  # ne doit pas lever d'exception

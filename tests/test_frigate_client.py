@@ -251,3 +251,191 @@ async def test_get_cameras_correct_endpoint() -> None:
         await client.get_cameras()
 
     assert captured_url[0] == "http://192.168.1.100:5000/api/config"
+
+
+# ---------------------------------------------------------------------------
+# Tests authentification — get_cameras avec credentials
+# ---------------------------------------------------------------------------
+
+
+def _make_session_with_login(
+    login_response: MagicMock, config_response: MagicMock
+) -> MagicMock:
+    """Crée un mock de session qui renvoie login_response pour POST et config_response pour GET."""
+    session = MagicMock()
+
+    cm_login = MagicMock()
+    cm_login.__aenter__ = AsyncMock(return_value=login_response)
+    cm_login.__aexit__ = AsyncMock(return_value=False)
+    session.post = MagicMock(return_value=cm_login)
+
+    cm_config = MagicMock()
+    cm_config.__aenter__ = AsyncMock(return_value=config_response)
+    cm_config.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=cm_config)
+
+    cm_session = MagicMock()
+    cm_session.__aenter__ = AsyncMock(return_value=session)
+    cm_session.__aexit__ = AsyncMock(return_value=False)
+    return cm_session
+
+
+async def test_get_cameras_avec_credentials_appelle_login() -> None:
+    """Avec username, get_cameras() appelle POST /api/login avant GET /api/config."""
+    # Réponse login avec cookie
+    login_resp = MagicMock()
+    login_resp.raise_for_status = MagicMock()
+    token_cookie = MagicMock()
+    token_cookie.value = "jwt_token_abc"
+    login_resp.cookies = {"frigate_token": token_cookie}
+
+    config_resp = _make_response({"cameras": {"cam": {}}})
+    cm_session = _make_session_with_login(login_resp, config_resp)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local", username="admin", password="secret")
+        cameras = await client.get_cameras()
+
+    assert cameras == ["cam"]
+    cm_session.__aenter__.return_value.post.assert_called_once()
+
+
+async def test_get_cameras_avec_credentials_sans_cookie_token() -> None:
+    """Avec username mais sans cookie retourné → pas de header Cookie ajouté."""
+    login_resp = MagicMock()
+    login_resp.raise_for_status = MagicMock()
+    login_resp.cookies = {}  # pas de frigate_token
+
+    config_resp = _make_response({"cameras": {"jardin": {}}})
+    cm_session = _make_session_with_login(login_resp, config_resp)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local", username="admin", password="pass")
+        cameras = await client.get_cameras()
+
+    assert cameras == ["jardin"]
+
+
+async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None:
+    """Login retourne 401 → raise_for_status lève ClientResponseError."""
+    login_resp = MagicMock()
+    login_resp.raise_for_status = MagicMock(
+        side_effect=aiohttp.ClientResponseError(MagicMock(), (), status=401)
+    )
+    login_resp.cookies = {}
+
+    config_resp = _make_response({})
+    cm_session = _make_session_with_login(login_resp, config_resp)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local", username="admin", password="mauvais")
+        with pytest.raises(aiohttp.ClientError):
+            await client.get_cameras()
+
+
+# ---------------------------------------------------------------------------
+# Tests get_media
+# ---------------------------------------------------------------------------
+
+
+def _make_media_response(content: bytes = b"data", content_type: str = "image/jpeg") -> MagicMock:
+    """Crée un mock de réponse pour get_media."""
+    resp = MagicMock()
+    resp.raise_for_status = MagicMock()
+    resp.headers = {"Content-Type": content_type}
+    resp.read = AsyncMock(return_value=content)
+    return resp
+
+
+def _make_session_for_media(resp: MagicMock) -> MagicMock:
+    """Crée un mock de ClientSession pour get_media (sans login)."""
+    session = MagicMock()
+    cm_get = MagicMock()
+    cm_get.__aenter__ = AsyncMock(return_value=resp)
+    cm_get.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=cm_get)
+
+    cm_session = MagicMock()
+    cm_session.__aenter__ = AsyncMock(return_value=session)
+    cm_session.__aexit__ = AsyncMock(return_value=False)
+    return cm_session
+
+
+async def test_get_media_retourne_contenu_et_content_type() -> None:
+    """get_media() retourne (bytes, content_type) sur une réponse valide."""
+    cm_session = _make_session_for_media(_make_media_response(b"image_data", "image/jpeg"))
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local")
+        data, ct = await client.get_media("/api/events/abc/snapshot.jpg")
+
+    assert data == b"image_data"
+    assert ct == "image/jpeg"
+
+
+async def test_get_media_content_type_defaut_si_absent() -> None:
+    """get_media() retourne application/octet-stream si Content-Type absent."""
+    resp = MagicMock()
+    resp.raise_for_status = MagicMock()
+    resp.headers = {}  # pas de Content-Type
+    resp.read = AsyncMock(return_value=b"binary")
+    cm_session = _make_session_for_media(resp)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local")
+        data, ct = await client.get_media("/api/events/abc/clip.mp4")
+
+    assert ct == "application/octet-stream"
+    assert data == b"binary"
+
+
+async def test_get_media_avec_credentials_appelle_login() -> None:
+    """get_media() avec credentials appelle POST /api/login."""
+    login_resp = MagicMock()
+    login_resp.raise_for_status = MagicMock()
+    token_cookie = MagicMock()
+    token_cookie.value = "jwt_abc"
+    login_resp.cookies = {"frigate_token": token_cookie}
+
+    media_resp = _make_media_response(b"clip_data", "video/mp4")
+
+    session = MagicMock()
+    cm_login = MagicMock()
+    cm_login.__aenter__ = AsyncMock(return_value=login_resp)
+    cm_login.__aexit__ = AsyncMock(return_value=False)
+    session.post = MagicMock(return_value=cm_login)
+
+    cm_get = MagicMock()
+    cm_get.__aenter__ = AsyncMock(return_value=media_resp)
+    cm_get.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=cm_get)
+
+    cm_session = MagicMock()
+    cm_session.__aenter__ = AsyncMock(return_value=session)
+    cm_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local", username="admin", password="pass")
+        data, ct = await client.get_media("/api/events/abc/clip.mp4")
+
+    assert data == b"clip_data"
+    assert ct == "video/mp4"
+    session.post.assert_called_once()
+
+
+async def test_get_media_erreur_reseau_propage_client_error() -> None:
+    """get_media() propage aiohttp.ClientError en cas d'erreur réseau."""
+    session = MagicMock()
+    cm_get = MagicMock()
+    cm_get.__aenter__ = AsyncMock(side_effect=aiohttp.ClientConnectionError("timeout"))
+    cm_get.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=cm_get)
+
+    cm_session = MagicMock()
+    cm_session.__aenter__ = AsyncMock(return_value=session)
+    cm_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local")
+        with pytest.raises(aiohttp.ClientError):
+            await client.get_media("/api/events/abc/snapshot.jpg")
