@@ -11,6 +11,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
@@ -85,6 +86,12 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
         self._cancel_silent: Any = None
+        # Persistance du silent mode via HA Store — survie au redémarrage
+        self._store: Store = Store(
+            hass,
+            1,
+            f"frigate_event_manager_{self._camera}",
+        )
 
     @property
     def camera(self) -> str:
@@ -110,12 +117,20 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         def _on_silent_expired(_: Any) -> None:
             self._silent_until = 0.0
             self._cancel_silent = None
+            # Persister la réinitialisation du mode silencieux
+            self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
+            self.async_set_updated_data(self._camera_state.as_dict())
 
         self._cancel_silent = async_call_later(
             self.hass,
             self._silent_duration * 60,
             _on_silent_expired,
         )
+        # Persister la valeur pour survivre à un redémarrage HA
+        self.hass.async_create_task(
+            self._store.async_save({"silent_until": self._silent_until})
+        )
+        self.async_set_updated_data(self._camera_state.as_dict())
         _LOGGER.info(
             "Mode silencieux activé — caméra=%s durée=%d min",
             self._camera,
@@ -129,6 +144,30 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._handle_mqtt_message,
         )
         _LOGGER.info("Souscrit MQTT — caméra=%s topic=%s", self._camera, DEFAULT_MQTT_TOPIC)
+
+        # Restaurer le mode silencieux depuis le Store si encore actif
+        stored = await self._store.async_load() or {}
+        silent_until = float(stored.get("silent_until", 0.0))
+        if silent_until > time.time():
+            self._silent_until = silent_until
+            remaining = silent_until - time.time()
+            _LOGGER.info(
+                "Mode silencieux restauré — caméra=%s restant=%.0fs",
+                self._camera,
+                remaining,
+            )
+
+            def _on_silent_expired_restored(_: Any) -> None:
+                self._silent_until = 0.0
+                self._cancel_silent = None
+                self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
+                self.async_set_updated_data(self._camera_state.as_dict())
+
+            self._cancel_silent = async_call_later(
+                self.hass,
+                remaining,
+                _on_silent_expired_restored,
+            )
 
     async def async_stop(self) -> None:
         """Désabonnement MQTT."""

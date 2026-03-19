@@ -949,3 +949,84 @@ class TestSilentModeAvance:
         assert coordinator._cancel_silent is None
 
         await coordinator.async_stop()  # ne doit pas lever d'exception
+
+
+# ---------------------------------------------------------------------------
+# Tests de la persistance du silent mode via Store
+# ---------------------------------------------------------------------------
+
+
+class TestSilentModePersistance:
+    async def test_activate_silent_mode_sauvegarde_via_store(
+        self, hass: HomeAssistant
+    ) -> None:
+        """activate_silent_mode lance une tâche de sauvegarde Store."""
+        coordinator = _make_coordinator(hass)
+        coordinator._store = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+
+        coordinator.activate_silent_mode()
+        await hass.async_block_till_done()
+
+        coordinator._store.async_save.assert_called()
+        call_args = coordinator._store.async_save.call_args[0][0]
+        assert "silent_until" in call_args
+        assert call_args["silent_until"] > 0.0
+
+    async def test_async_start_restaure_silent_mode_actif(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_start restaure _silent_until si le Store contient une valeur future."""
+        import time
+        future = time.time() + 3600.0  # 1h dans le futur
+        mock_source = AsyncMock()
+        mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
+
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), _make_subentry("jardin"), event_source=mock_source
+        )
+        coordinator._store = MagicMock()
+        coordinator._store.async_load = AsyncMock(return_value={"silent_until": future})
+
+        await coordinator.async_start()
+
+        assert coordinator._silent_until == future
+        assert coordinator._cancel_silent is not None
+
+    async def test_async_start_ignore_silent_mode_expire(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_start ignore un silent_until expiré (dans le passé)."""
+        import time
+        past = time.time() - 3600.0  # 1h dans le passé
+        mock_source = AsyncMock()
+        mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
+
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), _make_subentry("jardin"), event_source=mock_source
+        )
+        coordinator._store = MagicMock()
+        coordinator._store.async_load = AsyncMock(return_value={"silent_until": past})
+
+        await coordinator.async_start()
+
+        # Pas de restauration — la période est expirée
+        assert coordinator._silent_until == 0.0
+        assert coordinator._cancel_silent is None
+
+    async def test_async_start_store_vide_ne_crash_pas(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_start avec Store vide ne lève aucune exception."""
+        mock_source = AsyncMock()
+        mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
+
+        coordinator = FrigateEventManagerCoordinator(
+            hass, _make_entry(), _make_subentry("jardin"), event_source=mock_source
+        )
+        coordinator._store = MagicMock()
+        coordinator._store.async_load = AsyncMock(return_value=None)
+
+        await coordinator.async_start()  # ne doit pas lever d'exception
+
+        assert coordinator._silent_until == 0.0
