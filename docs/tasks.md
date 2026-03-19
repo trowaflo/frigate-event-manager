@@ -467,6 +467,103 @@
       de `async_step_configure` lors d'une erreur réseau sur `get_camera_config` en ajout caméra).
     Commit : 68c7e91.
 
+---
+
+## Phase 6 — Filtres & Notifications avancées
+
+### T-521 | SelectSelector LIST + clarification zones vides
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P0
+- Scope: `config_flow.py`
+- Locks: —
+- Depends: T-520
+- Blocks: —
+- Notes: |
+    Passer zones et labels de `SelectSelectorMode.DROPDOWN` à `SelectSelectorMode.LIST`
+    pour afficher des cases à cocher directement visibles (pas de dropdown à ouvrir).
+    Comportement attendu si zones vides : champ texte libre = caméra sans zones
+    configurées dans Frigate, saisie manuelle possible, liste vide = tout accepter.
+    Ce comportement est correct et documenté — pas un bug.
+
+### T-522 | Filtre severity — Alert / Detection
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P0
+- Scope: `const.py`, `coordinator.py`, `config_flow.py`, `strings.json`, `translations/`
+- Locks: —
+- Depends: T-521
+- Blocks: —
+- Notes: |
+    Frigate reviews : `severity = "alert"` (objet dans zone configurée) ou `"detection"`.
+    Ajouter `CONF_SEVERITY` : SelectSelector multi, options ["alert", "detection"],
+    default = les deux. Stocker comme `list[str]` dans subentry.data.
+    coordinator.py : ajouter `SeverityFilter(severities)` dans `FilterChain`.
+    Si liste vide = tout accepter (convention existante).
+    Inclure dans `_build_configure_schema()` + step reconfigure.
+
+### T-523 | Notifications critiques — template Jinja2 sur plage horaire
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P1
+- Scope: `const.py`, `coordinator.py`, `notifier.py`, `config_flow.py`, `strings.json`, `translations/`
+- Locks: —
+- Depends: T-522
+- Blocks: —
+- Notes: |
+    Ajouter `CONF_CRITICAL_TEMPLATE` (str, optionnel) dans subentry.
+    Exemple utilisateur : `"{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}"`.
+    coordinator.py : évaluer le template via `hass.config.components` ou `template.async_render`
+    avant d'appeler le notifier. Passer un flag `critical=True/False`.
+    notifier.py : si `critical=True` → ajouter `data.push.sound.critical: 1` (iOS)
+    et `data.channel: "frigate_critical"` (Android). Hors `persistent_notification`.
+    Config flow : champ texte libre + placeholder exemple.
+    Jinja2 est interprété via HA nativement — pas de eval custom.
+
+### T-525 | Exemples Jinja2 pour titre et message de notification
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P1
+- Scope: `strings.json`, `translations/fr.json`, `translations/en.json`, `config_flow.py`
+- Locks: —
+- Depends: T-522
+- Blocks: —
+- Notes: |
+    Variables disponibles dans les templates : `camera`, `severity`, `objects` (list),
+    `zones` (list), `start_time` (timestamp).
+    Exemples concrets à afficher comme `description_placeholders` ou placeholder dans le champ :
+    Titre : `"🚨 {{ camera | title }} — {{ objects | join(', ') }}"`
+    Message : `"{{ severity | upper }} à {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}"`
+    Présenter comme texte d'aide sous le champ (HA `description` dans translations).
+    Documenter les variables dans `docs/architecture.md`.
+
+### T-524 | Entités de réglage — number / select / text par caméra
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P2
+- Scope: `number.py` (nouveau), `select.py` (nouveau), `text.py` (nouveau), `config_flow.py`, `coordinator.py`, `__init__.py`
+- Locks: —
+- Depends: T-523
+- Blocks: —
+- Notes: |
+    Objectif : sortir les paramètres de réglage du config flow, les exposer comme entités HA.
+    Entités par caméra (modifiables depuis le dashboard, utilisables en automatisation) :
+    `number.cooldown` (0-3600s), `number.debounce` (0-60s),
+    `select.severity_filter` (Alert/Detection/Les deux),
+    `select.tap_action` (clip/snapshot/preview),
+    `text.critical_template` (Jinja2),
+    `text.notif_title` (template titre),
+    `text.notif_message` (template message).
+    Config flow ne garderait que : caméra, cible notification (notify_target).
+    Migration : lire les valeurs existantes depuis subentry.data → initialiser les entités.
+    Impact majeur : nécessite review architecture + migration subentry.
+    PLATFORM : ajouter `"number"`, `"select"`, `"text"` à `PLATFORMS` dans `__init__.py`.
+
 <!--
 ### T-XXX | [Titre]
 
