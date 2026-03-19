@@ -439,3 +439,66 @@ async def test_get_media_erreur_reseau_propage_client_error() -> None:
         client = FrigateClient("http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_media("/api/events/abc/snapshot.jpg")
+
+
+# ---------------------------------------------------------------------------
+# Tests get_camera_config
+# ---------------------------------------------------------------------------
+
+
+async def test_get_camera_config_happy_path() -> None:
+    """Happy path : retourne zones et labels de la caméra depuis /api/config."""
+    api_response = {
+        "cameras": {
+            "jardin": {
+                "zones": {"jardin_zone": {}, "rue": {}},
+                "objects": {"track": ["person", "car"]},
+            }
+        }
+    }
+    response = _make_response(api_response)
+    cm_session = _make_session(response)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local:5000")
+        result = await client.get_camera_config("jardin")
+
+    assert set(result["zones"]) == {"jardin_zone", "rue"}
+    assert result["labels"] == ["person", "car"]
+
+
+async def test_get_camera_config_camera_absente_retourne_vide() -> None:
+    """Caméra absente de la config Frigate → retourne zones et labels vides."""
+    api_response = {
+        "cameras": {
+            "entree": {"zones": {}, "objects": {"track": ["person"]}},
+        }
+    }
+    response = _make_response(api_response)
+    cm_session = _make_session(response)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local:5000")
+        result = await client.get_camera_config("jardin")
+
+    assert result == {"zones": [], "labels": []}
+
+
+async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
+    """Erreur réseau sur get_camera_config → lève aiohttp.ClientError."""
+    session = MagicMock()
+    cm_get = MagicMock()
+    cm_get.__aenter__ = AsyncMock(
+        side_effect=aiohttp.ClientConnectionError("connexion refusée")
+    )
+    cm_get.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=cm_get)
+
+    cm_session = MagicMock()
+    cm_session.__aenter__ = AsyncMock(return_value=session)
+    cm_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
+        client = FrigateClient("http://frigate.local")
+        with pytest.raises(aiohttp.ClientError):
+            await client.get_camera_config("jardin")

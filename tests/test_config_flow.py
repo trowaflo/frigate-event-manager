@@ -48,12 +48,20 @@ PATCH_DETECT = "custom_components.frigate_event_manager.config_flow._detect_frig
 PATCH_CLIENT = "custom_components.frigate_event_manager.config_flow.FrigateClient"
 PATCH_SETUP = "custom_components.frigate_event_manager.async_setup_entry"
 PATCH_NOTIFY = "custom_components.frigate_event_manager.config_flow._get_notify_options"
+PATCH_GET_CAM_CONFIG = (
+    "custom_components.frigate_event_manager.config_flow.FrigateClient.get_camera_config"
+)
+
+# Réponse par défaut de get_camera_config
+CAM_CONFIG_DEFAULT = {"zones": ["jardin", "rue"], "labels": ["person", "car"]}
+CAM_CONFIG_EMPTY = {"zones": [], "labels": []}
 
 
 def _mock_client(cameras: list[str] | None = None):
     """Retourne un mock FrigateClient."""
     m = AsyncMock()
     m.get_cameras = AsyncMock(return_value=cameras or [])
+    m.get_camera_config = AsyncMock(return_value=CAM_CONFIG_DEFAULT)
     return m
 
 
@@ -178,12 +186,12 @@ async def _create_entry(hass: HomeAssistant) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tests subentry — ajout caméra
+# Tests subentry — ajout caméra (flow 2 étapes)
 # ---------------------------------------------------------------------------
 
 
 async def test_subentry_affiche_formulaire_camera(hass: HomeAssistant) -> None:
-    """Le formulaire d'ajout de caméra s'affiche avec la liste des caméras."""
+    """Le formulaire d'ajout caméra (step user) s'affiche avec la liste des caméras."""
     entry_id = await _create_entry(hass)
 
     with (
@@ -199,10 +207,63 @@ async def test_subentry_affiche_formulaire_camera(hass: HomeAssistant) -> None:
     assert result["step_id"] == "user"
 
 
-async def test_subentry_cree_camera(hass: HomeAssistant) -> None:
-    """Ajout d'une caméra → subentry créée avec les bonnes données."""
+async def test_subentry_step_user_mene_a_configure(hass: HomeAssistant) -> None:
+    """Sélection caméra → step configure s'affiche."""
     entry_id = await _create_entry(hass)
 
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        assert r["step_id"] == "user"
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+
+    assert r2["type"] == FlowResultType.FORM
+    assert r2["step_id"] == "configure"
+
+
+async def test_subentry_cree_camera(hass: HomeAssistant) -> None:
+    """Ajout d'une caméra en 2 étapes → subentry créée avec les bonnes données."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        # Étape 1 : choisir la caméra
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        assert r2["step_id"] == "configure"
+        # Étape 2 : valider la configuration
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["title"] == "Caméra entree"
+
+
+async def test_subentry_cree_camera_avec_zones_labels_multiselect(hass: HomeAssistant) -> None:
+    """Zones et labels sélectionnés via multi-select → stockés comme list[str]."""
+    entry_id = await _create_entry(hass)
+
+    # _mock_client retourne déjà CAM_CONFIG_DEFAULT pour get_camera_config
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
@@ -214,11 +275,91 @@ async def test_subentry_cree_camera(hass: HomeAssistant) -> None:
         )
         r2 = await hass.config_entries.subentries.async_configure(
             r["flow_id"],
-            user_input={CONF_CAMERA: "entree", CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: ["jardin", "rue"],
+                CONF_LABELS: ["person"],
+                CONF_DISABLED_HOURS: ["0", "1", "2"],
+            },
         )
 
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    assert r2["title"] == "Caméra entree"
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_ZONES] == ["jardin", "rue"]
+    assert r3["data"][CONF_LABELS] == ["person"]
+    assert r3["data"][CONF_DISABLED_HOURS] == [0, 1, 2]
+
+
+async def test_subentry_cree_camera_fallback_zones_vides(hass: HomeAssistant) -> None:
+    """Si Frigate retourne zones/labels vides → champ texte libre (CSV)."""
+    entry_id = await _create_entry(hass)
+
+    # Mock client qui retourne CAM_CONFIG_EMPTY pour get_camera_config
+    mock_empty = _mock_client(CAMERAS_LIST)
+    mock_empty.get_camera_config = AsyncMock(return_value=CAM_CONFIG_EMPTY)
+
+    with (
+        patch(PATCH_CLIENT, return_value=mock_empty),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: "jardin,rue",
+                CONF_LABELS: "person,car",
+            },
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_ZONES] == ["jardin", "rue"]
+    assert r3["data"][CONF_LABELS] == ["person", "car"]
+
+
+async def test_subentry_cree_camera_sans_filtres(hass: HomeAssistant) -> None:
+    """Sans filtres, les listes sont vides (tout accepter)."""
+    entry_id = await _create_entry(hass)
+
+    with (
+        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={"source": config_entries.SOURCE_USER},
+        )
+        r2 = await hass.config_entries.subentries.async_configure(
+            r["flow_id"],
+            user_input={CONF_CAMERA: "entree"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: [],
+                CONF_LABELS: [],
+                CONF_DISABLED_HOURS: [],
+            },
+        )
+
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_ZONES] == []
+    assert r3["data"][CONF_LABELS] == []
+    assert r3["data"][CONF_DISABLED_HOURS] == []
 
 
 async def test_subentry_cree_camera_avec_cooldown_debounce_silent(hass: HomeAssistant) -> None:
@@ -228,6 +369,7 @@ async def test_subentry_cree_camera_avec_cooldown_debounce_silent(hass: HomeAssi
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
         patch(PATCH_SETUP, return_value=True),
     ):
         r = await hass.config_entries.subentries.async_init(
@@ -236,8 +378,11 @@ async def test_subentry_cree_camera_avec_cooldown_debounce_silent(hass: HomeAssi
         )
         r2 = await hass.config_entries.subentries.async_configure(
             r["flow_id"],
+            user_input={CONF_CAMERA: "jardin"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
             user_input={
-                CONF_CAMERA: "jardin",
                 CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
                 CONF_COOLDOWN: 120,
                 CONF_DEBOUNCE: 5,
@@ -245,10 +390,10 @@ async def test_subentry_cree_camera_avec_cooldown_debounce_silent(hass: HomeAssi
             },
         )
 
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    assert r2["data"][CONF_COOLDOWN] == 120
-    assert r2["data"][CONF_DEBOUNCE] == 5
-    assert r2["data"][CONF_SILENT_DURATION] == 60
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_COOLDOWN] == 120
+    assert r3["data"][CONF_DEBOUNCE] == 5
+    assert r3["data"][CONF_SILENT_DURATION] == 60
 
 
 async def test_subentry_cooldown_debounce_valeurs_defaut(hass: HomeAssistant) -> None:
@@ -258,6 +403,7 @@ async def test_subentry_cooldown_debounce_valeurs_defaut(hass: HomeAssistant) ->
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
         patch(PATCH_SETUP, return_value=True),
     ):
         r = await hass.config_entries.subentries.async_init(
@@ -266,34 +412,42 @@ async def test_subentry_cooldown_debounce_valeurs_defaut(hass: HomeAssistant) ->
         )
         r2 = await hass.config_entries.subentries.async_configure(
             r["flow_id"],
+            user_input={CONF_CAMERA: "garage"},
+        )
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
             user_input={
-                CONF_CAMERA: "garage",
                 CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
             },
         )
 
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    assert r2["data"][CONF_COOLDOWN] == DEFAULT_THROTTLE_COOLDOWN
-    assert r2["data"][CONF_DEBOUNCE] == DEFAULT_DEBOUNCE
-    assert r2["data"][CONF_SILENT_DURATION] == DEFAULT_SILENT_DURATION
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    assert r3["data"][CONF_COOLDOWN] == DEFAULT_THROTTLE_COOLDOWN
+    assert r3["data"][CONF_DEBOUNCE] == DEFAULT_DEBOUNCE
+    assert r3["data"][CONF_SILENT_DURATION] == DEFAULT_SILENT_DURATION
 
 
 async def test_subentry_cameras_deja_configurees_exclues(hass: HomeAssistant) -> None:
     """Les caméras déjà configurées n'apparaissent plus dans la liste."""
     entry_id = await _create_entry(hass)
 
-    # Ajouter entree
+    # Ajouter entree (2 étapes)
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
         patch(PATCH_SETUP, return_value=True),
     ):
         r1 = await hass.config_entries.subentries.async_init(
             (entry_id, SUBENTRY_TYPE_CAMERA), context={"source": config_entries.SOURCE_USER}
         )
-        await hass.config_entries.subentries.async_configure(
+        r1b = await hass.config_entries.subentries.async_configure(
             r1["flow_id"],
-            user_input={CONF_CAMERA: "entree", CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+            user_input={CONF_CAMERA: "entree"},
+        )
+        await hass.config_entries.subentries.async_configure(
+            r1b["flow_id"],
+            user_input={CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
         )
 
     # Essayer d'ajouter toutes les caméras quand elles sont toutes déjà configurées
@@ -350,71 +504,6 @@ async def test_const_conf_camera() -> None:
 
 async def test_const_persistent_notification() -> None:
     assert PERSISTENT_NOTIFICATION == "persistent_notification"
-
-
-# ---------------------------------------------------------------------------
-# Tests subentry — filtres
-# ---------------------------------------------------------------------------
-
-
-async def test_subentry_cree_camera_avec_filtres(hass: HomeAssistant) -> None:
-    """Les filtres sont sérialisés correctement dans subentry.data."""
-    entry_id = await _create_entry(hass)
-
-    with (
-        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
-        patch(PATCH_SETUP, return_value=True),
-    ):
-        r = await hass.config_entries.subentries.async_init(
-            (entry_id, SUBENTRY_TYPE_CAMERA),
-            context={"source": config_entries.SOURCE_USER},
-        )
-        r2 = await hass.config_entries.subentries.async_configure(
-            r["flow_id"],
-            user_input={
-                CONF_CAMERA: "entree",
-                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
-                CONF_ZONES: "jardin,rue",
-                CONF_LABELS: "person,car",
-                CONF_DISABLED_HOURS: "0,1,2",
-            },
-        )
-
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    assert r2["data"][CONF_ZONES] == ["jardin", "rue"]
-    assert r2["data"][CONF_LABELS] == ["person", "car"]
-    assert r2["data"][CONF_DISABLED_HOURS] == [0, 1, 2]
-
-
-async def test_subentry_cree_camera_sans_filtres(hass: HomeAssistant) -> None:
-    """Sans filtres, les listes sont vides (tout accepter)."""
-    entry_id = await _create_entry(hass)
-
-    with (
-        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
-        patch(PATCH_SETUP, return_value=True),
-    ):
-        r = await hass.config_entries.subentries.async_init(
-            (entry_id, SUBENTRY_TYPE_CAMERA),
-            context={"source": config_entries.SOURCE_USER},
-        )
-        r2 = await hass.config_entries.subentries.async_configure(
-            r["flow_id"],
-            user_input={
-                CONF_CAMERA: "entree",
-                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
-                CONF_ZONES: "",
-                CONF_LABELS: "",
-                CONF_DISABLED_HOURS: "",
-            },
-        )
-
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    assert r2["data"][CONF_ZONES] == []
-    assert r2["data"][CONF_LABELS] == []
-    assert r2["data"][CONF_DISABLED_HOURS] == []
 
 
 # ---------------------------------------------------------------------------
@@ -683,14 +772,12 @@ def _get_subentry_id(hass: HomeAssistant, entry_id: str) -> str:
     return subentry_ids[0]
 
 
-async def test_subentry_reconfigure_affiche_formulaire(hass: HomeAssistant) -> None:
-    """Reconfigure subentry caméra affiche le formulaire pré-rempli."""
-    entry_id = await _create_entry(hass)
-
-    # D'abord créer une subentry
+async def _create_subentry(hass: HomeAssistant, entry_id: str, camera: str = "entree") -> str:
+    """Helper : crée une subentry caméra et retourne son subentry_id."""
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
         patch(PATCH_SETUP, return_value=True),
     ):
         r = await hass.config_entries.subentries.async_init(
@@ -698,15 +785,25 @@ async def test_subentry_reconfigure_affiche_formulaire(hass: HomeAssistant) -> N
         )
         r2 = await hass.config_entries.subentries.async_configure(
             r["flow_id"],
-            user_input={CONF_CAMERA: "entree", CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+            user_input={CONF_CAMERA: camera},
         )
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
+        r3 = await hass.config_entries.subentries.async_configure(
+            r2["flow_id"],
+            user_input={CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+        )
+    assert r3["type"] == FlowResultType.CREATE_ENTRY
+    return _get_subentry_id(hass, entry_id)
 
-    # Récupérer l'id depuis le registre HA
-    subentry_id = _get_subentry_id(hass, entry_id)
 
-    # Reconfigurer la subentry
-    with patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]):
+async def test_subentry_reconfigure_affiche_formulaire(hass: HomeAssistant) -> None:
+    """Reconfigure subentry caméra affiche le formulaire pré-rempli."""
+    entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
+
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+    ):
         r3 = await hass.config_entries.subentries.async_init(
             (entry_id, SUBENTRY_TYPE_CAMERA),
             context={
@@ -722,26 +819,11 @@ async def test_subentry_reconfigure_affiche_formulaire(hass: HomeAssistant) -> N
 async def test_subentry_reconfigure_met_a_jour_donnees(hass: HomeAssistant) -> None:
     """Reconfigure subentry avec input valide → données mises à jour."""
     entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
 
-    # Créer une subentry
-    with (
-        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
-        patch(PATCH_SETUP, return_value=True),
-    ):
-        r = await hass.config_entries.subentries.async_init(
-            (entry_id, SUBENTRY_TYPE_CAMERA), context={"source": config_entries.SOURCE_USER}
-        )
-        r2 = await hass.config_entries.subentries.async_configure(
-            r["flow_id"],
-            user_input={CONF_CAMERA: "entree", CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
-        )
-    assert r2["type"] == FlowResultType.CREATE_ENTRY
-    subentry_id = _get_subentry_id(hass, entry_id)
-
-    # Reconfigurer
     with (
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
         patch(PATCH_SETUP, return_value=True),
     ):
         r3 = await hass.config_entries.subentries.async_init(
@@ -755,9 +837,9 @@ async def test_subentry_reconfigure_met_a_jour_donnees(hass: HomeAssistant) -> N
             r3["flow_id"],
             user_input={
                 CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
-                CONF_ZONES: "jardin,rue",
-                CONF_LABELS: "person",
-                CONF_DISABLED_HOURS: "0,1",
+                CONF_ZONES: ["jardin", "rue"],
+                CONF_LABELS: ["person"],
+                CONF_DISABLED_HOURS: ["0", "1"],
                 CONF_COOLDOWN: 90,
                 CONF_DEBOUNCE: 3,
                 CONF_SILENT_DURATION: 20,
@@ -767,3 +849,64 @@ async def test_subentry_reconfigure_met_a_jour_donnees(hass: HomeAssistant) -> N
     assert r4["type"] == FlowResultType.ABORT
     assert r4["reason"] == "reconfigure_successful"
 
+
+async def test_subentry_reconfigure_met_a_jour_avec_zones_vides(hass: HomeAssistant) -> None:
+    """Reconfigure avec zones Frigate vides → champ texte libre CSV."""
+    entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
+
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_EMPTY),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r3 = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "subentry_id": subentry_id,
+            },
+        )
+        r4 = await hass.config_entries.subentries.async_configure(
+            r3["flow_id"],
+            user_input={
+                CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION,
+                CONF_ZONES: "jardin",
+                CONF_LABELS: "person,car",
+                CONF_DISABLED_HOURS: [],
+                CONF_COOLDOWN: 60,
+                CONF_DEBOUNCE: 0,
+                CONF_SILENT_DURATION: 30,
+            },
+        )
+
+    assert r4["type"] == FlowResultType.ABORT
+    assert r4["reason"] == "reconfigure_successful"
+
+
+async def test_subentry_reconfigure_erreur_reseau_get_camera_config(hass: HomeAssistant) -> None:
+    """Erreur réseau sur get_camera_config → fallback silencieux, formulaire affiché."""
+    import aiohttp
+
+    entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
+
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(
+            PATCH_GET_CAM_CONFIG,
+            new_callable=AsyncMock,
+            side_effect=aiohttp.ClientError,
+        ),
+    ):
+        r3 = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "subentry_id": subentry_id,
+            },
+        )
+
+    # Le formulaire s'affiche quand même (fallback champ texte)
+    assert r3["type"] == FlowResultType.FORM
+    assert r3["step_id"] == "reconfigure"
