@@ -642,7 +642,7 @@
 
 ### T-525 | Exemples Jinja2 pour titre et message de notification
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P1
 - Scope: `strings.json`, `translations/fr.json`, `translations/en.json`, `config_flow.py`
