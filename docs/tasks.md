@@ -676,8 +676,49 @@
       notif_message/critical_template du schéma configure/reconfigure.
     `__init__.py` : PLATFORMS += ["number", "select", "text"]. Migration v3→v4 (transparent).
     strings.json + fr.json + en.json : champs retirés du flow, noms entités ajoutés.
-    tests/test_entities_settings.py : 44 tests nouveaux.
-    394 tests passent, coverage 95% (≥80%), ruff 0 erreur, markdownlint 0 erreur.
+    tests/test_entities_settings.py : 44 tests.
+    tests/test_coordinator.py (quality-guard) : `TestSettersLive` ajoutée — 13 tests couvrant
+      `silent_until` property, `set_cooldown/debounce/severity/tap_action/notif_title/`
+      `notif_message/critical_template` + `_on_silent_expired`. coordinator.py → 100%.
+    407 tests passent, coverage 96% (≥80%), ruff 0 erreur.
+
+### T-524b | Review — entités de réglage (number / select / text)
+
+- Status: APPROVED
+- Owner: reviewer
+- Reviewer: reviewer
+- Security: MINOR_ISSUES
+- Doc: UPDATE_NEEDED
+- Severity: MINOR
+- Depends: T-524
+- Blocks: T-524c
+- Notes: |
+    SECURITY_OK (fonctionnel) — les setters live passent uniquement par les entités HA
+      (CooldownNumber, DebounceNumber, SeverityFilterSelect, TapActionSelect, *Text).
+      Toutes les valeurs sont validées par HA avant d'atteindre async_set_native_value /
+      async_select_option / async_set_value (contraintes min/max/options/max_length).
+      text.py : CriticalTemplateText délègue set_critical_template → coordinator._is_critical()
+      qui appelle Template.async_render(parse_result=False). Evaluation Jinja2 confirmée safe
+      (pas de récursion, mêmes garanties que T-523b). Aucun secret loggé.
+    MINOR — `__init__.py`:161 : `coordinator._store.async_remove()` accède à un attribut
+      privé depuis l'extérieur de la classe. Exposer une méthode publique `async_remove_store()`
+      dans FrigateEventManagerCoordinator. À corriger en T-524c.
+    MINOR — `number.py`:78-84 : `async_added_to_hass` restaure la valeur ET appelle
+      `_apply_value` (set_cooldown / set_debounce) sans vérifier que la valeur restaurée est
+      dans les bornes [min, max] de l'entité. Si l'état HA stocke une valeur hors bornes
+      (ex. après modification manuelle de `.storage/`), le coordinator reçoit une valeur
+      invalide. Ajouter `restored = max(min_val, min(max_val, restored))` avant apply. À corriger en T-524c.
+    MINOR — `select.py`:100-108 : dans `async_added_to_hass` de `SeverityFilterSelect`,
+      la restauration appelle `coordinator.set_severity()` mais n'appelle pas
+      `self.async_write_ha_state()`. L'état HA ne sera mis à jour qu'au prochain cycle
+      coordinator. Incohérence mineure avec le comportement de `async_select_option` et de
+      `TapActionSelect.async_added_to_hass` (qui n'appelle pas non plus write_ha_state, cohérent
+      par symétrie — mais l'état UI peut diverger). INFO seulement, pas bloquant.
+    DOC — `docs/architecture.md` : les 7 nouvelles entités (number × 2, select × 2, text × 3)
+      sont absentes du diagramme Mermaid "Entités HA par caméra" (ligne 199-209),
+      de la table "Adaptateurs entrants" (ligne 62), et de la séquence de démarrage
+      (ligne 222, PLATFORMS affiche encore "switch / binary_sensor / button / sensor").
+      À corriger avant T-517 (PR finale).
 
 ### T-526 | Logo de l'intégration
 

@@ -1262,3 +1262,117 @@ class TestIsCritical:
         coordinator._critical_template = "{{ this_is_not_valid_jinja2(((( }}"
         # Ne doit pas lever d'exception
         assert coordinator._is_critical(self._make_event()) is False
+
+
+# ---------------------------------------------------------------------------
+# Tests setters live (entités de réglage T-524)
+# ---------------------------------------------------------------------------
+
+
+class TestSettersLive:
+    """Tests des setters live du coordinator — number / select / text."""
+
+    def test_silent_until_property_retourne_valeur(self, hass: HomeAssistant) -> None:
+        """La property silent_until expose _silent_until."""
+        coordinator = _make_coordinator(hass)
+        coordinator._silent_until = 12345.0
+        assert coordinator.silent_until == 12345.0
+
+    def test_set_cooldown_remplace_throttler(self, hass: HomeAssistant) -> None:
+        """set_cooldown crée un nouveau Throttler avec la valeur donnée."""
+        from custom_components.frigate_event_manager.domain.throttle import Throttler
+
+        coordinator = _make_coordinator(hass)
+        old_throttler = coordinator._throttler
+        coordinator.set_cooldown(120)
+        assert coordinator._throttler is not old_throttler
+        assert isinstance(coordinator._throttler, Throttler)
+
+    def test_set_debounce_met_a_jour_debounce_seconds(self, hass: HomeAssistant) -> None:
+        """set_debounce met à jour _debounce_seconds."""
+        coordinator = _make_coordinator(hass)
+        coordinator.set_debounce(15)
+        assert coordinator._debounce_seconds == 15
+
+    def test_set_severity_met_a_jour_filter_chain(self, hass: HomeAssistant) -> None:
+        """set_severity met à jour _severities et reconstruit _filter_chain."""
+        from custom_components.frigate_event_manager.domain.filter import FilterChain
+
+        coordinator = _make_coordinator(hass)
+        old_chain = coordinator._filter_chain
+        coordinator.set_severity(["alert"])
+        assert coordinator._severities == ["alert"]
+        assert coordinator._filter_chain is not old_chain
+        assert isinstance(coordinator._filter_chain, FilterChain)
+
+    def test_set_tap_action_delegue_au_notifier(self, hass: HomeAssistant) -> None:
+        """set_tap_action appelle set_tap_action sur le notifier si présent."""
+        coordinator = _make_coordinator(hass)
+        mock_notifier = MagicMock()
+        mock_notifier.set_tap_action = MagicMock()
+        coordinator._notifier = mock_notifier
+        coordinator.set_tap_action("snapshot")
+        mock_notifier.set_tap_action.assert_called_once_with("snapshot")
+
+    def test_set_tap_action_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
+        """set_tap_action sans notifier ne lève pas d'exception."""
+        coordinator = _make_coordinator(hass)
+        coordinator._notifier = None
+        coordinator.set_tap_action("preview")  # ne doit pas lever d'exception
+
+    def test_set_notif_title_delegue_au_notifier(self, hass: HomeAssistant) -> None:
+        """set_notif_title appelle set_title_template sur le notifier si présent."""
+        coordinator = _make_coordinator(hass)
+        mock_notifier = MagicMock()
+        mock_notifier.set_title_template = MagicMock()
+        coordinator._notifier = mock_notifier
+        coordinator.set_notif_title("Alerte {{ camera }}")
+        mock_notifier.set_title_template.assert_called_once_with("Alerte {{ camera }}")
+
+    def test_set_notif_title_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
+        """set_notif_title sans notifier ne lève pas d'exception."""
+        coordinator = _make_coordinator(hass)
+        coordinator._notifier = None
+        coordinator.set_notif_title("titre")  # ne doit pas lever d'exception
+
+    def test_set_notif_message_delegue_au_notifier(self, hass: HomeAssistant) -> None:
+        """set_notif_message appelle set_message_template sur le notifier si présent."""
+        coordinator = _make_coordinator(hass)
+        mock_notifier = MagicMock()
+        mock_notifier.set_message_template = MagicMock()
+        coordinator._notifier = mock_notifier
+        coordinator.set_notif_message("{{ objects | join(', ') }}")
+        mock_notifier.set_message_template.assert_called_once_with("{{ objects | join(', ') }}")
+
+    def test_set_notif_message_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
+        """set_notif_message sans notifier ne lève pas d'exception."""
+        coordinator = _make_coordinator(hass)
+        coordinator._notifier = None
+        coordinator.set_notif_message("msg")  # ne doit pas lever d'exception
+
+    def test_set_critical_template_met_a_jour_template(self, hass: HomeAssistant) -> None:
+        """set_critical_template met à jour _critical_template."""
+        coordinator = _make_coordinator(hass)
+        coordinator.set_critical_template("{{ severity == 'alert' }}")
+        assert coordinator._critical_template == "{{ severity == 'alert' }}"
+
+    def test_set_critical_template_vide_passe_none(self, hass: HomeAssistant) -> None:
+        """set_critical_template avec chaîne vide normalise à None."""
+        coordinator = _make_coordinator(hass)
+        coordinator._critical_template = "old"
+        coordinator.set_critical_template("")
+        assert coordinator._critical_template is None
+
+    def test_on_silent_expired_remet_silent_until_a_zero(self, hass: HomeAssistant) -> None:
+        """_on_silent_expired remet _silent_until à 0.0 et _cancel_silent à None."""
+        coordinator = _make_coordinator(hass)
+        coordinator._silent_until = 99999.0
+        coordinator._cancel_silent = MagicMock()
+        coordinator._store = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+        coordinator.async_set_updated_data = MagicMock()
+
+        coordinator._on_silent_expired(None)
+
+        assert coordinator._silent_until == 0.0
+        assert coordinator._cancel_silent is None
