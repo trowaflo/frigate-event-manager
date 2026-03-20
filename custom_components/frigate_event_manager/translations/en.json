@@ -42,19 +42,7 @@
             "zones": "Required zones (empty = all)",
             "labels": "Detected objects (empty = all)",
             "disabled_hours": "Blocked hours (empty = none)",
-            "severity": "Event types",
-            "notification_title": "Notification title (Jinja2 template, empty = default)",
-            "notification_message": "Notification message (Jinja2 template, empty = default)",
-            "critical_template": "Critical notification (Jinja2 condition, optional)",
-            "tap_action": "Tap action",
-            "cooldown": "Anti-spam cooldown (s)",
-            "debounce": "Debounce window (s)",
             "silent_duration": "Silent duration (min)"
-          },
-          "data_description": {
-            "notification_title": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
-            "notification_message": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: {{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
-            "critical_template": "Jinja2 condition evaluated before each notification. If true: iOS critical alert + Android high-priority channel. Variables: camera, severity, objects, zones, start_time. Example: {{ severity == 'alert' }}"
           }
         },
         "reconfigure": {
@@ -64,19 +52,7 @@
             "zones": "Required zones (empty = all)",
             "labels": "Detected objects (empty = all)",
             "disabled_hours": "Blocked hours (empty = none)",
-            "severity": "Event types",
-            "notification_title": "Notification title (Jinja2 template, empty = default)",
-            "notification_message": "Notification message (Jinja2 template, empty = default)",
-            "critical_template": "Critical notification (Jinja2 condition, optional)",
-            "tap_action": "Tap action",
-            "cooldown": "Anti-spam cooldown (s)",
-            "debounce": "Debounce window (s)",
             "silent_duration": "Silent duration (min)"
-          },
-          "data_description": {
-            "notification_title": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
-            "notification_message": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: {{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
-            "critical_template": "Jinja2 condition evaluated before each notification. If true: iOS critical alert + Android high-priority channel. Variables: camera, severity, objects, zones, start_time. Example: {{ severity == 'alert' }}"
           }
         }
       },
@@ -102,6 +78,13 @@
       "options": {
         "alert": "Alert (object in zone)",
         "detection": "Detection"
+      }
+    },
+    "severity_filter": {
+      "options": {
+        "alert": "Alert (object in zone)",
+        "detection": "Detection",
+        "alert,detection": "Alert and Detection"
       }
     }
   },
@@ -146,6 +129,43 @@
     "sensor": {
       "silent_until": {
         "name": "Notifications resume"
+      }
+    },
+    "number": {
+      "cooldown": {
+        "name": "Anti-spam cooldown"
+      },
+      "debounce": {
+        "name": "Debounce window"
+      }
+    },
+    "select": {
+      "severity_filter": {
+        "name": "Event types",
+        "state": {
+          "alert": "Alert (object in zone)",
+          "detection": "Detection",
+          "alert,detection": "Alert and Detection"
+        }
+      },
+      "tap_action": {
+        "name": "Tap action",
+        "state": {
+          "clip": "Clip",
+          "snapshot": "Snapshot",
+          "preview": "Preview"
+        }
+      }
+    },
+    "text": {
+      "notif_title": {
+        "name": "Notification title"
+      },
+      "notif_message": {
+        "name": "Notification message"
+      },
+      "critical_template": {
+        "name": "Critical condition"
       }
     }
   }

@@ -71,16 +71,12 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._throttler = Throttler(
             cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)
         )
-        zones = subentry.data.get(CONF_ZONES, [])
-        labels = subentry.data.get(CONF_LABELS, [])
-        disabled_hours = subentry.data.get(CONF_DISABLED_HOURS, [])
-        severities = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
-        self._filter_chain = FilterChain([
-            ZoneFilter(zones),
-            LabelFilter(labels),
-            TimeFilter(disabled_hours),
-            SeverityFilter(severities),
-        ])
+        # Stockage des paramètres filtres pour reconstruction à chaud
+        self._zones: list[str] = subentry.data.get(CONF_ZONES, [])
+        self._labels: list[str] = subentry.data.get(CONF_LABELS, [])
+        self._disabled_hours: list[int] = subentry.data.get(CONF_DISABLED_HOURS, [])
+        self._severities: list[str] = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
+        self._filter_chain = self._build_filter_chain()
 
         # Debounce
         self._debounce_seconds: int = subentry.data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)
@@ -124,6 +120,49 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Active ou désactive les notifications pour cette caméra."""
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
+
+    # --- Setters live pour les entités de réglage (number / select / text) ---
+
+    def set_cooldown(self, seconds: int) -> None:
+        """Met à jour le cooldown anti-spam à chaud."""
+        self._throttler = Throttler(cooldown=seconds)
+
+    def set_debounce(self, seconds: int) -> None:
+        """Met à jour la fenêtre de debounce à chaud."""
+        self._debounce_seconds = seconds
+
+    def set_severity(self, severities: list[str]) -> None:
+        """Met à jour le filtre de sévérité à chaud."""
+        self._severities = severities
+        self._filter_chain = self._build_filter_chain()
+
+    def set_tap_action(self, tap_action: str) -> None:
+        """Met à jour l'action au tap à chaud (délègue au notifier)."""
+        if self._notifier is not None and hasattr(self._notifier, "set_tap_action"):
+            self._notifier.set_tap_action(tap_action)  # type: ignore[union-attr]
+
+    def set_notif_title(self, tpl: str | None) -> None:
+        """Met à jour le template de titre à chaud (délègue au notifier)."""
+        if self._notifier is not None and hasattr(self._notifier, "set_title_template"):
+            self._notifier.set_title_template(tpl)  # type: ignore[union-attr]
+
+    def set_notif_message(self, tpl: str | None) -> None:
+        """Met à jour le template de message à chaud (délègue au notifier)."""
+        if self._notifier is not None and hasattr(self._notifier, "set_message_template"):
+            self._notifier.set_message_template(tpl)  # type: ignore[union-attr]
+
+    def set_critical_template(self, tpl: str | None) -> None:
+        """Met à jour le template critique à chaud."""
+        self._critical_template = tpl or None
+
+    def _build_filter_chain(self) -> FilterChain:
+        """Reconstruit la FilterChain depuis les attributs stockés."""
+        return FilterChain([
+            ZoneFilter(self._zones),
+            LabelFilter(self._labels),
+            TimeFilter(self._disabled_hours),
+            SeverityFilter(self._severities),
+        ])
 
     def _is_critical(self, event: Any) -> bool:
         """Évalue le template critique — retourne True si la notification doit être critique."""

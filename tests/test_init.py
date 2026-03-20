@@ -101,8 +101,8 @@ class TestAsyncMigrateEntry:
         assert new_data.get(CONF_URL) == VALID_URL
         assert new_data.get("username") == "admin"
 
-    async def test_migration_v3_retourne_true(self, hass: HomeAssistant) -> None:
-        """Une entry déjà en v3 retourne True sans modification."""
+    async def test_migration_v3_migre_vers_v4(self, hass: HomeAssistant) -> None:
+        """Une entry en v3 migre vers v4 (entités de réglage) sans transformation de données."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=3)
@@ -111,7 +111,10 @@ class TestAsyncMigrateEntry:
             result = await async_migrate_entry(hass, entry)
 
         assert result is True
-        mock_update.assert_not_called()
+        mock_update.assert_called_once()
+        call_kwargs = mock_update.call_args[1]
+        assert call_kwargs.get("version") == 4
+        assert call_kwargs.get("minor_version") == 1
 
     async def test_migration_v2_sans_notify_target(self, hass: HomeAssistant) -> None:
         """Migration v2 sans notify_target existant — pas d'erreur."""

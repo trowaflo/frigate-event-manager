@@ -42,19 +42,7 @@
             "zones": "Zones requises (vide = toutes)",
             "labels": "Objets détectés (vide = tous)",
             "disabled_hours": "Heures bloquées (vide = aucune)",
-            "severity": "Types d'événements",
-            "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
-            "notification_message": "Message de la notification (template Jinja2, vide = défaut)",
-            "critical_template": "Notification critique (condition Jinja2, optionnelle)",
-            "tap_action": "Action au tap",
-            "cooldown": "Cooldown anti-spam (s)",
-            "debounce": "Fenêtre de regroupement (s)",
             "silent_duration": "Durée silence (min)"
-          },
-          "data_description": {
-            "notification_title": "Variables : camera, objects (liste), label, zones (liste), severity, score, start_time, review_id. Exemple : 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
-            "notification_message": "Variables : camera, objects (liste), label, zones (liste), severity, score, start_time, review_id. Exemple : {{ severity | upper }} à {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
-            "critical_template": "Condition Jinja2 évaluée avant chaque notification. Si vrai : alerte critique iOS + canal haute priorité Android. Variables : camera, severity, objects, zones, start_time. Exemple : {{ severity == 'alert' }}"
           }
         },
         "reconfigure": {
@@ -64,19 +52,7 @@
             "zones": "Zones requises (vide = toutes)",
             "labels": "Objets détectés (vide = tous)",
             "disabled_hours": "Heures bloquées (vide = aucune)",
-            "severity": "Types d'événements",
-            "notification_title": "Titre de la notification (template Jinja2, vide = défaut)",
-            "notification_message": "Message de la notification (template Jinja2, vide = défaut)",
-            "critical_template": "Notification critique (condition Jinja2, optionnelle)",
-            "tap_action": "Action au tap",
-            "cooldown": "Cooldown anti-spam (s)",
-            "debounce": "Fenêtre de regroupement (s)",
             "silent_duration": "Durée silence (min)"
-          },
-          "data_description": {
-            "notification_title": "Variables : camera, objects (liste), label, zones (liste), severity, score, start_time, review_id. Exemple : 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
-            "notification_message": "Variables : camera, objects (liste), label, zones (liste), severity, score, start_time, review_id. Exemple : {{ severity | upper }} à {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
-            "critical_template": "Condition Jinja2 évaluée avant chaque notification. Si vrai : alerte critique iOS + canal haute priorité Android. Variables : camera, severity, objects, zones, start_time. Exemple : {{ severity == 'alert' }}"
           }
         }
       },
@@ -102,6 +78,13 @@
       "options": {
         "alert": "Alerte (objet en zone)",
         "detection": "Détection"
+      }
+    },
+    "severity_filter": {
+      "options": {
+        "alert": "Alerte (objet en zone)",
+        "detection": "Détection",
+        "alert,detection": "Alerte et Détection"
       }
     }
   },
@@ -146,6 +129,43 @@
     "sensor": {
       "silent_until": {
         "name": "Reprise des notifications"
+      }
+    },
+    "number": {
+      "cooldown": {
+        "name": "Cooldown anti-spam"
+      },
+      "debounce": {
+        "name": "Fenêtre de regroupement"
+      }
+    },
+    "select": {
+      "severity_filter": {
+        "name": "Types d'événements",
+        "state": {
+          "alert": "Alerte (objet en zone)",
+          "detection": "Détection",
+          "alert,detection": "Alerte et Détection"
+        }
+      },
+      "tap_action": {
+        "name": "Action au tap",
+        "state": {
+          "clip": "Clip vidéo",
+          "snapshot": "Photo",
+          "preview": "Prévisualisation"
+        }
+      }
+    },
+    "text": {
+      "notif_title": {
+        "name": "Titre de la notification"
+      },
+      "notif_message": {
+        "name": "Message de la notification"
+      },
+      "critical_template": {
+        "name": "Condition critique"
       }
     }
   }

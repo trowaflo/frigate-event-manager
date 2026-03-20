@@ -35,7 +35,7 @@ from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "binary_sensor", "button", "sensor"]
+PLATFORMS = ["switch", "binary_sensor", "button", "sensor", "number", "select", "text"]
 
 type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
 
@@ -58,6 +58,14 @@ async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> boo
         return True
 
     if entry.version == 3:
+        # v3 -> v4 : les paramètres de réglage (cooldown, debounce, severity, tap_action,
+        # notif_title, notif_message, critical_template) restent dans subentry.data
+        # pour l'initialisation des entités — aucune transformation nécessaire.
+        hass.config_entries.async_update_entry(entry, version=4, minor_version=1)
+        _LOGGER.info("Migration v3 -> v4 terminée")
+        return True
+
+    if entry.version == 4:
         return True
 
     # Version inconnue (supérieure) — bloquer le chargement pour éviter des données incompatibles

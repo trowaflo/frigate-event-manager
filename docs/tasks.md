@@ -656,26 +656,28 @@
 
 ### T-524 | Entités de réglage — number / select / text par caméra
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
-- Priority: P2
-- Scope: `number.py` (nouveau), `select.py` (nouveau), `text.py` (nouveau), `config_flow.py`, `coordinator.py`, `__init__.py`
 - Locks: —
+- Priority: P2
+- Scope: `number.py` (nouveau), `select.py` (nouveau), `text.py` (nouveau), `config_flow.py`, `coordinator.py`, `__init__.py`, `notifier.py`, `strings.json`, `translations/`, `tests/test_entities_settings.py` (nouveau), `tests/test_config_flow.py`, `tests/test_init.py`
 - Depends: T-523
 - Blocks: —
 - Notes: |
-    Objectif : sortir les paramètres de réglage du config flow, les exposer comme entités HA.
-    Entités par caméra (modifiables depuis le dashboard, utilisables en automatisation) :
-    `number.cooldown` (0-3600s), `number.debounce` (0-60s),
-    `select.severity_filter` (Alert/Detection/Les deux),
-    `select.tap_action` (clip/snapshot/preview),
-    `text.critical_template` (Jinja2),
-    `text.notif_title` (template titre),
-    `text.notif_message` (template message).
-    Config flow ne garderait que : caméra, cible notification (notify_target).
-    Migration : lire les valeurs existantes depuis subentry.data → initialiser les entités.
-    Impact majeur : nécessite review architecture + migration subentry.
-    PLATFORM : ajouter `"number"`, `"select"`, `"text"` à `PLATFORMS` dans `__init__.py`.
+    7 entités créées par caméra (number × 2, select × 2, text × 3).
+    number.cooldown (0-3600s), number.debounce (0-60s).
+    select.severity_filter (alert/detection/alert,detection), select.tap_action (clip/snapshot/preview).
+    text.notif_title, text.notif_message, text.critical_template (Jinja2).
+    Toutes lisent la valeur initiale depuis subentry.data. Setters live sur coordinator + notifier.
+    coordinator.py : `_build_filter_chain()` + setters set\_cooldown/set\_debounce/set\_severity/
+      set\_tap\_action/set\_notif\_title/set\_notif\_message/set\_critical\_template.
+    notifier.py : set_title_template(), set_message_template(), set_tap_action().
+    config_flow.py : VERSION=4, suppression cooldown/debounce/severity/tap_action/notif_title/
+      notif_message/critical_template du schéma configure/reconfigure.
+    `__init__.py` : PLATFORMS += ["number", "select", "text"]. Migration v3→v4 (transparent).
+    strings.json + fr.json + en.json : champs retirés du flow, noms entités ajoutés.
+    tests/test_entities_settings.py : 44 tests nouveaux.
+    394 tests passent, coverage 95% (≥80%), ruff 0 erreur, markdownlint 0 erreur.
 
 ### T-526 | Logo de l'intégration
 

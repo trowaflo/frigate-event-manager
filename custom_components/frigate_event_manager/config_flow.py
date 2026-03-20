@@ -19,30 +19,18 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CAMERA,
-    CONF_COOLDOWN,
-    CONF_CRITICAL_TEMPLATE,
-    CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
-    CONF_NOTIF_MESSAGE,
-    CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
-    CONF_SEVERITY,
     CONF_SILENT_DURATION,
-    CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
-    DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
-    DEFAULT_TAP_ACTION,
-    DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
-    SEVERITY_OPTIONS,
     SUBENTRY_TYPE_CAMERA,
-    TAP_ACTION_OPTIONS,
 )
 from .frigate_client import FrigateClient
 
@@ -97,16 +85,13 @@ def _build_configure_schema(
     default_zones: list[str] | None = None,
     default_labels: list[str] | None = None,
     default_hours: list[str] | None = None,
-    default_severity: list[str] | None = None,
-    default_title: str = "",
-    default_message: str = "",
-    default_critical_template: str = "",
-    default_tap: str = DEFAULT_TAP_ACTION,
-    default_cooldown: int = DEFAULT_THROTTLE_COOLDOWN,
-    default_debounce: int = 0,
     default_silent: int = DEFAULT_SILENT_DURATION,
 ) -> vol.Schema:
     """Construit le schéma de la step configure (ajout ou reconfigure).
+
+    Champs conservés : notify_target, zones, labels, disabled_hours, silent_duration.
+    Les autres paramètres (cooldown, debounce, severity, tap_action, templates)
+    sont désormais exposés comme entités HA (number / select / text).
 
     Si zones ou labels sont vides (Frigate ne retourne rien), bascule sur
     un champ texte libre pour ne pas bloquer l'utilisateur.
@@ -159,46 +144,6 @@ def _build_configure_schema(
             )
         ),
         vol.Optional(
-            CONF_SEVERITY, default=default_severity if default_severity is not None else DEFAULT_SEVERITY
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=SEVERITY_OPTIONS,
-                multiple=True,
-                mode=selector.SelectSelectorMode.LIST,
-                translation_key=CONF_SEVERITY,
-            )
-        ),
-        vol.Optional(CONF_NOTIF_TITLE, default=default_title): str,
-        vol.Optional(CONF_NOTIF_MESSAGE, default=default_message): str,
-        vol.Optional(
-            CONF_CRITICAL_TEMPLATE, default=default_critical_template
-        ): selector.TemplateSelector(),
-        vol.Required(CONF_TAP_ACTION, default=default_tap): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=TAP_ACTION_OPTIONS,
-                mode=selector.SelectSelectorMode.LIST,
-                translation_key=CONF_TAP_ACTION,
-            )
-        ),
-        vol.Optional(
-            CONF_COOLDOWN, default=default_cooldown
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=0,
-                max=3600,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="s",
-            )
-        ),
-        vol.Optional(CONF_DEBOUNCE, default=default_debounce): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=0,
-                max=60,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="s",
-            )
-        ),
-        vol.Optional(
             CONF_SILENT_DURATION, default=default_silent
         ): selector.NumberSelector(
             selector.NumberSelectorConfig(
@@ -243,13 +188,6 @@ def _parse_configure_input(
         CONF_ZONES: zones,
         CONF_LABELS: labels,
         CONF_DISABLED_HOURS: disabled_hours,
-        CONF_SEVERITY: user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY),
-        CONF_NOTIF_TITLE: user_input.get(CONF_NOTIF_TITLE, "").strip() or None,
-        CONF_NOTIF_MESSAGE: user_input.get(CONF_NOTIF_MESSAGE, "").strip() or None,
-        CONF_CRITICAL_TEMPLATE: user_input.get(CONF_CRITICAL_TEMPLATE, "").strip() or None,
-        CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
-        CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
-        CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, 0)),
         CONF_SILENT_DURATION: int(
             user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         ),
@@ -259,7 +197,7 @@ def _parse_configure_input(
 class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow — 1 étape : connexion Frigate."""
 
-    VERSION = 3
+    VERSION = 4
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
@@ -510,7 +448,6 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         existing_labels = subentry.data.get(CONF_LABELS, [])
         # Heures : list[int] → list[str] pour le selector
         existing_hours = [str(h) for h in subentry.data.get(CONF_DISABLED_HOURS, [])]
-        existing_severity = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -522,13 +459,6 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 default_zones=existing_zones,
                 default_labels=existing_labels,
                 default_hours=existing_hours,
-                default_severity=existing_severity,
-                default_title=subentry.data.get(CONF_NOTIF_TITLE) or "",
-                default_message=subentry.data.get(CONF_NOTIF_MESSAGE) or "",
-                default_critical_template=subentry.data.get(CONF_CRITICAL_TEMPLATE) or "",
-                default_tap=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
-                default_cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN),
-                default_debounce=subentry.data.get(CONF_DEBOUNCE, 0),
                 default_silent=subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION),
             ),
         )

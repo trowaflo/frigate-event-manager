@@ -46,6 +46,20 @@ class HANotifier:
         self._frigate_url = frigate_url.rstrip("/") if frigate_url else None
         self._tap_action = tap_action
 
+    # --- Setters live (appelés par les entités text/select) ---
+
+    def set_title_template(self, tpl: str | None) -> None:
+        """Met à jour le template de titre à chaud."""
+        self._title_tpl = tpl or DEFAULT_NOTIF_TITLE
+
+    def set_message_template(self, tpl: str | None) -> None:
+        """Met à jour le template de message à chaud."""
+        self._message_tpl = tpl or DEFAULT_NOTIF_MESSAGE
+
+    def set_tap_action(self, tap_action: str) -> None:
+        """Met à jour l'action au tap à chaud."""
+        self._tap_action = tap_action
+
     def _render(self, tpl_str: str, variables: dict) -> str:
         """Rend un template Jinja2 HA avec les variables de l'événement."""
         try:
