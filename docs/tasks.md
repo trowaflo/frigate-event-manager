@@ -216,18 +216,6 @@
 
 ---
 
-### Phase 4 — PR
-
-### T-512 | PR finale — refactoring v2
-
-- Status: ON HOLD
-- Owner: orchestrator
-- Scope: `feat/ha-refactor` → `main`
-- Locks: —
-- Depends: T-511
-- Blocks: —
-- Notes: En attente — utilisateur pas prêt pour le merge.
-
 ---
 
 ## Phase 5 — Gestion avancée des notifications
@@ -401,16 +389,6 @@
     4. strings.json : "Silencieux actif" → "Silent active".
     5. `__init__.py` : `async_unload_entry` nettoie les stores des subentries supprimées via `async_remove()`.
     6. docs/architecture.md : `SilentUntilSensor` ajouté dans les 4 sections manquantes.
-
-### T-517 | Notification features — PR
-
-- Status: ON HOLD
-- Owner: orchestrator
-- Scope: `feat/python-migration` → `main`
-- Locks: —
-- Depends: T-519, T-523c, T-525, T-524
-- Blocks: —
-- Notes: En attente — utilisateur pas prêt pour le merge. T-524 encore TODO.
 
 ### T-520 | Zones + labels + heures en multi-select depuis Frigate
 
