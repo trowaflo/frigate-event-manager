@@ -220,15 +220,13 @@
 
 ### T-512 | PR finale — refactoring v2
 
-- Status: TODO
+- Status: ON HOLD
 - Owner: orchestrator
 - Scope: `feat/ha-refactor` → `main`
 - Locks: —
 - Depends: T-511
 - Blocks: —
-- Notes: |
-    Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
-    Validation humaine obligatoire avant merge.
+- Notes: En attente — utilisateur pas prêt pour le merge.
 
 ---
 
@@ -406,15 +404,13 @@
 
 ### T-517 | Notification features — PR
 
-- Status: TODO
+- Status: ON HOLD
 - Owner: orchestrator
 - Scope: `feat/python-migration` → `main`
 - Locks: —
 - Depends: T-519, T-523c, T-525, T-524
 - Blocks: —
-- Notes: |
-    Vérifier : pytest vert, coverage ≥80%, ruff 0 erreur, markdownlint 0 erreur.
-    Validation humaine obligatoire avant merge.
+- Notes: En attente — utilisateur pas prêt pour le merge. T-524 encore TODO.
 
 ### T-520 | Zones + labels + heures en multi-select depuis Frigate
 
