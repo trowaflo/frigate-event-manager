@@ -95,6 +95,7 @@ class SeverityFilterSelect(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
+            config_subentry_id=subentry_id,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -141,6 +142,7 @@ class TapActionSelect(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
+            config_subentry_id=subentry_id,
         )
 
     async def async_added_to_hass(self) -> None:

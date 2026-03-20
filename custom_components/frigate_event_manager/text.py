@@ -76,6 +76,7 @@ class _FEMTextBase(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
+            config_subentry_id=subentry_id,
         )
         self._attr_native_value = initial
 

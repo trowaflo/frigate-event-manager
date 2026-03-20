@@ -750,7 +750,7 @@
 
 ### T-527 | Bug — doublon appareil dans HA
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P0
 - Scope: `binary_sensor.py`, `button.py`, `number.py`, `select.py`, `sensor.py`, `switch.py`, `text.py`
@@ -758,9 +758,8 @@
 - Depends: —
 - Blocks: T-533
 - Notes: |
-    L'appareil "Caméra X" apparaît dans "Appareils sans sous-entrée" ET sous la subentry.
-    Cause : `DeviceInfo(identifiers={(DOMAIN, subentry_id)})` sans `config_subentry_id`.
-    Fix : ajouter `config_subentry_id=subentry_id` dans tous les `DeviceInfo`.
+    `config_subentry_id=subentry_id` ajouté dans tous les `DeviceInfo` des 7 fichiers.
+    407 tests passent, coverage 96%, ruff 0 erreur.
 
 ### T-531 | Bouton "Annuler le silence"
 
