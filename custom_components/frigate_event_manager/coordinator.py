@@ -243,6 +243,10 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._on_silent_expired,
             )
 
+    async def async_remove_store(self) -> None:
+        """Supprime le store persistant associé à cette caméra."""
+        await self._store.async_remove()
+
     async def async_stop(self) -> None:
         """Désabonnement MQTT."""
         if self._debounce_task is not None:

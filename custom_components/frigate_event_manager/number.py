@@ -79,6 +79,10 @@ class _FEMNumberBase(
         if state is not None:
             try:
                 restored = float(state.state)
+                restored = max(
+                    float(self._attr_native_min_value),
+                    min(float(self._attr_native_max_value), restored),
+                )
                 self._attr_native_value = restored
                 self._apply_value(int(restored))
             except (ValueError, TypeError):

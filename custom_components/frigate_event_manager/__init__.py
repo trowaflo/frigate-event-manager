@@ -158,7 +158,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool
     # Nettoyer les stores des subentries supprimées (avant unload, entry.subentries est déjà à jour)
     for subentry_id, coordinator in old_coordinators.items():
         if subentry_id not in entry.subentries:
-            await coordinator._store.async_remove()
+            await coordinator.async_remove_store()
 
     for coordinator in old_coordinators.values():
         await coordinator.async_stop()
