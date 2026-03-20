@@ -52,8 +52,8 @@
             "silent_duration": "Silent duration (min)"
           },
           "data_description": {
-            "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
-            "notification_message": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: [objects] detected ([severity])",
+            "notification_title": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
+            "notification_message": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: {{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
             "critical_template": "Jinja2 condition evaluated before each notification. If true: iOS critical alert + Android high-priority channel. Variables: camera, severity, objects, zones, start_time. Example: {{ severity == 'alert' }}"
           }
         },
@@ -74,8 +74,8 @@
             "silent_duration": "Silent duration (min)"
           },
           "data_description": {
-            "notification_title": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: Frigate — [camera]",
-            "notification_message": "Variables: camera / camera_name, objects (list), label (first object), zones (list), severity, score, review_id. Default: [objects] detected ([severity])",
+            "notification_title": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: 🚨 {{ camera | title }} — {{ objects | join(', ') }}",
+            "notification_message": "Variables: camera, objects (list), label, zones (list), severity, score, start_time, review_id. Example: {{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}",
             "critical_template": "Jinja2 condition evaluated before each notification. If true: iOS critical alert + Android high-priority channel. Variables: camera, severity, objects, zones, start_time. Example: {{ severity == 'alert' }}"
           }
         }

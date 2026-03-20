@@ -150,6 +150,34 @@ Notifications HA Companion via `hass.services.async_call("notify", target, ...)`
 
 - `html.escape()` sur tous les champs dynamiques issus du payload Frigate.
 - Gère `persistent_notification` ET les services `notify.xxx` (mobile, etc.).
+- Templates Jinja2 pour le titre et le message (`CONF_NOTIF_TITLE`, `CONF_NOTIF_MESSAGE`).
+- Notification critique (`CONF_CRITICAL_TEMPLATE`) : iOS `push.sound.critical` + Android `channel`.
+
+**Variables disponibles dans les templates :**
+
+| Variable | Type | Description |
+| --- | --- | --- |
+| `camera` | `str` | Nom de la caméra |
+| `objects` | `list[str]` | Objets détectés (ex. `["personne", "chien"]`) |
+| `label` | `str` | Premier objet détecté |
+| `zones` | `list[str]` | Zones concernées |
+| `severity` | `str` | `"alert"` ou `"detection"` |
+| `score` | `float` | Score de confiance (0.0–1.0) |
+| `start_time` | `float` | Timestamp UNIX de début d'événement |
+| `review_id` | `str` | Identifiant de la review Frigate |
+
+**Exemples :**
+
+```jinja2
+{# Titre #}
+🚨 {{ camera | title }} — {{ objects | join(', ') }}
+
+{# Message #}
+{{ severity | upper }} à {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}
+
+{# Condition critique (nuit uniquement) #}
+{{ now().hour >= 22 or now().hour < 7 }}
+```
 
 ### ha_mqtt.py — HaMqttAdapter
 
