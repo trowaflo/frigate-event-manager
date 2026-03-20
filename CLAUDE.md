@@ -158,6 +158,11 @@ Agents avec scopes stricts pour les taches multi-composants :
     INVARIANT: agents specialises ne peuvent pas executer pytest/ruff (permission default)
     ALWAYS: orchestrateur principal verifie tests + lint apres chaque livraison d'agent
     BEFORE: tout commit
+
+[RULE] ha_icon_png:
+    ALWAYS: icon.png dans custom_components/{domain}/ en mode RGB 256x256
+    NEVER:  RGBA (transparence) — non affiche dans certaines versions HA
+    DEPLOY: task deploy copie custom_components/ entier, images/ n'est PAS deploye
 ```
 
 - **`skill-creator` → `run_loop.py`** : ~300 appels API (5 iter × 20 requetes × 3 repetitions). Estimer et confirmer le cout avant de lancer. Requiert `ANTHROPIC_API_KEY` separe de Claude Code.
