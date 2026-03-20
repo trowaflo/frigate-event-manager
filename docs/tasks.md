@@ -720,23 +720,39 @@
       (ligne 222, PLATFORMS affiche encore "switch / binary_sensor / button / sensor").
       À corriger avant T-517 (PR finale).
 
+### T-524c | Simplification — entités de réglage (number / select / text)
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `coordinator.py`, `__init__.py`, `number.py`, `docs/architecture.md`
+- Locks: —
+- Depends: T-524b
+- Blocks: T-517
+- Notes: |
+    coordinator.py : méthode publique `async_remove_store()` ajoutée — délègue à `self._store.async_remove()`.
+    `__init__.py` : `coordinator._store.async_remove()` remplacé par `coordinator.async_remove_store()`.
+    number.py : clamp ajouté dans `_FEMNumberBase.async_added_to_hass` avant `_apply_value` :
+      `max(_attr_native_min_value, min(_attr_native_max_value, restored))`.
+      CooldownNumber → bornes 0-3600, DebounceNumber → bornes 0-60 (lues depuis les attributs de classe).
+    docs/architecture.md : 7 nouvelles entités ajoutées dans :
+      - Diagramme Mermaid "Entités HA par caméra" (number × 2, select × 2, text × 3).
+      - Table "Adaptateurs entrants" (number.py, select.py, text.py).
+      - Séquence de démarrage S4 (PLATFORMS = switch / binary_sensor / button / sensor / number / select / text).
+    ruff 0 erreur, markdownlint 0 erreur.
+
 ### T-526 | Logo de l'intégration
 
-- Status: TODO (choix humain requis)
-- Owner: —
+- Status: DONE
+- Owner: python-architect
 - Priority: P2
-- Scope: `custom_components/frigate_event_manager/icon.png`, `hacs.json`
+- Scope: `custom_components/frigate_event_manager/icon.png`, `images/logo.png`, `images/logo_option3_preview.png`
 - Locks: —
 - Depends: —
 - Blocks: —
 - Notes: |
-    HA affiche `custom_components/frigate_event_manager/icon.png` dans la page Intégrations.
-    HACS affiche l'image référencée dans `hacs.json` ("icon": "...", optionnel).
-    Taille recommandée : 256×256px ou 512×512px, fond transparent, format PNG.
-    Deux options à présenter à l'utilisateur pour validation avant implémentation :
-    Option 1 — Généré SVG→PNG : icône caméra stylisée + éclair/alerte, palette HA (bleu #03A9F4).
-    Option 3 — Adapté Frigate : logo Frigate officiel (caméra verte) retravaillé aux couleurs FEM.
-    Action requise : présenter les deux visuels à l'utilisateur → valider → placer le fichier.
+    Option 1 intégrée : `custom_components/frigate_event_manager/icon.png` (256×256) + `images/logo.png` (512×512).
+    Option 3 générée pour prévisualisation uniquement : `images/logo_option3_preview.png`.
+    Choix validé par l'utilisateur : Option 1 (caméra + éclair, fond bleu HA #18BCF2).
 
 <!--
 ### T-XXX | [Titre]
