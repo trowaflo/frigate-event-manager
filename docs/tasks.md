@@ -763,7 +763,7 @@
 
 ### T-531 | Bouton "Annuler le silence"
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P1
 - Scope: `button.py`, `coordinator.py`, `strings.json`, `translations/en.json`, `translations/fr.json`
@@ -771,10 +771,14 @@
 - Depends: T-527
 - Blocks: —
 - Notes: |
-    Nouvelle entité button `CancelSilentButton`.
-    unique_id : `fem_{cam}_cancel_silent`.
-    Action : réinitialise le silence actif (annule le timer, remet `silent_until` à None).
-    Visible uniquement quand le silence est actif (ou toujours visible, à décider).
+    coordinator.py : `async_cancel_silent()` — annule le timer `_cancel_silent`, remet
+      `_silent_until` à 0.0, persiste via store, appelle `async_set_updated_data`.
+    button.py : `CancelSilentButton` ajoutée — unique_id `fem_{cam}_cancel_silent`,
+      translation_key `cancel_silent_button`, icon `mdi:bell-cancel`.
+      `async_setup_entry` crée les deux boutons (SilentButton + CancelSilentButton).
+    strings.json + translations/en.json : `cancel_silent_button.name = "Cancel silent mode"`.
+    translations/fr.json : `cancel_silent_button.name = "Annuler le silence"`.
+    ruff 0 erreur, 407 tests passent, coverage 95%.
 
 ### T-533 | Refonte — config flow multi-écrans + nettoyage entités
 

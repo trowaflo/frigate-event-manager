@@ -243,6 +243,18 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self._on_silent_expired,
             )
 
+    async def async_cancel_silent(self) -> None:
+        """Annule le mode silencieux actif immédiatement."""
+        if self._cancel_silent is not None:
+            self._cancel_silent()
+            self._cancel_silent = None
+        self._silent_until = 0.0
+        self.hass.async_create_task(
+            self._store.async_save({"silent_until": 0.0})
+        )
+        self.async_set_updated_data(self._camera_state.as_dict())
+        _LOGGER.info("Mode silencieux annulé — caméra=%s", self._camera)
+
     async def async_remove_store(self) -> None:
         """Supprime le store persistant associé à cette caméra."""
         await self._store.async_remove()

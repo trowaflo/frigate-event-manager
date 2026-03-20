@@ -124,6 +124,9 @@
     "button": {
       "silent_button": {
         "name": "Silent mode"
+      },
+      "cancel_silent_button": {
+        "name": "Cancel silent mode"
       }
     },
     "sensor": {
