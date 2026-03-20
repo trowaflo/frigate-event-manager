@@ -743,3 +743,86 @@
 - Blocks: —
 - Notes: —
 -->
+
+---
+
+## UX v2 — Refonte entités + config flow
+
+### T-527 | Bug — doublon appareil dans HA
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P0
+- Scope: `binary_sensor.py`, `button.py`, `number.py`, `select.py`, `sensor.py`, `switch.py`, `text.py`
+- Locks: —
+- Depends: —
+- Blocks: T-533
+- Notes: |
+    L'appareil "Caméra X" apparaît dans "Appareils sans sous-entrée" ET sous la subentry.
+    Cause : `DeviceInfo(identifiers={(DOMAIN, subentry_id)})` sans `config_subentry_id`.
+    Fix : ajouter `config_subentry_id=subentry_id` dans tous les `DeviceInfo`.
+
+### T-531 | Bouton "Annuler le silence"
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P1
+- Scope: `button.py`, `coordinator.py`, `strings.json`, `translations/en.json`, `translations/fr.json`
+- Locks: —
+- Depends: T-527
+- Blocks: —
+- Notes: |
+    Nouvelle entité button `CancelSilentButton`.
+    unique_id : `fem_{cam}_cancel_silent`.
+    Action : réinitialise le silence actif (annule le timer, remet `silent_until` à None).
+    Visible uniquement quand le silence est actif (ou toujours visible, à décider).
+
+### T-533 | Refonte — config flow multi-écrans + nettoyage entités
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P1
+- Scope: `config_flow.py`, `number.py`, `select.py`, `text.py`, `__init__.py`, `coordinator.py`, `strings.json`, `translations/`, `tests/`
+- Locks: —
+- Depends: T-527
+- Blocks: T-532
+- Notes: |
+    OBJECTIF : config flow = toute la configuration, entités = contrôles opérationnels uniquement.
+
+    Config flow multi-écrans (4 étapes) :
+      Écran 1 — Connexion caméra : camera, notify_target
+      Écran 2 — Filtres         : zones, labels, disabled_hours
+      Écran 3 — Comportement    : cooldown, debounce, severity, tap_action
+      Écran 4 — Notifications   : notif_title, notif_message, critical_template (TemplateSelector + presets), silent_duration
+
+    Entités conservées :
+      switch    : Notifications (fem_{cam}_switch)
+      button    : Silencieux (fem_{cam}_silent)
+      button    : Annuler le silence (fem_{cam}_cancel_silent) — T-531
+      binary_sensor : Mouvement (fem_{cam}_motion)
+      binary_sensor : Silencieux actif (fem_{cam}_silent_state)
+      sensor    : Reprise des notifications (fem_{cam}_silent_until)
+
+    Entités SUPPRIMÉES (remplacées par config flow) :
+      number    : Cooldown, Debounce
+      select    : Types d'événements, Action au tap
+      text      : Titre notification, Message notification, Condition critique
+
+    Migration : v4 → v5 (transparente, données déjà dans subentry.data).
+
+### T-532 | Boutons d'action notification (3 selects)
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P2
+- Scope: `select.py`, `notifier.py`, `coordinator.py`, `strings.json`, `translations/`
+- Locks: —
+- Depends: T-533
+- Blocks: —
+- Notes: |
+    3 entités select : "Action bouton 1", "Action bouton 2", "Action bouton 3".
+    unique_ids : fem_{cam}_action_btn1, fem_{cam}_action_btn2, fem_{cam}_action_btn3.
+    Options (mutuellement exclusives par bouton) :
+      none / clip / snapshot / preview / silent_30min / silent_1h / dismiss
+    Payload notification : `actions: [{action: "...", title: "..."}]` pour chaque bouton non-none.
+    Handler HA event `mobile_app_notification_action` à enregistrer dans coordinator.
