@@ -74,9 +74,9 @@
             "critical_template_custom": "Custom critical template"
           },
           "data_description": {
-            "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
-            "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
-            "critical_template": "Condition for sending a critical notification (overrides DND). Presets with sensor names (fin_nuit, debut_nuit) are examples — adapt to your own entities.",
+            "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
             "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         },
@@ -120,9 +120,9 @@
             "critical_template_custom": "Custom critical template"
           },
           "data_description": {
-            "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
-            "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
-            "critical_template": "Condition for sending a critical notification (overrides DND). Presets with sensor names (fin_nuit, debut_nuit) are examples — adapt to your own entities.",
+            "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
             "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         }
@@ -156,7 +156,6 @@
         "false": "Never critical",
         "true": "Always critical",
         "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Night only (10pm–8am)",
-        "{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}": "Custom night range (sensors)",
         "custom": "Custom template..."
       }
     }

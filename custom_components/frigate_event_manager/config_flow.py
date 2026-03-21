@@ -53,14 +53,12 @@ _HOUR_OPTIONS = [str(h) for h in range(24)]
 _CRITICAL_TEMPLATE_NEVER = "false"
 _CRITICAL_TEMPLATE_ALWAYS = "true"
 _CRITICAL_TEMPLATE_NIGHT_ONLY = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
-_CRITICAL_TEMPLATE_NIGHT_SENSORS = "{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}"
 _CRITICAL_TEMPLATE_CUSTOM = "custom"
 
 CRITICAL_TEMPLATE_PRESET_OPTIONS = [
     _CRITICAL_TEMPLATE_NEVER,
     _CRITICAL_TEMPLATE_ALWAYS,
     _CRITICAL_TEMPLATE_NIGHT_ONLY,
-    _CRITICAL_TEMPLATE_NIGHT_SENSORS,
     _CRITICAL_TEMPLATE_CUSTOM,
 ]
 
