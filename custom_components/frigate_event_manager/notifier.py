@@ -26,14 +26,14 @@ from .domain.ports import MediaSignerPort
 
 _LOGGER = logging.getLogger(__name__)
 
-# Titres des boutons d'action pour les notifications Companion
-_ACTION_BTN_TITLES: dict[str, str] = {
-    "clip": "Clip",
-    "snapshot": "Snapshot",
-    "preview": "Preview",
-    "silent_30min": "Silence 30 min",
-    "silent_1h": "Silence 1h",
-    "dismiss": "Ignorer",
+# Config des boutons d'action : titre, icône SF Symbols, destructive (rouge)
+_ACTION_BTN_CONFIG: dict[str, dict] = {
+    "clip":        {"title": "Clip",          "icon": "sfsymbols:video"},
+    "snapshot":    {"title": "Snapshot",      "icon": "sfsymbols:camera"},
+    "preview":     {"title": "Preview",       "icon": "sfsymbols:play.circle"},
+    "silent_30min":{"title": "Silence 30 min","icon": "sfsymbols:speaker.zzz", "destructive": True},
+    "silent_1h":   {"title": "Silence 1h",    "icon": "sfsymbols:speaker.zzz", "destructive": True},
+    "dismiss":     {"title": "Ignorer",       "icon": "sfsymbols:xmark.circle"},
 }
 
 
@@ -144,18 +144,31 @@ class HANotifier:
         for btn_value in self._action_btns:
             if btn_value == DEFAULT_ACTION_BTN:
                 continue
+            cfg = _ACTION_BTN_CONFIG.get(btn_value, {})
+            title = cfg.get("title", btn_value)
+            icon = cfg.get("icon")
+            destructive = cfg.get("destructive", False)
+
             if btn_value == "clip" and media_urls.get("clip_url"):
-                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["clip"], "uri": media_urls["clip_url"]})
+                btn = {"action": "URI", "title": title, "uri": media_urls["clip_url"]}
             elif btn_value == "snapshot" and media_urls.get("snapshot_url"):
-                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["snapshot"], "uri": media_urls["snapshot_url"]})
+                btn = {"action": "URI", "title": title, "uri": media_urls["snapshot_url"]}
             elif btn_value == "preview" and media_urls.get("preview_url"):
-                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["preview"], "uri": media_urls["preview_url"]})
+                btn = {"action": "URI", "title": title, "uri": media_urls["preview_url"]}
             elif btn_value == "silent_30min":
-                actions.append({"action": f"fem_silent_30min_{camera}", "title": _ACTION_BTN_TITLES["silent_30min"]})
+                btn = {"action": f"fem_silent_30min_{camera}", "title": title}
             elif btn_value == "silent_1h":
-                actions.append({"action": f"fem_silent_1h_{camera}", "title": _ACTION_BTN_TITLES["silent_1h"]})
+                btn = {"action": f"fem_silent_1h_{camera}", "title": title}
             elif btn_value == "dismiss":
-                actions.append({"action": "DISMISS_NOTIFICATION", "title": _ACTION_BTN_TITLES["dismiss"]})
+                btn = {"action": "DISMISS_NOTIFICATION", "title": title}
+            else:
+                continue
+
+            if icon:
+                btn["icon"] = icon
+            if destructive:
+                btn["destructive"] = True
+            actions.append(btn)
         return actions
 
     async def async_notify(self, event: FrigateEvent, *, critical: bool = False) -> None:
@@ -236,11 +249,11 @@ class HANotifier:
                 # Comportement legacy : génération automatique depuis les URLs disponibles
                 auto_actions: list[dict] = []
                 if media_urls["clip_url"]:
-                    auto_actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
+                    auto_actions.append({"action": "URI", "title": "Clip", "icon": "sfsymbols:video", "uri": media_urls["clip_url"]})
                 if media_urls["snapshot_url"]:
-                    auto_actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
+                    auto_actions.append({"action": "URI", "title": "Snapshot", "icon": "sfsymbols:camera", "uri": media_urls["snapshot_url"]})
                 if media_urls["preview_url"]:
-                    auto_actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
+                    auto_actions.append({"action": "URI", "title": "Preview", "icon": "sfsymbols:play.circle", "uri": media_urls["preview_url"]})
                 if auto_actions:
                     companion_data["actions"] = auto_actions
 
