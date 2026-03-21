@@ -32,6 +32,7 @@ class FrigateNotificationSwitch(
     """Active ou désactive les notifications pour une caméra."""
 
     _attr_has_entity_name = True
+    _attr_translation_key = "notifications"
     _attr_icon = "mdi:bell"
 
     def __init__(
@@ -42,7 +43,6 @@ class FrigateNotificationSwitch(
         """Initialise le switch pour la caméra donnée."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
-        self._attr_name = "Notifications"
         self._attr_unique_id = f"fem_{cam_name}_switch"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, subentry_id)},

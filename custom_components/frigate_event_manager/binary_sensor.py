@@ -40,6 +40,7 @@ class FrigateMotionSensor(
     """
 
     _attr_has_entity_name = True
+    _attr_translation_key = "mouvement"
     _attr_device_class = BinarySensorDeviceClass.MOTION
     _attr_icon = "mdi:motion-sensor"
 
@@ -51,7 +52,6 @@ class FrigateMotionSensor(
         """Initialise le binary_sensor pour la caméra donnée."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
-        self._attr_name = "Mouvement"
         self._attr_unique_id = f"fem_{cam_name}_motion"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, subentry_id)},
