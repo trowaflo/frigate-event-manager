@@ -24,6 +24,16 @@ from .domain.ports import MediaSignerPort
 
 _LOGGER = logging.getLogger(__name__)
 
+# Titres des boutons d'action pour les notifications Companion
+_ACTION_BTN_TITLES: dict[str, str] = {
+    "clip": "Clip",
+    "snapshot": "Snapshot",
+    "preview": "Preview",
+    "silent_30min": "Silence 30 min",
+    "silent_1h": "Silence 1h",
+    "dismiss": "Ignorer",
+}
+
 
 class HANotifier:
     """Envoie des notifications HA (persistent_notification ou notify.xxx)."""
@@ -124,32 +134,22 @@ class HANotifier:
         if all(v == DEFAULT_ACTION_BTN for v in self._action_btns):
             return None
 
-        # Titres des boutons d'action
-        _TITLES: dict[str, str] = {
-            "clip": "Clip",
-            "snapshot": "Snapshot",
-            "preview": "Preview",
-            "silent_30min": "Silence 30 min",
-            "silent_1h": "Silence 1h",
-            "dismiss": "Ignorer",
-        }
-
         actions: list[dict] = []
         for btn_value in self._action_btns:
             if btn_value == DEFAULT_ACTION_BTN:
                 continue
             if btn_value == "clip" and media_urls.get("clip_url"):
-                actions.append({"action": "URI", "title": _TITLES["clip"], "uri": media_urls["clip_url"]})
+                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["clip"], "uri": media_urls["clip_url"]})
             elif btn_value == "snapshot" and media_urls.get("snapshot_url"):
-                actions.append({"action": "URI", "title": _TITLES["snapshot"], "uri": media_urls["snapshot_url"]})
+                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["snapshot"], "uri": media_urls["snapshot_url"]})
             elif btn_value == "preview" and media_urls.get("preview_url"):
-                actions.append({"action": "URI", "title": _TITLES["preview"], "uri": media_urls["preview_url"]})
+                actions.append({"action": "URI", "title": _ACTION_BTN_TITLES["preview"], "uri": media_urls["preview_url"]})
             elif btn_value == "silent_30min":
-                actions.append({"action": f"fem_silent_30min_{camera}", "title": _TITLES["silent_30min"]})
+                actions.append({"action": f"fem_silent_30min_{camera}", "title": _ACTION_BTN_TITLES["silent_30min"]})
             elif btn_value == "silent_1h":
-                actions.append({"action": f"fem_silent_1h_{camera}", "title": _TITLES["silent_1h"]})
+                actions.append({"action": f"fem_silent_1h_{camera}", "title": _ACTION_BTN_TITLES["silent_1h"]})
             elif btn_value == "dismiss":
-                actions.append({"action": "DISMISS_NOTIFICATION", "title": _TITLES["dismiss"]})
+                actions.append({"action": "DISMISS_NOTIFICATION", "title": _ACTION_BTN_TITLES["dismiss"]})
         return actions
 
     async def async_notify(self, event: FrigateEvent, *, critical: bool = False) -> None:
