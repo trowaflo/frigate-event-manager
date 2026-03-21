@@ -9,5 +9,6 @@
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/trowaflo/frigate-event-manager/issues",
+  "quality_scale": "custom",
   "requirements": []
 }
