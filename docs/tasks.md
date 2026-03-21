@@ -989,7 +989,6 @@
     495 tests passent, coverage global 99% (≥80%), ruff 0 erreur.
     Commit : 88b6eaa.
 
-
 ---
 
 ## Publication repo public
@@ -1053,13 +1052,9 @@
 - Blocks: —
 - Notes: |
     IaC : `vulnerability_alerts = true` déjà présent → Dependabot alerts actif.
-    À ajouter dans `github_repository` : bloc `security_and_analysis` pour secret scanning :
-    ```hcl
-    security_and_analysis {
-      secret_scanning { status = "enabled" }
-      secret_scanning_push_protection { status = "enabled" }
-    }
-    ```
+    À ajouter dans `github_repository` : bloc `security_and_analysis` pour secret scanning.
+    Bloc hcl : `security_and_analysis { secret_scanning { status = "enabled" }
+    secret_scanning_push_protection { status = "enabled" } }`
     NB : disponible uniquement si `visibility = "public"` (gratuit) ou GitHub Advanced Security payant.
 
 ### T-538 | Branch protection rules
@@ -1074,12 +1069,8 @@
 - Notes: |
     IaC : `github_branch_protection` actif pour les repos publics. Déjà couvert :
     linear history, no force push, no delete, conversation resolution.
-    À ajouter dans le bloc existant :
-    ```hcl
-    required_pull_request_reviews {
-      required_approving_review_count = 1
-    }
-    ```
+    À ajouter dans le bloc existant : `required_pull_request_reviews {
+    required_approving_review_count = 1 }`
     Signed commits (`require_signed_commits`) : OPTIONNEL — nécessite GPG configuré
     localement. Contraignant en solo. À activer seulement si GPG setup fait.
     Status checks (`contexts`) : renseigner les noms CI quand le workflow pytest/ruff
