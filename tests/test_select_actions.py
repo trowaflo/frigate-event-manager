@@ -299,9 +299,7 @@ async def test_async_setup_entry_ignore_subentry_non_camera() -> None:
 
     await async_setup_entry(MagicMock(), entry, mock_add_entities)
 
-    mock_add_entities.assert_called_once()
-    added = mock_add_entities.call_args[0][0]
-    assert len(added) == 0
+    mock_add_entities.assert_not_called()
 
 
 async def test_async_setup_entry_ignore_subentry_sans_coordinator() -> None:
@@ -320,9 +318,7 @@ async def test_async_setup_entry_ignore_subentry_sans_coordinator() -> None:
 
     await async_setup_entry(MagicMock(), entry, mock_add_entities)
 
-    mock_add_entities.assert_called_once()
-    added = mock_add_entities.call_args[0][0]
-    assert len(added) == 0
+    mock_add_entities.assert_not_called()
 
 
 async def test_async_setup_entry_valeurs_defaut_si_absentes() -> None:

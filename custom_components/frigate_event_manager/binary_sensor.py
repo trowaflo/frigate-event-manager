@@ -57,7 +57,6 @@ class FrigateMotionSensor(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     @property
@@ -95,7 +94,6 @@ class SilentStateSensor(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     @property

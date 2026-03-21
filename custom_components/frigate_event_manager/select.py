@@ -53,31 +53,32 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Crée les entités select boutons d'action par caméra."""
-    entities = []
     for subentry_id, subentry in entry.subentries.items():
         if subentry.subentry_type != SUBENTRY_TYPE_CAMERA:
             continue
         coordinator = entry.runtime_data.get(subentry_id)
         if coordinator is None:
             continue
-        entities.extend([
-            ActionButton1Select(
-                coordinator,
-                subentry_id,
-                subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
-            ),
-            ActionButton2Select(
-                coordinator,
-                subentry_id,
-                subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
-            ),
-            ActionButton3Select(
-                coordinator,
-                subentry_id,
-                subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
-            ),
-        ])
-    async_add_entities(entities)
+        async_add_entities(
+            [
+                ActionButton1Select(
+                    coordinator,
+                    subentry_id,
+                    subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
+                ),
+                ActionButton2Select(
+                    coordinator,
+                    subentry_id,
+                    subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
+                ),
+                ActionButton3Select(
+                    coordinator,
+                    subentry_id,
+                    subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
+                ),
+            ],
+            config_subentry_id=subentry_id,
+        )
 
 
 class SeverityFilterSelect(
@@ -112,7 +113,6 @@ class SeverityFilterSelect(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -159,7 +159,6 @@ class TapActionSelect(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -208,7 +207,6 @@ class _ActionButtonSelectBase(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     async def async_added_to_hass(self) -> None:

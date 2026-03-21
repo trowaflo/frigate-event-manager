@@ -51,7 +51,6 @@ class SilentButton(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     async def async_press(self) -> None:
@@ -81,7 +80,6 @@ class CancelSilentButton(
             identifiers={(DOMAIN, subentry_id)},
             name=f"Caméra {cam_name}",
             manufacturer="Frigate",
-            config_subentry_id=subentry_id,
         )
 
     async def async_press(self) -> None:
