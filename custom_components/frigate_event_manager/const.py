@@ -55,6 +55,16 @@ TAP_ACTION_PREVIEW = "preview"
 TAP_ACTION_OPTIONS = [TAP_ACTION_CLIP, TAP_ACTION_SNAPSHOT, TAP_ACTION_PREVIEW]
 DEFAULT_TAP_ACTION = TAP_ACTION_CLIP
 
+# Boutons d'action notification (select par caméra)
+CONF_ACTION_BTN1 = "action_btn1"
+CONF_ACTION_BTN2 = "action_btn2"
+CONF_ACTION_BTN3 = "action_btn3"
+DEFAULT_ACTION_BTN = "none"
+ACTION_BTN_OPTIONS = ["none", "clip", "snapshot", "preview", "silent_30min", "silent_1h", "dismiss"]
+
+# Event HA mobile app — action sur notification
+EVENT_MOBILE_APP_NOTIFICATION_ACTION = "mobile_app_notification_action"
+
 # Proxy media presigné
 PROXY_PATH_PREFIX = "/api/frigate_em/media"
 SIGNER_DOMAIN_KEY = "frigate_em_signer"

@@ -16,6 +16,10 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    ACTION_BTN_OPTIONS,
+    CONF_ACTION_BTN1,
+    CONF_ACTION_BTN2,
+    CONF_ACTION_BTN3,
     CONF_CAMERA,
     CONF_COOLDOWN,
     CONF_CRITICAL_TEMPLATE,
@@ -25,12 +29,14 @@ from .const import (
     CONF_SEVERITY,
     CONF_SILENT_DURATION,
     CONF_ZONES,
+    DEFAULT_ACTION_BTN,
     DEFAULT_DEBOUNCE,
     DEFAULT_MQTT_TOPIC,
     DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
+    EVENT_MOBILE_APP_NOTIFICATION_ACTION,
 )
 from .domain.filter import FilterChain, LabelFilter, SeverityFilter, TimeFilter, ZoneFilter
 from .domain.model import CameraState, _parse_event
@@ -101,6 +107,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             f"frigate_event_manager_{self._camera}",
         )
 
+        # Boutons d'action notification (configurable via entités select)
+        self._action_btn1: str = subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN)
+        self._action_btn2: str = subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN)
+        self._action_btn3: str = subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN)
+
+        # Désinscription du listener mobile_app_notification_action
+        self._unsubscribe_notif_action: Any = None
+
     @property
     def camera(self) -> str:
         """Nom de la caméra gérée par ce coordinator."""
@@ -155,6 +169,39 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Met à jour le template critique à chaud."""
         self._critical_template = tpl or None
 
+    def set_action_btn1(self, value: str) -> None:
+        """Met à jour le bouton d'action n°1 à chaud."""
+        self._action_btn1 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
+        self._sync_action_btns_to_notifier()
+
+    def set_action_btn2(self, value: str) -> None:
+        """Met à jour le bouton d'action n°2 à chaud."""
+        self._action_btn2 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
+        self._sync_action_btns_to_notifier()
+
+    def set_action_btn3(self, value: str) -> None:
+        """Met à jour le bouton d'action n°3 à chaud."""
+        self._action_btn3 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
+        self._sync_action_btns_to_notifier()
+
+    def _sync_action_btns_to_notifier(self) -> None:
+        """Propage les 3 boutons d'action au notifier."""
+        if self._notifier is not None and hasattr(self._notifier, "set_action_buttons"):
+            self._notifier.set_action_buttons(  # type: ignore[union-attr]
+                self._action_btn1, self._action_btn2, self._action_btn3
+            )
+
+    @callback
+    def _handle_notification_action(self, event: Any) -> None:
+        """Traite les événements mobile_app_notification_action — active le mode silencieux."""
+        action = event.data.get("action", "")
+        if action == f"fem_silent_30min_{self._camera}":
+            _LOGGER.debug("Action silent 30min reçue — caméra=%s", self._camera)
+            self.activate_silent_mode(duration_min=30)
+        elif action == f"fem_silent_1h_{self._camera}":
+            _LOGGER.debug("Action silent 1h reçue — caméra=%s", self._camera)
+            self.activate_silent_mode(duration_min=60)
+
     def _build_filter_chain(self) -> FilterChain:
         """Reconstruit la FilterChain depuis les attributs stockés."""
         return FilterChain([
@@ -195,15 +242,16 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
         self.async_set_updated_data(self._camera_state.as_dict())
 
-    def activate_silent_mode(self) -> None:
-        """Active le mode silencieux pour la durée configurée."""
+    def activate_silent_mode(self, *, duration_min: int | None = None) -> None:
+        """Active le mode silencieux pour la durée configurée (ou duration_min si fourni)."""
         if self._cancel_silent is not None:
             self._cancel_silent()
-        self._silent_until = time.time() + self._silent_duration * 60
+        effective_duration = duration_min if duration_min is not None else self._silent_duration
+        self._silent_until = time.time() + effective_duration * 60
 
         self._cancel_silent = async_call_later(
             self.hass,
-            self._silent_duration * 60,
+            effective_duration * 60,
             self._on_silent_expired,
         )
         # Persister la valeur pour survivre à un redémarrage HA
@@ -214,7 +262,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         _LOGGER.info(
             "Mode silencieux activé — caméra=%s durée=%d min",
             self._camera,
-            self._silent_duration,
+            effective_duration,
         )
 
     async def async_start(self) -> None:
@@ -224,6 +272,15 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._handle_mqtt_message,
         )
         _LOGGER.info("Souscrit MQTT — caméra=%s topic=%s", self._camera, DEFAULT_MQTT_TOPIC)
+
+        # Écoute des actions de notification mobile (silent_30min / silent_1h)
+        self._unsubscribe_notif_action = self.hass.bus.async_listen(
+            EVENT_MOBILE_APP_NOTIFICATION_ACTION,
+            self._handle_notification_action,
+        )
+
+        # Synchronisation initiale des boutons d'action avec le notifier
+        self._sync_action_btns_to_notifier()
 
         # Restaurer le mode silencieux depuis le Store si encore actif
         stored = await self._store.async_load() or {}
@@ -260,13 +317,16 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._store.async_remove()
 
     async def async_stop(self) -> None:
-        """Désabonnement MQTT."""
+        """Désabonnement MQTT et listener notification action."""
         if self._debounce_task is not None:
             self._debounce_task.cancel()
             self._debounce_task = None
         if self._cancel_silent is not None:
             self._cancel_silent()
             self._cancel_silent = None
+        if self._unsubscribe_notif_action is not None:
+            self._unsubscribe_notif_action()
+            self._unsubscribe_notif_action = None
         if self._unsubscribe_mqtt is not None:
             self._unsubscribe_mqtt()
             self._unsubscribe_mqtt = None

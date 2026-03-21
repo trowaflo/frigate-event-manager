@@ -1420,3 +1420,130 @@ class TestSettersLive:
 
         assert coordinator._silent_until == 0.0
         assert coordinator._cancel_silent is None
+
+
+# ---------------------------------------------------------------------------
+# Tests boutons d'action notification (T-532)
+# ---------------------------------------------------------------------------
+
+
+class TestActionBtns:
+    """Tests des setters boutons d'action et du listener notification_action."""
+
+    def test_set_action_btn1_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        coordinator.set_action_btn1("clip")
+        assert coordinator._action_btn1 == "clip"
+
+    def test_set_action_btn2_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        coordinator.set_action_btn2("snapshot")
+        assert coordinator._action_btn2 == "snapshot"
+
+    def test_set_action_btn3_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        coordinator.set_action_btn3("dismiss")
+        assert coordinator._action_btn3 == "dismiss"
+
+    def test_set_action_btn1_valeur_invalide_retourne_none(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        coordinator.set_action_btn1("invalide")
+        assert coordinator._action_btn1 == "none"
+
+    def test_set_action_btn1_delegue_au_notifier(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        mock_notifier = MagicMock()
+        mock_notifier.set_action_buttons = MagicMock()
+        coordinator._notifier = mock_notifier
+        coordinator.set_action_btn1("clip")
+        mock_notifier.set_action_buttons.assert_called_once_with("clip", "none", "none")
+
+    def test_set_action_btn1_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
+        coordinator = _make_coordinator(hass)
+        coordinator._notifier = None
+        coordinator.set_action_btn1("clip")  # ne doit pas lever d'exception
+
+    def test_valeurs_initiales_none(self, hass: HomeAssistant) -> None:
+        """Les boutons d'action sont 'none' par défaut."""
+        coordinator = _make_coordinator(hass)
+        assert coordinator._action_btn1 == "none"
+        assert coordinator._action_btn2 == "none"
+        assert coordinator._action_btn3 == "none"
+
+    def test_handle_notification_action_silent_30min(self, hass: HomeAssistant) -> None:
+        """L'action fem_silent_30min_{cam} active le mode silencieux 30 min."""
+        from types import SimpleNamespace
+
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+        coordinator.activate_silent_mode = MagicMock()
+
+        event = SimpleNamespace(data={"action": "fem_silent_30min_jardin"})
+        coordinator._handle_notification_action(event)
+
+        coordinator.activate_silent_mode.assert_called_once_with(duration_min=30)
+
+    def test_handle_notification_action_silent_1h(self, hass: HomeAssistant) -> None:
+        """L'action fem_silent_1h_{cam} active le mode silencieux 1h."""
+        from types import SimpleNamespace
+
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+        coordinator.activate_silent_mode = MagicMock()
+
+        event = SimpleNamespace(data={"action": "fem_silent_1h_jardin"})
+        coordinator._handle_notification_action(event)
+
+        coordinator.activate_silent_mode.assert_called_once_with(duration_min=60)
+
+    def test_handle_notification_action_autre_camera_ignoree(self, hass: HomeAssistant) -> None:
+        """L'action pour une autre caméra est ignorée."""
+        from types import SimpleNamespace
+
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+        coordinator.activate_silent_mode = MagicMock()
+
+        event = SimpleNamespace(data={"action": "fem_silent_30min_garage"})
+        coordinator._handle_notification_action(event)
+
+        coordinator.activate_silent_mode.assert_not_called()
+
+    def test_handle_notification_action_inconnue_ignoree(self, hass: HomeAssistant) -> None:
+        """Une action inconnue est ignorée sans exception."""
+        from types import SimpleNamespace
+
+        coordinator = _make_coordinator(hass, cam_name="jardin")
+        coordinator.activate_silent_mode = MagicMock()
+
+        event = SimpleNamespace(data={"action": "autre_action"})
+        coordinator._handle_notification_action(event)
+
+        coordinator.activate_silent_mode.assert_not_called()
+
+    def test_activate_silent_mode_avec_duration_min(self, hass: HomeAssistant) -> None:
+        """activate_silent_mode(duration_min=30) utilise 30 min au lieu de _silent_duration."""
+        import time
+
+        coordinator = _make_coordinator(hass)
+        coordinator._silent_duration = 60  # valeur par défaut de l'entité
+        coordinator._store = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+        coordinator.async_set_updated_data = MagicMock()
+
+        before = time.time()
+        coordinator.activate_silent_mode(duration_min=30)
+        after = time.time()
+
+        # Le _silent_until doit correspondre à ~30 min, pas 60
+        expected_min = before + 30 * 60
+        expected_max = after + 30 * 60
+        assert expected_min <= coordinator._silent_until <= expected_max
+
+    async def test_async_stop_desabonne_notif_action(self, hass: HomeAssistant) -> None:
+        """async_stop appelle le callable de désabonnement du listener notification_action."""
+        coordinator = _make_coordinator(hass)
+        mock_unsub = MagicMock()
+        coordinator._unsubscribe_notif_action = mock_unsub
+
+        await coordinator.async_stop()
+
+        mock_unsub.assert_called_once()
+        assert coordinator._unsubscribe_notif_action is None

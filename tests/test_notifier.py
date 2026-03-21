@@ -475,3 +475,143 @@ async def test_critical_true_persistent_notification_pas_de_push(hass: HomeAssis
     # persistent_notification.create ne reçoit pas de champ "push"
     assert calls[0].domain == "persistent_notification"
     assert "push" not in calls[0].data
+
+
+# ---------------------------------------------------------------------------
+# Tests boutons d'action notification (T-532)
+# ---------------------------------------------------------------------------
+
+
+def _make_notifier(hass: HomeAssistant, target: str = "notify.test_service") -> HANotifier:
+    return HANotifier(hass, target, frigate_url="http://frigate:5000")
+
+
+_MEDIA_URLS = {
+    "clip_url": "http://frigate:5000/api/events/evt1/clip.mp4",
+    "snapshot_url": "http://frigate:5000/api/events/evt1/snapshot.jpg",
+    "preview_url": "http://frigate:5000/api/review/rev1/preview",
+    "thumbnail_url": "http://frigate:5000/api/events/evt1/thumbnail.jpg",
+}
+_EMPTY_URLS: dict = {k: "" for k in _MEDIA_URLS}
+
+
+async def test_action_btns_tous_none_retourne_none(hass: HomeAssistant) -> None:
+    """Par défaut (tous 'none'), _build_actions_from_btns retourne None → auto-génération."""
+    notifier = _make_notifier(hass)
+    result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
+    assert result is None
+
+
+async def test_action_btns_clip_construit_action_uri(hass: HomeAssistant) -> None:
+    """btn1=clip → action URI avec l'URL clip."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("clip", "none", "none")
+    result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
+    assert result is not None
+    assert len(result) == 1
+    assert result[0]["action"] == "URI"
+    assert result[0]["uri"] == _MEDIA_URLS["clip_url"]
+    assert result[0]["title"] == "Clip"
+
+
+async def test_action_btns_snapshot_construit_action_uri(hass: HomeAssistant) -> None:
+    """btn1=snapshot → action URI avec l'URL snapshot."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("snapshot", "none", "none")
+    result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
+    assert result is not None
+    assert result[0]["uri"] == _MEDIA_URLS["snapshot_url"]
+
+
+async def test_action_btns_preview_construit_action_uri(hass: HomeAssistant) -> None:
+    """btn1=preview → action URI avec l'URL preview."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("preview", "none", "none")
+    result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
+    assert result is not None
+    assert result[0]["uri"] == _MEDIA_URLS["preview_url"]
+
+
+async def test_action_btns_silent_30min_construit_action_specifique(hass: HomeAssistant) -> None:
+    """btn1=silent_30min → action fem_silent_30min_{camera}."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("silent_30min", "none", "none")
+    result = notifier._build_actions_from_btns(_EMPTY_URLS, "jardin")
+    assert result is not None
+    assert len(result) == 1
+    assert result[0]["action"] == "fem_silent_30min_jardin"
+    assert result[0]["title"] == "Silence 30 min"
+
+
+async def test_action_btns_silent_1h_construit_action_specifique(hass: HomeAssistant) -> None:
+    """btn2=silent_1h → action fem_silent_1h_{camera}."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("none", "silent_1h", "none")
+    result = notifier._build_actions_from_btns(_EMPTY_URLS, "jardin")
+    assert result is not None
+    assert len(result) == 1
+    assert result[0]["action"] == "fem_silent_1h_jardin"
+    assert result[0]["title"] == "Silence 1h"
+
+
+async def test_action_btns_dismiss_construit_action_dismiss(hass: HomeAssistant) -> None:
+    """btn3=dismiss → action DISMISS_NOTIFICATION."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("none", "none", "dismiss")
+    result = notifier._build_actions_from_btns(_EMPTY_URLS, "jardin")
+    assert result is not None
+    assert len(result) == 1
+    assert result[0]["action"] == "DISMISS_NOTIFICATION"
+    assert result[0]["title"] == "Ignorer"
+
+
+async def test_action_btns_clip_sans_url_omis(hass: HomeAssistant) -> None:
+    """btn1=clip mais URL vide → le bouton est omis de la liste."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("clip", "none", "none")
+    result = notifier._build_actions_from_btns(_EMPTY_URLS, "jardin")
+    assert result is not None
+    assert len(result) == 0  # clip sans URL → omis
+
+
+async def test_action_btns_trois_boutons_differents(hass: HomeAssistant) -> None:
+    """3 boutons configurés → 3 actions construites."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("silent_30min", "dismiss", "silent_1h")
+    result = notifier._build_actions_from_btns(_EMPTY_URLS, "entree")
+    assert result is not None
+    assert len(result) == 3
+    assert result[0]["action"] == "fem_silent_30min_entree"
+    assert result[1]["action"] == "DISMISS_NOTIFICATION"
+    assert result[2]["action"] == "fem_silent_1h_entree"
+
+
+async def test_action_btns_configures_utilisees_dans_notification(hass: HomeAssistant) -> None:
+    """Avec _action_btns configurés, async_notify utilise les actions configurées."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.test_service")
+    notifier.set_action_buttons("silent_30min", "dismiss", "none")
+
+    await notifier.async_notify(_make_event(review_id=""))  # pas d'URLs médias
+
+    data = calls[0].data["data"]
+    assert "actions" in data
+    assert any(a["action"] == "fem_silent_30min_entree" for a in data["actions"])
+    assert any(a["action"] == "DISMISS_NOTIFICATION" for a in data["actions"])
+
+
+async def test_action_btns_tous_none_auto_generation_active(hass: HomeAssistant) -> None:
+    """Avec tous les boutons à 'none', le comportement auto-génération reste actif."""
+    calls = _register_mock_services(hass)
+    notifier = HANotifier(hass, "notify.test_service", frigate_url="http://frigate:5000")
+    # review_id vide → pas d'URLs → pas d'actions auto
+    await notifier.async_notify(_make_event(review_id=""))
+    data = calls[0].data["data"]
+    assert "actions" not in data
+
+
+async def test_set_action_buttons_met_a_jour_action_btns(hass: HomeAssistant) -> None:
+    """set_action_buttons met à jour _action_btns."""
+    notifier = _make_notifier(hass)
+    notifier.set_action_buttons("clip", "silent_30min", "dismiss")
+    assert notifier._action_btns == ["clip", "silent_30min", "dismiss"]

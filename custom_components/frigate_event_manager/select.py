@@ -1,4 +1,4 @@
-"""Entités select — non enregistrées (configuration déplacée dans le config flow)."""
+"""Entités select — boutons d'action notification par caméra."""
 
 from __future__ import annotations
 
@@ -11,10 +11,16 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FEMConfigEntry
 from .const import (
+    ACTION_BTN_OPTIONS,
+    CONF_ACTION_BTN1,
+    CONF_ACTION_BTN2,
+    CONF_ACTION_BTN3,
+    DEFAULT_ACTION_BTN,
     DEFAULT_SEVERITY,
     DEFAULT_TAP_ACTION,
     DOMAIN,
     SEVERITY_OPTIONS,
+    SUBENTRY_TYPE_CAMERA,
     TAP_ACTION_OPTIONS,
 )
 from .coordinator import FrigateEventManagerCoordinator
@@ -46,7 +52,32 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Aucune entité select créée — paramètres gérés dans le config flow."""
+    """Crée les entités select boutons d'action par caméra."""
+    entities = []
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_CAMERA:
+            continue
+        coordinator = entry.runtime_data.get(subentry_id)
+        if coordinator is None:
+            continue
+        entities.extend([
+            ActionButton1Select(
+                coordinator,
+                subentry_id,
+                subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
+            ),
+            ActionButton2Select(
+                coordinator,
+                subentry_id,
+                subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
+            ),
+            ActionButton3Select(
+                coordinator,
+                subentry_id,
+                subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
+            ),
+        ])
+    async_add_entities(entities)
 
 
 class SeverityFilterSelect(
@@ -144,3 +175,86 @@ class TapActionSelect(
         self._attr_current_option = option
         self.coordinator.set_tap_action(option)
         self.async_write_ha_state()
+
+
+class _ActionButtonSelectBase(
+    CoordinatorEntity[FrigateEventManagerCoordinator],
+    SelectEntity,
+    RestoreEntity,
+):
+    """Classe de base pour les selects boutons d'action notification."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:gesture-tap-button"
+    _attr_options = ACTION_BTN_OPTIONS
+
+    # À surcharger dans les sous-classes
+    _btn_key: str = ""
+
+    def __init__(
+        self,
+        coordinator: FrigateEventManagerCoordinator,
+        subentry_id: str,
+        initial: str,
+    ) -> None:
+        """Initialise le select bouton d'action."""
+        super().__init__(coordinator)
+        cam_name = coordinator.camera
+        self._attr_unique_id = f"fem_{cam_name}_{self._btn_key}"
+        self._attr_current_option = (
+            initial if initial in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
+        )
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, subentry_id)},
+            name=f"Caméra {cam_name}",
+            manufacturer="Frigate",
+            config_subentry_id=subentry_id,
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Restaure la valeur depuis l'état précédent si disponible."""
+        await super().async_added_to_hass()
+        state = await self.async_get_last_state()
+        if state is not None and state.state in ACTION_BTN_OPTIONS:
+            self._attr_current_option = state.state
+            self._apply_to_coordinator(state.state)
+
+    def _apply_to_coordinator(self, option: str) -> None:
+        """Délègue la valeur au coordinator — surchargé par chaque sous-classe."""
+        raise NotImplementedError
+
+    async def async_select_option(self, option: str) -> None:
+        """Met à jour le bouton d'action sur le coordinator en live."""
+        self._attr_current_option = option
+        self._apply_to_coordinator(option)
+        self.async_write_ha_state()
+
+
+class ActionButton1Select(_ActionButtonSelectBase):
+    """Bouton d'action n°1 dans les notifications."""
+
+    _attr_translation_key = "action_btn1"
+    _btn_key = "action_btn1"
+
+    def _apply_to_coordinator(self, option: str) -> None:
+        self.coordinator.set_action_btn1(option)
+
+
+class ActionButton2Select(_ActionButtonSelectBase):
+    """Bouton d'action n°2 dans les notifications."""
+
+    _attr_translation_key = "action_btn2"
+    _btn_key = "action_btn2"
+
+    def _apply_to_coordinator(self, option: str) -> None:
+        self.coordinator.set_action_btn2(option)
+
+
+class ActionButton3Select(_ActionButtonSelectBase):
+    """Bouton d'action n°3 dans les notifications."""
+
+    _attr_translation_key = "action_btn3"
+    _btn_key = "action_btn3"
+
+    def _apply_to_coordinator(self, option: str) -> None:
+        self.coordinator.set_action_btn3(option)

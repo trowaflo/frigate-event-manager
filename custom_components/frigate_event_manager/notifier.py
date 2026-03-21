@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import template as template_helper
 
 from .const import (
+    DEFAULT_ACTION_BTN,
     DEFAULT_NOTIF_MESSAGE,
     DEFAULT_NOTIF_TITLE,
     DEFAULT_TAP_ACTION,
@@ -45,6 +46,8 @@ class HANotifier:
         self._signer = signer
         self._frigate_url = frigate_url.rstrip("/") if frigate_url else None
         self._tap_action = tap_action
+        # Configurations des boutons d'action (none = pas de bouton)
+        self._action_btns: list[str] = [DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN]
 
     # --- Setters live (appelés par les entités text/select) ---
 
@@ -59,6 +62,10 @@ class HANotifier:
     def set_tap_action(self, tap_action: str) -> None:
         """Met à jour l'action au tap à chaud."""
         self._tap_action = tap_action
+
+    def set_action_buttons(self, btn1: str, btn2: str, btn3: str) -> None:
+        """Met à jour les 3 boutons d'action notification à chaud."""
+        self._action_btns = [btn1, btn2, btn3]
 
     def _render(self, tpl_str: str, variables: dict) -> str:
         """Rend un template Jinja2 HA avec les variables de l'événement."""
@@ -106,6 +113,44 @@ class HANotifier:
             "clip_url": clip_url,
             "thumbnail_url": thumbnail_url,
         }
+
+    def _build_actions_from_btns(
+        self, media_urls: dict[str, str], camera: str
+    ) -> list[dict] | None:
+        """Construit la liste des actions Companion depuis la config _action_btns.
+
+        Retourne None si tous les boutons sont 'none' (comportement auto-génération).
+        """
+        if all(v == DEFAULT_ACTION_BTN for v in self._action_btns):
+            return None
+
+        # Titres des boutons d'action
+        _TITLES: dict[str, str] = {
+            "clip": "Clip",
+            "snapshot": "Snapshot",
+            "preview": "Preview",
+            "silent_30min": "Silence 30 min",
+            "silent_1h": "Silence 1h",
+            "dismiss": "Ignorer",
+        }
+
+        actions: list[dict] = []
+        for btn_value in self._action_btns:
+            if btn_value == DEFAULT_ACTION_BTN:
+                continue
+            if btn_value == "clip" and media_urls.get("clip_url"):
+                actions.append({"action": "URI", "title": _TITLES["clip"], "uri": media_urls["clip_url"]})
+            elif btn_value == "snapshot" and media_urls.get("snapshot_url"):
+                actions.append({"action": "URI", "title": _TITLES["snapshot"], "uri": media_urls["snapshot_url"]})
+            elif btn_value == "preview" and media_urls.get("preview_url"):
+                actions.append({"action": "URI", "title": _TITLES["preview"], "uri": media_urls["preview_url"]})
+            elif btn_value == "silent_30min":
+                actions.append({"action": f"fem_silent_30min_{camera}", "title": _TITLES["silent_30min"]})
+            elif btn_value == "silent_1h":
+                actions.append({"action": f"fem_silent_1h_{camera}", "title": _TITLES["silent_1h"]})
+            elif btn_value == "dismiss":
+                actions.append({"action": "DISMISS_NOTIFICATION", "title": _TITLES["dismiss"]})
+        return actions
 
     async def async_notify(self, event: FrigateEvent, *, critical: bool = False) -> None:
         """Envoie une notification pour un événement Frigate de type 'new' ou 'update'."""
@@ -175,16 +220,23 @@ class HANotifier:
                 }
                 companion_data["channel"] = "frigate_critical"
 
-            # Boutons d'action — uniquement les URLs disponibles
-            actions = []
-            if media_urls["clip_url"]:
-                actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
-            if media_urls["snapshot_url"]:
-                actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
-            if media_urls["preview_url"]:
-                actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
-            if actions:
-                companion_data["actions"] = actions
+            # Boutons d'action — utilise _action_btns si configurés, sinon auto-génère
+            configured_actions = self._build_actions_from_btns(media_urls, event.camera)
+            if configured_actions is not None:
+                # Boutons configurés via entités select — liste peut être vide (boutons URI sans URL)
+                if configured_actions:
+                    companion_data["actions"] = configured_actions
+            else:
+                # Comportement legacy : génération automatique depuis les URLs disponibles
+                auto_actions: list[dict] = []
+                if media_urls["clip_url"]:
+                    auto_actions.append({"action": "URI", "title": "Clip", "uri": media_urls["clip_url"]})
+                if media_urls["snapshot_url"]:
+                    auto_actions.append({"action": "URI", "title": "Snapshot", "uri": media_urls["snapshot_url"]})
+                if media_urls["preview_url"]:
+                    auto_actions.append({"action": "URI", "title": "Preview", "uri": media_urls["preview_url"]})
+                if auto_actions:
+                    companion_data["actions"] = auto_actions
 
             parts = self._target.split(".", 1)
             if len(parts) == 2:
