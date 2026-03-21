@@ -870,17 +870,33 @@
 
 ### T-532 | Boutons d'action notification (3 selects)
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P2
-- Scope: `select.py`, `notifier.py`, `coordinator.py`, `strings.json`, `translations/`
+- Scope: `select.py`, `notifier.py`, `coordinator.py`, `const.py`, `__init__.py`, `strings.json`, `translations/`, `tests/test_select_actions.py`, `tests/test_coordinator.py`, `tests/test_notifier.py`
 - Locks: —
 - Depends: T-533
 - Blocks: —
 - Notes: |
-    3 entités select : "Action bouton 1", "Action bouton 2", "Action bouton 3".
-    unique_ids : fem_{cam}_action_btn1, fem_{cam}_action_btn2, fem_{cam}_action_btn3.
-    Options (mutuellement exclusives par bouton) :
-      none / clip / snapshot / preview / silent_30min / silent_1h / dismiss
-    Payload notification : `actions: [{action: "...", title: "..."}]` pour chaque bouton non-none.
-    Handler HA event `mobile_app_notification_action` à enregistrer dans coordinator.
+    3 entités select par caméra : `ActionButton1Select`, `ActionButton2Select`, `ActionButton3Select`.
+    unique_ids : `fem_{cam}_action_btn1`, `fem_{cam}_action_btn2`, `fem_{cam}_action_btn3`.
+    Options : none / clip / snapshot / preview / silent_30min / silent_1h / dismiss.
+    `const.py` : `CONF_ACTION_BTN1/2/3`, `DEFAULT_ACTION_BTN="none"`, `ACTION_BTN_OPTIONS`,
+      `EVENT_MOBILE_APP_NOTIFICATION_ACTION`.
+    `select.py` : `async_setup_entry` crée les 3 entités ; classe de base `_ActionButtonSelectBase` +
+      3 sous-classes ; RestoreEntity ; lecture valeur initiale depuis `subentry.data`.
+    `notifier.py` : `set_action_buttons(btn1, btn2, btn3)` + `_build_actions_from_btns(media_urls, camera)`.
+      Si tous les boutons sont "none" → auto-génération legacy. Sinon → actions configurées.
+      Actions URI (clip/snapshot/preview) omises si URL vide.
+    `coordinator.py` : `set_action_btn1/2/3()` + `_sync_action_btns_to_notifier()`.
+      Listener `mobile_app_notification_action` via `hass.bus.async_listen` dans `async_start`.
+      `_handle_notification_action()` : `fem_silent_30min_{cam}` → `activate_silent_mode(duration_min=30)`,
+      `fem_silent_1h_{cam}` → `activate_silent_mode(duration_min=60)`.
+      `activate_silent_mode` : paramètre `duration_min` optionnel (override de `_silent_duration`).
+    `__init__.py` : "select" ajouté dans PLATFORMS (était absent depuis T-533 avait vidé `async_setup_entry`).
+    strings.json + translations/en.json + translations/fr.json : noms entités + states pour les 3 selects.
+    tests/test_select_actions.py : 33 tests (unique_id, options, device_info, select_option, restore).
+    tests/test_coordinator.py (TestActionBtns) : 12 tests (setters, listener, activate_silent_mode duration).
+    tests/test_notifier.py : 13 tests (_build_actions_from_btns, set_action_buttons, intégration notify).
+    484 tests passent, coverage global 98% (≥80%), ruff 0 erreur.
+    Commit : a543a7b.
