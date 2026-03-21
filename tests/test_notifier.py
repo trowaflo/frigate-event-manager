@@ -314,7 +314,7 @@ async def test_companion_url_ios_et_clickaction_android(hass: HomeAssistant) -> 
 
 
 async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
-    """companion_data contient 'actions' avec boutons URI pour clip/snapshot/preview."""
+    """Sans boutons configurés, affiche uniquement le bouton silence."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -326,20 +326,22 @@ async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
 
     data = calls[0].data["data"]
     assert "actions" in data
-    action_titles = [a["title"] for a in data["actions"]]
-    assert "Clip" in action_titles
-    assert "Snapshot" in action_titles
+    assert len(data["actions"]) == 1
+    assert data["actions"][0]["title"] == "Silence 30 min"
+    assert data["actions"][0]["icon"] == "sfsymbols:speaker.zzz"
+    assert data["actions"][0]["destructive"] is True
 
 
 async def test_companion_pas_de_actions_sans_urls(hass: HomeAssistant) -> None:
-    """Sans URLs médias, companion_data n'a pas de 'actions'."""
+    """Sans URLs médias et sans boutons configurés, affiche le bouton silence."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     event = _make_event(review_id="")  # pas de review_id → pas d'URLs
     await notifier.async_notify(event)
 
     data = calls[0].data["data"]
-    assert "actions" not in data
+    assert "actions" in data
+    assert data["actions"][0]["title"] == "Silence 30 min"
     assert "image" not in data
 
 
@@ -600,14 +602,15 @@ async def test_action_btns_configures_utilisees_dans_notification(hass: HomeAssi
     assert any(a["action"] == "DISMISS_NOTIFICATION" for a in data["actions"])
 
 
-async def test_action_btns_tous_none_auto_generation_active(hass: HomeAssistant) -> None:
-    """Avec tous les boutons à 'none', le comportement auto-génération reste actif."""
+async def test_action_btns_tous_none_affiche_silence(hass: HomeAssistant) -> None:
+    """Avec tous les boutons à 'none', affiche uniquement le bouton silence."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.test_service", frigate_url="http://frigate:5000")
-    # review_id vide → pas d'URLs → pas d'actions auto
-    await notifier.async_notify(_make_event(review_id=""))
+    await notifier.async_notify(_make_event(review_id="", camera="jardin"))
     data = calls[0].data["data"]
-    assert "actions" not in data
+    assert len(data["actions"]) == 1
+    assert data["actions"][0]["action"] == "fem_silent_30min_jardin"
+    assert data["actions"][0]["destructive"] is True
 
 
 async def test_set_action_buttons_met_a_jour_action_btns(hass: HomeAssistant) -> None:

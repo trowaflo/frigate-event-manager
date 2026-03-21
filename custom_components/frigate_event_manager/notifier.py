@@ -246,16 +246,13 @@ class HANotifier:
                 if configured_actions:
                     companion_data["actions"] = configured_actions
             else:
-                # Comportement legacy : génération automatique depuis les URLs disponibles
-                auto_actions: list[dict] = []
-                if media_urls["clip_url"]:
-                    auto_actions.append({"action": "URI", "title": "Clip", "icon": "sfsymbols:video", "uri": media_urls["clip_url"]})
-                if media_urls["snapshot_url"]:
-                    auto_actions.append({"action": "URI", "title": "Snapshot", "icon": "sfsymbols:camera", "uri": media_urls["snapshot_url"]})
-                if media_urls["preview_url"]:
-                    auto_actions.append({"action": "URI", "title": "Preview", "icon": "sfsymbols:play.circle", "uri": media_urls["preview_url"]})
-                if auto_actions:
-                    companion_data["actions"] = auto_actions
+                # Tous les boutons à "none" — affiche uniquement le bouton silence
+                companion_data["actions"] = [{
+                    "action": f"fem_silent_30min_{event.camera}",
+                    "title": "Silence 30 min",
+                    "icon": "sfsymbols:speaker.zzz",
+                    "destructive": True,
+                }]
 
             parts = self._target.split(".", 1)
             if len(parts) == 2:
