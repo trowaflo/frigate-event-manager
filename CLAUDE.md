@@ -114,6 +114,20 @@ Agents avec scopes stricts pour les taches multi-composants :
     VIOLATION → issues manquees, commits groupes illisibles
 ```
 
+```text
+[RULE] bulk_micro_fixes:
+    IF:  reviewer identifie un fix <= 5 lignes (MINOR / INFO)
+    THEN: noter dans T-XXXb notes sous "PENDING_FIXUP"
+          orchestrateur route vers code-simplifier (T-XXXc), pas python-architect
+          code-simplifier applique tous les PENDING_FIXUP en un seul passage
+    NEVER: spawner python-architect pour un fix MINOR du reviewer
+    NEVER: creer un nouveau cycle pipeline pour corriger 1 ligne
+    WHY:   chaque cycle pipeline = ~20-30 appels API → cout x N pour rien
+    APPLIES_TO: reviewer (emetteur), orchestrateur (routeur)
+    NOT_APPLIES: quality-guard (scope tests uniquement, corrige dans son propre cycle)
+    VIOLATION → cycles inutiles detectes (ex: T-521 fixup sur 1 ligne strings.json)
+```
+
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
 - **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`

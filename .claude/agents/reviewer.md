@@ -106,6 +106,6 @@ Doc: UPDATE_NEEDED
 Severity: MINOR | MAJOR | BLOCKING
 ```
 
-- **MINOR** → l'architect corrige si le temps le permet, sinon passe
+- **MINOR / INFO** → noter dans les Notes de la tâche sous `PENDING_FIXUP`. **Ne jamais spawner python-architect pour un fix MINOR.** Le code-simplifier les appliquera tous en un seul passage.
 - **MAJOR** → l'architect corrige avant DONE
 - **BLOCKING** → HITL obligatoire, PR bloquée

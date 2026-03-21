@@ -79,6 +79,7 @@ T-XXX+3 | [Feature] — simplification   → code-simplifier  (dépend T-XXX+1, 
 - T-XXX+3 attend les deux
 - Si le reviewer émet REVIEW_NEEDED BLOCKING → HITL avant de continuer
 - Si quality-guard émet REJECTED → python-architect reprend avant T-XXX+3
+- Si le reviewer émet des MINOR/INFO → **NE PAS spawner python-architect**. Le code-simplifier (T-XXX+3) les applique en batch. Un nouveau cycle python-architect pour 1 ligne = ~20 appels API perdus.
 
 Pour les tâches frontend ou sre-cloud, remplacer python-architect par l'agent concerné. Le reviewer et quality-guard s'appliquent toujours.
 
