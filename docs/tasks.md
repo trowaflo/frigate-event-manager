@@ -900,3 +900,92 @@
     tests/test_notifier.py : 13 tests (_build_actions_from_btns, set_action_buttons, intégration notify).
     484 tests passent, coverage global 98% (≥80%), ruff 0 erreur.
     Commit : a543a7b.
+
+### T-532b | Review — boutons d'action notification (3 selects)
+
+- Status: APPROVED
+- Owner: reviewer
+- Reviewer: reviewer
+- Security: SECURITY_OK
+- Doc: NO_CHANGE_NEEDED
+- Severity: MINOR
+- Depends: T-532
+- Blocks: —
+- Notes: |
+    SECURITY_OK — listener `_handle_notification_action` : les action IDs
+      `fem_silent_30min_{camera}` et `fem_silent_1h_{camera}` utilisent `self._camera`
+      issu de `subentry.data[CONF_CAMERA]`. La valeur est choisie via SelectSelector
+      dropdown depuis la liste officielle des caméras Frigate — pas de saisie libre,
+      pas d'injection possible.
+    SECURITY_OK — `html.escape()` appliqué sur tous les champs dynamiques dans
+      `notifier.py` (camera, objects, zones, severity, review_id). Aucun secret loggé.
+    SECURITY_OK — valeurs des boutons (btn1/2/3) validées dans `set_action_btn1/2/3`
+      via `if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN` avant tout usage.
+    MINOR — `notifier.py:174` : `notification_id = f"frigate_{event.camera}_{event.review_id}"`
+      utilise des champs MQTT bruts (non-échappés) comme tag de notification HA.
+      Si le payload MQTT est falsifié (broker non sécurisé), un `review_id` avec
+      caractères spéciaux pourrait corrompre le tag. Impact limité (pas de vulnérabilité
+      RCE) mais la validation du format `review_id` (UUID attendu) serait un durcissement
+      utile. Non bloquant — à corriger si le broker MQTT est exposé publiquement.
+    MINOR — `notifier.py:128-135` : `_TITLES` dict défini à l'intérieur de
+      `_build_actions_from_btns` à chaque appel. Pattern magic strings non constants.
+      À déplacer au niveau module (constante `_ACTION_BTN_TITLES`) en T-532c ou
+      lors d'un prochain passage code-simplifier.
+    INFO — `select.py:19-25` : imports `DEFAULT_SEVERITY`, `SEVERITY_OPTIONS`,
+      `TAP_ACTION_OPTIONS`, `DEFAULT_TAP_ACTION` uniquement utilisés par les classes
+      dead code `SeverityFilterSelect`/`TapActionSelect` (T-533). Nettoyage différé
+      à la suppression de ces classes.
+    Qualité HA : `unique_id` format `fem_{cam}_{key}` conforme. `CoordinatorEntity` +
+      `SelectEntity` + `RestoreEntity` correct. `config_subentry_id` présent dans
+      `DeviceInfo`. `async_setup_entry` présent. `_apply_to_coordinator` correctement
+      abstrait via la classe de base `_ActionButtonSelectBase`.
+    Traductions : `strings.json` / `en.json` / `fr.json` cohérentes et complètes.
+      7 states traduits pour chacun des 3 selects (none/clip/snapshot/preview/
+      silent_30min/silent_1h/dismiss). Aucune clé manquante.
+    Correctness : actions URI (clip/snapshot/preview) omises silencieusement si URL
+      vide — comportement documenté et cohérent. Cleanup listener dans `async_stop`
+      correct (`_unsubscribe_notif_action()` appelé). `_sync_action_btns_to_notifier`
+      appelé dans `async_start` pour init initiale — correct.
+    Tests : 33 tests `test_select_actions.py` couvrent unique_id, options, device_info,
+      select_option, restore (valide/invalide/absent). Complets.
+
+### T-532c | Tests — boutons d'action notification (quality-guard)
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_select_actions.py`, `tests/test_notifier.py`
+- Locks: —
+- Depends: T-532b
+- Blocks: —
+- Notes: |
+    495 tests passent, coverage global 99% (≥80%). 11 tests ajoutés.
+    `notifier.py` : 100% (était 98%) — setters live couverts :
+      `set_title_template`, `set_message_template` (valeur custom + None restaure défaut).
+      `set_tap_action` (snapshot + clip). 6 tests ajoutés dans `test_notifier.py`.
+    `select.py` : 100% (était 91%) — ajouts dans `test_select_actions.py` :
+      `TestActionButtonSelectBaseNotImplemented` (1 test) — `_apply_to_coordinator`
+      lève `NotImplementedError` dans la classe de base.
+      `test_async_setup_entry_*` (4 tests) — crée 3 entités par subentry caméra,
+      ignore subentry non-camera, ignore subentry sans coordinator, valeurs par défaut.
+    `coordinator.py` : 100% (inchangé).
+    ruff 0 erreur.
+
+### T-532d | Simplification — boutons d'action notification (code-simplifier)
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `custom_components/frigate_event_manager/notifier.py`
+- Locks: —
+- Depends: T-532b, T-532c
+- Blocks: —
+- Notes: |
+    MINOR T-532b corrigé : `_TITLES` extrait en constante module `_ACTION_BTN_TITLES`
+      dans `notifier.py` (lignes 28-35). Dict n'est plus recréé à chaque appel de
+      `_build_actions_from_btns`.
+    Vérification générale : `config_flow.py` (5 helpers T-533b) propre, `coordinator.py`
+      (setters `set_action_btn1/2/3` + `_sync_action_btns_to_notifier`) propre.
+    INFO `select.py` imports dead code : différé comme demandé (classes vestige T-533).
+    MINOR `review_id` UUID validation : non implémenté (over-engineering pour projet local).
+    495 tests passent, coverage global 99% (≥80%), ruff 0 erreur.
+    Commit : 88b6eaa.
+
