@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
 
 from custom_components.frigate_event_manager.domain.filter import (
     Filter,

@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.const import PROXY_CLIENT_KEY, SIGNER_DOMAIN_KEY

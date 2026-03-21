@@ -1265,3 +1265,95 @@ async def test_subentry_reconfigure_sans_champs_entites(hass: HomeAssistant) -> 
 
     assert r_final["type"] == FlowResultType.ABORT
     assert r_final["reason"] == "reconfigure_successful"
+
+
+async def test_subentry_reconfigure_critical_template_custom(hass: HomeAssistant) -> None:
+    """Reconfigure avec preset custom → utilise critical_template_custom."""
+    entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
+
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r3 = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "subentry_id": subentry_id,
+            },
+        )
+        # Étapes 1 à 3
+        r4 = await hass.config_entries.subentries.async_configure(
+            r3["flow_id"],
+            user_input={CONF_NOTIFY_TARGET: PERSISTENT_NOTIFICATION},
+        )
+        r5 = await hass.config_entries.subentries.async_configure(
+            r4["flow_id"],
+            user_input={
+                CONF_ZONES: [],
+                CONF_LABELS: [],
+                CONF_DISABLED_HOURS: [],
+                CONF_SEVERITY: DEFAULT_SEVERITY,
+            },
+        )
+        r6 = await hass.config_entries.subentries.async_configure(
+            r5["flow_id"],
+            user_input={
+                CONF_COOLDOWN: DEFAULT_THROTTLE_COOLDOWN,
+                CONF_DEBOUNCE: DEFAULT_DEBOUNCE,
+                CONF_SILENT_DURATION: DEFAULT_SILENT_DURATION,
+                CONF_TAP_ACTION: "clip",
+            },
+        )
+        # Étape 4 reconfigure — notifications avec preset custom
+        r_final = await hass.config_entries.subentries.async_configure(
+            r6["flow_id"],
+            user_input={
+                CONF_NOTIF_TITLE: "",
+                CONF_NOTIF_MESSAGE: "",
+                CONF_CRITICAL_TEMPLATE: "custom",
+                "critical_template_custom": "{{ severity == 'alert' }}",
+            },
+        )
+
+    assert r_final["type"] == FlowResultType.ABORT
+    assert r_final["reason"] == "reconfigure_successful"
+
+
+async def test_subentry_reconfigure_critical_template_preset_nuit(hass: HomeAssistant) -> None:
+    """Reconfigure avec preset nuit → template nuit stocké (branche else)."""
+    entry_id = await _create_entry(hass)
+    subentry_id = await _create_subentry(hass, entry_id)
+    night_preset = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
+
+    with (
+        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
+        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
+        patch(PATCH_SETUP, return_value=True),
+    ):
+        r3 = await hass.config_entries.subentries.async_init(
+            (entry_id, SUBENTRY_TYPE_CAMERA),
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "subentry_id": subentry_id,
+            },
+        )
+        r_final = await _complete_reconfigure_flow(
+            hass, r3["flow_id"], critical_template=night_preset
+        )
+
+    assert r_final["type"] == FlowResultType.ABORT
+    assert r_final["reason"] == "reconfigure_successful"
+
+
+async def test_critical_template_to_preset_retourne_tpl_si_preset_connu() -> None:
+    """_critical_template_to_preset retourne le template lui-même si c'est un preset connu."""
+    from custom_components.frigate_event_manager.config_flow import (
+        _critical_template_to_preset,
+    )
+
+    night_preset = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
+    assert _critical_template_to_preset(night_preset) == night_preset
+    assert _critical_template_to_preset("true") == "true"

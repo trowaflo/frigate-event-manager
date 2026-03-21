@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
 
 from custom_components.frigate_event_manager.domain.signer import MediaSigner
 
@@ -70,11 +69,10 @@ def test_verify_url_expiree() -> None:
     from urllib.parse import parse_qs, urlparse
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
-    exp_str = params["exp"][0]
     sig = params["sig"][0]
 
     # Avancer le temps au-delà du TTL
-    future_signer = MediaSigner(
+    MediaSigner(
         "https://ha.local/api/frigate_em/media",
         ttl=3600,
         _now=lambda: now + 7200,

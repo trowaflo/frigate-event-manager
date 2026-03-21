@@ -127,6 +127,35 @@ class TestAsyncMigrateEntry:
 
         assert result is True
 
+    async def test_migration_v4_migre_vers_v5(self, hass: HomeAssistant) -> None:
+        """Une entry en v4 migre vers v5 (config flow multi-écrans) sans transformation de données."""
+        from custom_components.frigate_event_manager import async_migrate_entry
+
+        entry = _make_entry(version=4)
+
+        with patch.object(hass.config_entries, "async_update_entry") as mock_update:
+            result = await async_migrate_entry(hass, entry)
+
+        assert result is True
+        mock_update.assert_called_once()
+        call_kwargs = mock_update.call_args[1]
+        assert call_kwargs.get("version") == 5
+        assert call_kwargs.get("minor_version") == 1
+
+    async def test_migration_v5_retourne_true_sans_modification(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Une entry déjà en v5 retourne True sans appeler async_update_entry."""
+        from custom_components.frigate_event_manager import async_migrate_entry
+
+        entry = _make_entry(version=5)
+
+        with patch.object(hass.config_entries, "async_update_entry") as mock_update:
+            result = await async_migrate_entry(hass, entry)
+
+        assert result is True
+        mock_update.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Tests async_setup_entry

@@ -1137,6 +1137,50 @@ class TestSilentModeAvance:
 
         await coordinator.async_stop()  # ne doit pas lever d'exception
 
+    async def test_async_cancel_silent_annule_timer_et_remet_zero(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_cancel_silent annule le timer, remet _silent_until à 0.0 et sauvegarde."""
+        coordinator = _make_coordinator(hass)
+        coordinator.activate_silent_mode()
+        assert coordinator._cancel_silent is not None
+
+        mock_cancel = MagicMock()
+        coordinator._cancel_silent = mock_cancel
+        coordinator._store = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+
+        await coordinator.async_cancel_silent()
+
+        mock_cancel.assert_called_once()
+        assert coordinator._cancel_silent is None
+        assert coordinator._silent_until == 0.0
+
+    async def test_async_cancel_silent_sans_timer_actif_ne_crash_pas(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_cancel_silent sans silent mode actif ne lève aucune exception."""
+        coordinator = _make_coordinator(hass)
+        assert coordinator._cancel_silent is None
+
+        coordinator._store = MagicMock()
+        coordinator._store.async_save = AsyncMock()
+
+        await coordinator.async_cancel_silent()  # ne doit pas lever d'exception
+        assert coordinator._silent_until == 0.0
+
+    async def test_async_remove_store_appelle_store_async_remove(
+        self, hass: HomeAssistant
+    ) -> None:
+        """async_remove_store délègue à self._store.async_remove()."""
+        coordinator = _make_coordinator(hass)
+        coordinator._store = MagicMock()
+        coordinator._store.async_remove = AsyncMock()
+
+        await coordinator.async_remove_store()
+
+        coordinator._store.async_remove.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Tests de la persistance du silent mode via Store

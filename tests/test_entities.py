@@ -13,7 +13,6 @@ from custom_components.frigate_event_manager.binary_sensor import (
     FrigateMotionSensor,
     SilentStateSensor,
 )
-from custom_components.frigate_event_manager.const import DOMAIN
 from custom_components.frigate_event_manager.domain.model import CameraState
 from custom_components.frigate_event_manager.sensor import SilentUntilSensor
 from custom_components.frigate_event_manager.switch import FrigateNotificationSwitch
