@@ -1,4 +1,4 @@
-"""Entités text — templates Jinja2 par caméra (titre, message, condition critique)."""
+"""Entités text — non enregistrées (configuration déplacée dans le config flow)."""
 
 from __future__ import annotations
 
@@ -10,12 +10,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FEMConfigEntry
-from .const import (
-    CONF_CRITICAL_TEMPLATE,
-    CONF_NOTIF_MESSAGE,
-    CONF_NOTIF_TITLE,
-    DOMAIN,
-)
+from .const import DOMAIN
 from .coordinator import FrigateEventManagerCoordinator
 
 
@@ -24,32 +19,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée les entités text (notif_title, notif_message, critical_template) par caméra."""
-    entities: list[TextEntity] = []
-    for subentry_id, coordinator in entry.runtime_data.items():
-        subentry = entry.subentries[subentry_id]
-        entities.append(
-            NotifTitleText(
-                coordinator,
-                subentry_id,
-                initial=subentry.data.get(CONF_NOTIF_TITLE) or "",
-            )
-        )
-        entities.append(
-            NotifMessageText(
-                coordinator,
-                subentry_id,
-                initial=subentry.data.get(CONF_NOTIF_MESSAGE) or "",
-            )
-        )
-        entities.append(
-            CriticalTemplateText(
-                coordinator,
-                subentry_id,
-                initial=subentry.data.get(CONF_CRITICAL_TEMPLATE) or "",
-            )
-        )
-    async_add_entities(entities)
+    """Aucune entité text créée — paramètres gérés dans le config flow."""
 
 
 class _FEMTextBase(

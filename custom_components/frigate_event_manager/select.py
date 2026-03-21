@@ -1,4 +1,4 @@
-"""Entités select — severity_filter et tap_action par caméra."""
+"""Entités select — non enregistrées (configuration déplacée dans le config flow)."""
 
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FEMConfigEntry
 from .const import (
-    CONF_SEVERITY,
-    CONF_TAP_ACTION,
     DEFAULT_SEVERITY,
     DEFAULT_TAP_ACTION,
     DOMAIN,
@@ -48,19 +46,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée les entités select (severity + tap_action) par caméra configurée."""
-    entities: list[SelectEntity] = []
-    for subentry_id, coordinator in entry.runtime_data.items():
-        subentry = entry.subentries[subentry_id]
-        initial_severity = subentry.data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
-        initial_tap = subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION)
-        entities.append(
-            SeverityFilterSelect(coordinator, subentry_id, initial=initial_severity)
-        )
-        entities.append(
-            TapActionSelect(coordinator, subentry_id, initial=initial_tap)
-        )
-    async_add_entities(entities)
+    """Aucune entité select créée — paramètres gérés dans le config flow."""
 
 
 class SeverityFilterSelect(

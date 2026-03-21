@@ -35,24 +35,95 @@
           }
         },
         "configure": {
-          "title": "Configurer la caméra",
+          "title": "Service de notification",
+          "data": {
+            "notify_target": "Service de notification"
+          }
+        },
+        "configure_filters": {
+          "title": "Filtres de détection",
           "description": "{warning}",
           "data": {
-            "notify_target": "Service de notification",
             "zones": "Zones requises (vide = toutes)",
             "labels": "Objets détectés (vide = tous)",
             "disabled_hours": "Heures bloquées (vide = aucune)",
-            "silent_duration": "Durée silence (min)"
+            "severity": "Types d'événements"
+          }
+        },
+        "configure_behavior": {
+          "title": "Comportement",
+          "data": {
+            "cooldown": "Cooldown anti-spam",
+            "debounce": "Fenêtre de regroupement",
+            "silent_duration": "Durée du silence",
+            "tap_action": "Action au tap"
+          },
+          "data_description": {
+            "cooldown": "Temps minimum (secondes) entre deux notifications pour la même caméra.",
+            "debounce": "Fenêtre d'accumulation (secondes) avant l'envoi d'une notification groupée.",
+            "silent_duration": "Durée (minutes) du mode silencieux lors de l'activation.",
+            "tap_action": "Média ouvert en appuyant sur la notification."
+          }
+        },
+        "configure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Titre de la notification",
+            "notification_message": "Message de la notification",
+            "critical_template": "Condition critique",
+            "critical_template_custom": "Template critique personnalisé"
+          },
+          "data_description": {
+            "notification_title": "Template Jinja2. Variables : camera, severity, objects, zones, start_time. Exemple : Frigate — {{ camera }}",
+            "notification_message": "Template Jinja2. Exemple : {{ objects | join(', ') or 'inconnu' }} détecté ({{ severity }})",
+            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger).",
+            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
           }
         },
         "reconfigure": {
-          "title": "Modifier la caméra",
+          "title": "Service de notification",
           "data": {
-            "notify_target": "Service de notification",
+            "notify_target": "Service de notification"
+          }
+        },
+        "reconfigure_filters": {
+          "title": "Filtres de détection",
+          "description": "{warning}",
+          "data": {
             "zones": "Zones requises (vide = toutes)",
             "labels": "Objets détectés (vide = tous)",
             "disabled_hours": "Heures bloquées (vide = aucune)",
-            "silent_duration": "Durée silence (min)"
+            "severity": "Types d'événements"
+          }
+        },
+        "reconfigure_behavior": {
+          "title": "Comportement",
+          "data": {
+            "cooldown": "Cooldown anti-spam",
+            "debounce": "Fenêtre de regroupement",
+            "silent_duration": "Durée du silence",
+            "tap_action": "Action au tap"
+          },
+          "data_description": {
+            "cooldown": "Temps minimum (secondes) entre deux notifications pour la même caméra.",
+            "debounce": "Fenêtre d'accumulation (secondes) avant l'envoi d'une notification groupée.",
+            "silent_duration": "Durée (minutes) du mode silencieux lors de l'activation.",
+            "tap_action": "Média ouvert en appuyant sur la notification."
+          }
+        },
+        "reconfigure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Titre de la notification",
+            "notification_message": "Message de la notification",
+            "critical_template": "Condition critique",
+            "critical_template_custom": "Template critique personnalisé"
+          },
+          "data_description": {
+            "notification_title": "Template Jinja2. Variables : camera, severity, objects, zones, start_time. Exemple : Frigate — {{ camera }}",
+            "notification_message": "Template Jinja2. Exemple : {{ objects | join(', ') or 'inconnu' }} détecté ({{ severity }})",
+            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger).",
+            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
           }
         }
       },
@@ -80,11 +151,13 @@
         "detection": "Détection"
       }
     },
-    "severity_filter": {
+    "critical_template": {
       "options": {
-        "alert": "Alerte (objet en zone)",
-        "detection": "Détection",
-        "alert,detection": "Alerte et Détection"
+        "false": "Jamais critique",
+        "true": "Toujours critique",
+        "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Nuit uniquement (22h–8h)",
+        "{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}": "Plage nuit personnalisée (sensors)",
+        "custom": "Template personnalisé..."
       }
     }
   },
@@ -132,43 +205,6 @@
     "sensor": {
       "silent_until": {
         "name": "Reprise des notifications"
-      }
-    },
-    "number": {
-      "cooldown": {
-        "name": "Cooldown anti-spam"
-      },
-      "debounce": {
-        "name": "Fenêtre de regroupement"
-      }
-    },
-    "select": {
-      "severity_filter": {
-        "name": "Types d'événements",
-        "state": {
-          "alert": "Alerte (objet en zone)",
-          "detection": "Détection",
-          "alert,detection": "Alerte et Détection"
-        }
-      },
-      "tap_action": {
-        "name": "Action au tap",
-        "state": {
-          "clip": "Clip vidéo",
-          "snapshot": "Photo",
-          "preview": "Prévisualisation"
-        }
-      }
-    },
-    "text": {
-      "notif_title": {
-        "name": "Titre de la notification"
-      },
-      "notif_message": {
-        "name": "Message de la notification"
-      },
-      "critical_template": {
-        "name": "Condition critique"
       }
     }
   }

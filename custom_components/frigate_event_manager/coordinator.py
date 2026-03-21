@@ -121,7 +121,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
 
-    # --- Setters live pour les entités de réglage (number / select / text) ---
+    # --- Setters conservés pour la compatibilité des tests ---
 
     def set_cooldown(self, seconds: int) -> None:
         """Met à jour le cooldown anti-spam à chaud."""

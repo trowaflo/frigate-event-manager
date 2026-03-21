@@ -35,24 +35,95 @@
           }
         },
         "configure": {
-          "title": "Configure camera",
+          "title": "Notification service",
+          "data": {
+            "notify_target": "Notification service"
+          }
+        },
+        "configure_filters": {
+          "title": "Detection filters",
           "description": "{warning}",
           "data": {
-            "notify_target": "Notification service",
             "zones": "Required zones (empty = all)",
             "labels": "Detected objects (empty = all)",
             "disabled_hours": "Blocked hours (empty = none)",
-            "silent_duration": "Silent duration (min)"
+            "severity": "Event types"
+          }
+        },
+        "configure_behavior": {
+          "title": "Behavior",
+          "data": {
+            "cooldown": "Anti-spam cooldown",
+            "debounce": "Debounce window",
+            "silent_duration": "Silent duration",
+            "tap_action": "Tap action"
+          },
+          "data_description": {
+            "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
+            "debounce": "Accumulation window (seconds) before sending a grouped notification.",
+            "silent_duration": "Duration (minutes) of silent mode when activated.",
+            "tap_action": "Media opened when tapping the notification."
+          }
+        },
+        "configure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Notification title",
+            "notification_message": "Notification message",
+            "critical_template": "Critical condition",
+            "critical_template_custom": "Custom critical template"
+          },
+          "data_description": {
+            "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
+            "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
+            "critical_template": "Condition for sending a critical notification (overrides DND).",
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         },
         "reconfigure": {
-          "title": "Edit camera",
+          "title": "Notification service",
           "data": {
-            "notify_target": "Notification service",
+            "notify_target": "Notification service"
+          }
+        },
+        "reconfigure_filters": {
+          "title": "Detection filters",
+          "description": "{warning}",
+          "data": {
             "zones": "Required zones (empty = all)",
             "labels": "Detected objects (empty = all)",
             "disabled_hours": "Blocked hours (empty = none)",
-            "silent_duration": "Silent duration (min)"
+            "severity": "Event types"
+          }
+        },
+        "reconfigure_behavior": {
+          "title": "Behavior",
+          "data": {
+            "cooldown": "Anti-spam cooldown",
+            "debounce": "Debounce window",
+            "silent_duration": "Silent duration",
+            "tap_action": "Tap action"
+          },
+          "data_description": {
+            "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
+            "debounce": "Accumulation window (seconds) before sending a grouped notification.",
+            "silent_duration": "Duration (minutes) of silent mode when activated.",
+            "tap_action": "Media opened when tapping the notification."
+          }
+        },
+        "reconfigure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Notification title",
+            "notification_message": "Notification message",
+            "critical_template": "Critical condition",
+            "critical_template_custom": "Custom critical template"
+          },
+          "data_description": {
+            "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
+            "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
+            "critical_template": "Condition for sending a critical notification (overrides DND).",
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         }
       },
@@ -80,11 +151,13 @@
         "detection": "Detection"
       }
     },
-    "severity_filter": {
+    "critical_template": {
       "options": {
-        "alert": "Alert (object in zone)",
-        "detection": "Detection",
-        "alert,detection": "Alert and Detection"
+        "false": "Never critical",
+        "true": "Always critical",
+        "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Night only (10pm–8am)",
+        "{{ states('sensor.fin_nuit') <= now().strftime('%H:%M') <= states('sensor.debut_nuit') }}": "Custom night range (sensors)",
+        "custom": "Custom template..."
       }
     }
   },
@@ -132,43 +205,6 @@
     "sensor": {
       "silent_until": {
         "name": "Notifications resume"
-      }
-    },
-    "number": {
-      "cooldown": {
-        "name": "Anti-spam cooldown"
-      },
-      "debounce": {
-        "name": "Debounce window"
-      }
-    },
-    "select": {
-      "severity_filter": {
-        "name": "Event types",
-        "state": {
-          "alert": "Alert (object in zone)",
-          "detection": "Detection",
-          "alert,detection": "Alert and Detection"
-        }
-      },
-      "tap_action": {
-        "name": "Tap action",
-        "state": {
-          "clip": "Clip",
-          "snapshot": "Snapshot",
-          "preview": "Preview"
-        }
-      }
-    },
-    "text": {
-      "notif_title": {
-        "name": "Notification title"
-      },
-      "notif_message": {
-        "name": "Notification message"
-      },
-      "critical_template": {
-        "name": "Critical condition"
       }
     }
   }

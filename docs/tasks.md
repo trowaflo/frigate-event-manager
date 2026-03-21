@@ -782,7 +782,7 @@
 
 ### T-533 | Refonte — config flow multi-écrans + nettoyage entités
 
-- Status: TODO
+- Status: IN_PROGRESS — Lock: python-architect
 - Owner: python-architect
 - Priority: P1
 - Scope: `config_flow.py`, `number.py`, `select.py`, `text.py`, `__init__.py`, `coordinator.py`, `strings.json`, `translations/`, `tests/`

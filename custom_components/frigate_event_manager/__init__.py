@@ -35,7 +35,7 @@ from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "binary_sensor", "button", "sensor", "number", "select", "text"]
+PLATFORMS = ["switch", "binary_sensor", "button", "sensor"]
 
 type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
 
@@ -43,7 +43,7 @@ type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
 async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
     """Migration des config entries vers la version actuelle."""
     _LOGGER.debug(
-        "Migration de la version %d.%d vers 3.1",
+        "Migration de la version %d.%d",
         entry.version,
         entry.minor_version,
     )
@@ -58,14 +58,20 @@ async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> boo
         return True
 
     if entry.version == 3:
-        # v3 -> v4 : les paramètres de réglage (cooldown, debounce, severity, tap_action,
-        # notif_title, notif_message, critical_template) restent dans subentry.data
-        # pour l'initialisation des entités — aucune transformation nécessaire.
+        # v3 -> v4 : les paramètres de réglage restent dans subentry.data — aucune transformation.
         hass.config_entries.async_update_entry(entry, version=4, minor_version=1)
         _LOGGER.info("Migration v3 -> v4 terminée")
         return True
 
     if entry.version == 4:
+        # v4 -> v5 : les paramètres de réglage (cooldown, debounce, severity, tap_action,
+        # notif_title, notif_message, critical_template) restent dans subentry.data —
+        # migration transparente, toutes les clés sont déjà présentes.
+        hass.config_entries.async_update_entry(entry, version=5, minor_version=1)
+        _LOGGER.info("Migration v4 -> v5 terminée")
+        return True
+
+    if entry.version == 5:
         return True
 
     # Version inconnue (supérieure) — bloquer le chargement pour éviter des données incompatibles

@@ -1,4 +1,4 @@
-"""Entités number — cooldown et debounce par caméra (modifiables depuis le dashboard)."""
+"""Entités number — non enregistrées (configuration déplacée dans le config flow)."""
 
 from __future__ import annotations
 
@@ -10,13 +10,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import FEMConfigEntry
-from .const import (
-    CONF_COOLDOWN,
-    CONF_DEBOUNCE,
-    DEFAULT_DEBOUNCE,
-    DEFAULT_THROTTLE_COOLDOWN,
-    DOMAIN,
-)
+from .const import DOMAIN
 from .coordinator import FrigateEventManagerCoordinator
 
 
@@ -25,25 +19,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée les entités number (cooldown + debounce) par caméra configurée."""
-    entities: list[NumberEntity] = []
-    for subentry_id, coordinator in entry.runtime_data.items():
-        subentry = entry.subentries[subentry_id]
-        entities.append(
-            CooldownNumber(
-                coordinator,
-                subentry_id,
-                initial=int(subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
-            )
-        )
-        entities.append(
-            DebounceNumber(
-                coordinator,
-                subentry_id,
-                initial=int(subentry.data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)),
-            )
-        )
-    async_add_entities(entities)
+    """Aucune entité number créée — paramètres gérés dans le config flow."""
 
 
 class _FEMNumberBase(
