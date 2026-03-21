@@ -76,7 +76,7 @@
           "data_description": {
             "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
             "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
-            "critical_template": "Condition for sending a critical notification (overrides DND).",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Presets with sensor names (fin_nuit, debut_nuit) are examples — adapt to your own entities.",
             "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         },
@@ -122,7 +122,7 @@
           "data_description": {
             "notification_title": "Jinja2 template. Variables: camera, severity, objects, zones, start_time. Example: Frigate — {{ camera }}",
             "notification_message": "Jinja2 template. Example: {{ objects | join(', ') or 'unknown' }} detected ({{ severity }})",
-            "critical_template": "Condition for sending a critical notification (overrides DND).",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Presets with sensor names (fin_nuit, debut_nuit) are examples — adapt to your own entities.",
             "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
           }
         }

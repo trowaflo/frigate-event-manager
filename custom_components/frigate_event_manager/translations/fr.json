@@ -76,7 +76,7 @@
           "data_description": {
             "notification_title": "Template Jinja2. Variables : camera, severity, objects, zones, start_time. Exemple : Frigate — {{ camera }}",
             "notification_message": "Template Jinja2. Exemple : {{ objects | join(', ') or 'inconnu' }} détecté ({{ severity }})",
-            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger).",
+            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger). Les presets avec des noms de sensors (fin_nuit, debut_nuit) sont des exemples — adaptez à vos propres entités.",
             "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
           }
         },
@@ -122,7 +122,7 @@
           "data_description": {
             "notification_title": "Template Jinja2. Variables : camera, severity, objects, zones, start_time. Exemple : Frigate — {{ camera }}",
             "notification_message": "Template Jinja2. Exemple : {{ objects | join(', ') or 'inconnu' }} détecté ({{ severity }})",
-            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger).",
+            "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger). Les presets avec des noms de sensors (fin_nuit, debut_nuit) sont des exemples — adaptez à vos propres entités.",
             "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
           }
         }

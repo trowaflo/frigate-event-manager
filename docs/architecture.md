@@ -59,7 +59,7 @@ Le projet suit le pattern Ports & Adaptateurs :
 | **Domain** (noyau) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib uniquement |
 | **Application** | `coordinator.py` | domain + ports |
 | **Adaptateurs sortants** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
-| **Adaptateurs entrants** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py`, `number.py`, `select.py`, `text.py` | HA |
+| **Adaptateurs entrants** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py` | HA |
 
 ### Ports déclarés (`domain/ports.py`)
 
@@ -202,14 +202,8 @@ graph LR
         E["binary_sensor — Mouvement\nunique_id: fem_{cam}_motion\ndevice_class: motion"]
         E2["binary_sensor — Silence actif\nunique_id: fem_{cam}_silent_state\ndevice_class: running"]
         F["button — Mode silencieux\nunique_id: fem_{cam}_silent"]
+        F2["button — Annuler le silence\nunique_id: fem_{cam}_cancel_silent"]
         G["sensor — Fin du silence\nunique_id: fem_{cam}_silent_until\ndevice_class: timestamp"]
-        H["number — Cooldown\nunique_id: fem_{cam}_cooldown\n0-3600 s"]
-        I["number — Debounce\nunique_id: fem_{cam}_debounce\n0-60 s"]
-        J["select — Filtre severity\nunique_id: fem_{cam}_severity_filter\nalert / detection"]
-        K["select — Tap action\nunique_id: fem_{cam}_tap_action\nclip / snapshot / preview"]
-        L["text — Titre notification\nunique_id: fem_{cam}_notif_title\ntemplate Jinja2"]
-        M["text — Message notification\nunique_id: fem_{cam}_notif_message\ntemplate Jinja2"]
-        N["text — Template critique\nunique_id: fem_{cam}_critical_template\ntemplate Jinja2"]
     end
 
     style camera fill:#0a1a2a,stroke:#58a6ff
@@ -225,7 +219,7 @@ graph TD
     S1["1. async_setup_entry(hass, entry)"]
     S2["2. Pour chaque subentry camera :\n   instancier HANotifier + FrigateEventManagerCoordinator"]
     S3["3. coordinator.async_start()\n   → HaMqttAdapter.async_subscribe(topic, callback)"]
-    S4["4. async_forward_entry_setups(entry, PLATFORMS)\n   switch / binary_sensor / button / sensor / number / select / text"]
+    S4["4. async_forward_entry_setups(entry, PLATFORMS)\n   switch / binary_sensor / button / sensor"]
     S5["5. Entités créées depuis entry.runtime_data\n   (coordinators par subentry_id)"]
     S6["6. Boucle asyncio HA\n   _handle_mqtt_message() sur chaque event"]
 
