@@ -615,3 +615,54 @@ async def test_set_action_buttons_met_a_jour_action_btns(hass: HomeAssistant) ->
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("clip", "silent_30min", "dismiss")
     assert notifier._action_btns == ["clip", "silent_30min", "dismiss"]
+
+
+# ---------------------------------------------------------------------------
+# Tests setters live (T-532c)
+# ---------------------------------------------------------------------------
+
+
+def test_set_title_template_met_a_jour_template(hass: HomeAssistant) -> None:
+    """set_title_template met à jour _title_tpl."""
+    notifier = _make_notifier(hass)
+    notifier.set_title_template("Nouvelle alerte {{ camera }}")
+    assert notifier._title_tpl == "Nouvelle alerte {{ camera }}"
+
+
+def test_set_title_template_none_restaure_defaut(hass: HomeAssistant) -> None:
+    """set_title_template(None) restaure le template par défaut."""
+    from custom_components.frigate_event_manager.const import DEFAULT_NOTIF_TITLE
+
+    notifier = _make_notifier(hass)
+    notifier.set_title_template(None)
+    assert notifier._title_tpl == DEFAULT_NOTIF_TITLE
+
+
+def test_set_message_template_met_a_jour_template(hass: HomeAssistant) -> None:
+    """set_message_template met à jour _message_tpl."""
+    notifier = _make_notifier(hass)
+    notifier.set_message_template("Objet: {{ label }}")
+    assert notifier._message_tpl == "Objet: {{ label }}"
+
+
+def test_set_message_template_none_restaure_defaut(hass: HomeAssistant) -> None:
+    """set_message_template(None) restaure le message par défaut."""
+    from custom_components.frigate_event_manager.const import DEFAULT_NOTIF_MESSAGE
+
+    notifier = _make_notifier(hass)
+    notifier.set_message_template(None)
+    assert notifier._message_tpl == DEFAULT_NOTIF_MESSAGE
+
+
+def test_set_tap_action_met_a_jour_tap_action(hass: HomeAssistant) -> None:
+    """set_tap_action met à jour _tap_action."""
+    notifier = _make_notifier(hass)
+    notifier.set_tap_action("snapshot")
+    assert notifier._tap_action == "snapshot"
+
+
+def test_set_tap_action_clip(hass: HomeAssistant) -> None:
+    """set_tap_action('clip') est correctement stocké."""
+    notifier = _make_notifier(hass)
+    notifier.set_tap_action("clip")
+    assert notifier._tap_action == "clip"
