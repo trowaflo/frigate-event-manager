@@ -252,97 +252,10 @@ class TestActionButtonSelectBaseNotImplemented:
 # ---------------------------------------------------------------------------
 
 
-async def test_async_setup_entry_cree_entites_pour_chaque_subentry() -> None:
-    """async_setup_entry crée 3 entités select par subentry de type camera."""
+async def test_async_setup_entry_nenregistre_aucune_entite() -> None:
+    """async_setup_entry ne crée aucune entité — boutons d'action dans le config flow."""
     from custom_components.frigate_event_manager.select import async_setup_entry
 
-    coordinator = _make_coordinator("jardin")
-    subentry_id = "sub_jardin"
-
-    subentry = MagicMock()
-    subentry.subentry_type = SUBENTRY_TYPE_CAMERA
-    subentry.data = {
-        CONF_ACTION_BTN1: "clip",
-        CONF_ACTION_BTN2: "silent_30min",
-        CONF_ACTION_BTN3: "dismiss",
-    }
-
-    entry = MagicMock()
-    entry.subentries = {subentry_id: subentry}
-    entry.runtime_data = {subentry_id: coordinator}
-
     mock_add_entities = MagicMock()
-
-    with patch(_NOOP, return_value=None):
-        await async_setup_entry(MagicMock(), entry, mock_add_entities)
-
-    mock_add_entities.assert_called_once()
-    added = mock_add_entities.call_args[0][0]
-    assert len(added) == 3
-    assert any(isinstance(e, ActionButton1Select) for e in added)
-    assert any(isinstance(e, ActionButton2Select) for e in added)
-    assert any(isinstance(e, ActionButton3Select) for e in added)
-
-
-async def test_async_setup_entry_ignore_subentry_non_camera() -> None:
-    """async_setup_entry ignore les subentries qui ne sont pas de type camera."""
-    from custom_components.frigate_event_manager.select import async_setup_entry
-
-    subentry_other = MagicMock()
-    subentry_other.subentry_type = "autre_type"
-
-    entry = MagicMock()
-    entry.subentries = {"sub_autre": subentry_other}
-    entry.runtime_data = {}
-
-    mock_add_entities = MagicMock()
-
-    await async_setup_entry(MagicMock(), entry, mock_add_entities)
-
+    await async_setup_entry(MagicMock(), MagicMock(), mock_add_entities)
     mock_add_entities.assert_not_called()
-
-
-async def test_async_setup_entry_ignore_subentry_sans_coordinator() -> None:
-    """async_setup_entry ignore les subentries sans coordinator dans runtime_data."""
-    from custom_components.frigate_event_manager.select import async_setup_entry
-
-    subentry = MagicMock()
-    subentry.subentry_type = SUBENTRY_TYPE_CAMERA
-    subentry.data = {}
-
-    entry = MagicMock()
-    entry.subentries = {"sub_jardin": subentry}
-    entry.runtime_data = {}  # pas de coordinator pour cette subentry
-
-    mock_add_entities = MagicMock()
-
-    await async_setup_entry(MagicMock(), entry, mock_add_entities)
-
-    mock_add_entities.assert_not_called()
-
-
-async def test_async_setup_entry_valeurs_defaut_si_absentes() -> None:
-    """async_setup_entry utilise DEFAULT_ACTION_BTN si les clés sont absentes."""
-    from custom_components.frigate_event_manager.select import async_setup_entry
-
-    coordinator = _make_coordinator("garage")
-    subentry_id = "sub_garage"
-
-    subentry = MagicMock()
-    subentry.subentry_type = SUBENTRY_TYPE_CAMERA
-    subentry.data = {}  # aucune clé btn
-
-    entry = MagicMock()
-    entry.subentries = {subentry_id: subentry}
-    entry.runtime_data = {subentry_id: coordinator}
-
-    mock_add_entities = MagicMock()
-
-    with patch(_NOOP, return_value=None):
-        await async_setup_entry(MagicMock(), entry, mock_add_entities)
-
-    mock_add_entities.assert_called_once()
-    added = mock_add_entities.call_args[0][0]
-    assert len(added) == 3
-    for entity in added:
-        assert entity._attr_current_option == DEFAULT_ACTION_BTN

@@ -18,6 +18,10 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    ACTION_BTN_OPTIONS,
+    CONF_ACTION_BTN1,
+    CONF_ACTION_BTN2,
+    CONF_ACTION_BTN3,
     CONF_CAMERA,
     CONF_COOLDOWN,
     CONF_CRITICAL_TEMPLATE,
@@ -34,6 +38,7 @@ from .const import (
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
+    DEFAULT_ACTION_BTN,
     DEFAULT_DEBOUNCE,
     DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
@@ -213,6 +218,33 @@ def _build_behavior_schema(configure_data: dict[str, Any]) -> vol.Schema:
         ): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=TAP_ACTION_OPTIONS,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            CONF_ACTION_BTN1,
+            default=configure_data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=ACTION_BTN_OPTIONS,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            CONF_ACTION_BTN2,
+            default=configure_data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=ACTION_BTN_OPTIONS,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            CONF_ACTION_BTN3,
+            default=configure_data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=ACTION_BTN_OPTIONS,
                 mode=selector.SelectSelectorMode.LIST,
             )
         ),
@@ -563,6 +595,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)),
                 CONF_SILENT_DURATION: int(user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)),
                 CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+                CONF_ACTION_BTN1: user_input.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
+                CONF_ACTION_BTN2: user_input.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
+                CONF_ACTION_BTN3: user_input.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
             })
             return await self.async_step_configure_notifications()
 
@@ -686,6 +721,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)),
                 CONF_SILENT_DURATION: int(user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)),
                 CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+                CONF_ACTION_BTN1: user_input.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
+                CONF_ACTION_BTN2: user_input.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
+                CONF_ACTION_BTN3: user_input.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
             })
             return await self.async_step_reconfigure_notifications()
 

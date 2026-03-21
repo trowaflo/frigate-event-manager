@@ -52,33 +52,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée les entités select boutons d'action par caméra."""
-    for subentry_id, subentry in entry.subentries.items():
-        if subentry.subentry_type != SUBENTRY_TYPE_CAMERA:
-            continue
-        coordinator = entry.runtime_data.get(subentry_id)
-        if coordinator is None:
-            continue
-        async_add_entities(
-            [
-                ActionButton1Select(
-                    coordinator,
-                    subentry_id,
-                    subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
-                ),
-                ActionButton2Select(
-                    coordinator,
-                    subentry_id,
-                    subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
-                ),
-                ActionButton3Select(
-                    coordinator,
-                    subentry_id,
-                    subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN),
-                ),
-            ],
-            config_subentry_id=subentry_id,
-        )
+    """Aucune entité select créée — boutons d'action gérés dans le config flow."""
 
 
 class SeverityFilterSelect(
