@@ -47,6 +47,12 @@ CONF_CRITICAL_TEMPLATE = "critical_template"
 DEFAULT_NOTIF_TITLE = "Frigate — {{ camera }}"
 DEFAULT_NOTIF_MESSAGE = "{{ objects | join(', ') or 'objet inconnu' }} détecté ({{ severity }})"
 
+# Son des notifications critiques (iOS Companion)
+CONF_CRITICAL_SOUND = "critical_sound"
+CONF_CRITICAL_VOLUME = "critical_volume"
+DEFAULT_CRITICAL_SOUND = "default"
+DEFAULT_CRITICAL_VOLUME = 1.0
+
 # Action au tap de la notification
 CONF_TAP_ACTION = "tap_action"
 TAP_ACTION_CLIP = "clip"

@@ -77,13 +77,17 @@
             "notification_title": "Notification title",
             "notification_message": "Notification message",
             "critical_template": "Critical condition",
-            "critical_template_custom": "Custom critical template"
+            "critical_template_custom": "Custom critical template",
+            "critical_sound": "Critical alert sound",
+            "critical_volume": "Critical alert volume"
           },
           "data_description": {
             "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
             "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
             "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
-            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS only. Sound name for critical alerts (e.g. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS only. Volume for critical alerts (0.0 = silent, 1.0 = max)."
           }
         },
         "reconfigure": {
@@ -129,13 +133,17 @@
             "notification_title": "Notification title",
             "notification_message": "Notification message",
             "critical_template": "Critical condition",
-            "critical_template_custom": "Custom critical template"
+            "critical_template_custom": "Custom critical template",
+            "critical_sound": "Critical alert sound",
+            "critical_volume": "Critical alert volume"
           },
           "data_description": {
             "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
             "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
             "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
-            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time."
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS only. Sound name for critical alerts (e.g. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS only. Volume for critical alerts (0.0 = silent, 1.0 = max)."
           }
         }
       },

@@ -77,13 +77,17 @@
             "notification_title": "Titre de la notification",
             "notification_message": "Message de la notification",
             "critical_template": "Condition critique",
-            "critical_template_custom": "Template critique personnalisé"
+            "critical_template_custom": "Template critique personnalisé",
+            "critical_sound": "Son des alertes critiques",
+            "critical_volume": "Volume des alertes critiques"
           },
           "data_description": {
             "notification_title": "Template Jinja2. Variables disponibles : camera, severity, objects (liste), zones (liste), start_time.",
             "notification_message": "Template Jinja2. Variables disponibles : camera, severity, objects (liste), zones (liste), start_time.",
             "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger). Utilisez 'Template personnalisé...' pour écrire votre propre expression Jinja2 booléenne.",
-            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
+            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS uniquement. Nom du son pour les alertes critiques (ex. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS uniquement. Volume des alertes critiques (0.0 = silencieux, 1.0 = max)."
           }
         },
         "reconfigure": {
@@ -129,13 +133,17 @@
             "notification_title": "Titre de la notification",
             "notification_message": "Message de la notification",
             "critical_template": "Condition critique",
-            "critical_template_custom": "Template critique personnalisé"
+            "critical_template_custom": "Template critique personnalisé",
+            "critical_sound": "Son des alertes critiques",
+            "critical_volume": "Volume des alertes critiques"
           },
           "data_description": {
             "notification_title": "Template Jinja2. Variables disponibles : camera, severity, objects (liste), zones (liste), start_time.",
             "notification_message": "Template Jinja2. Variables disponibles : camera, severity, objects (liste), zones (liste), start_time.",
             "critical_template": "Condition pour envoyer une notification critique (ignore le mode Ne pas déranger). Utilisez 'Template personnalisé...' pour écrire votre propre expression Jinja2 booléenne.",
-            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time."
+            "critical_template_custom": "Template Jinja2 personnalisé évalué comme booléen. Variables : camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS uniquement. Nom du son pour les alertes critiques (ex. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS uniquement. Volume des alertes critiques (0.0 = silencieux, 1.0 = max)."
           }
         }
       },

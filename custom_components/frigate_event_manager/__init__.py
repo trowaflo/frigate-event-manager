@@ -10,6 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
+    CONF_CRITICAL_SOUND,
+    CONF_CRITICAL_VOLUME,
     CONF_NOTIF_MESSAGE,
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
@@ -17,6 +19,8 @@ from .const import (
     CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
+    DEFAULT_CRITICAL_SOUND,
+    DEFAULT_CRITICAL_VOLUME,
     DEFAULT_TAP_ACTION,
     MEDIA_URL_TTL,
     PERSISTENT_NOTIFICATION,
@@ -129,6 +133,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                 signer=signer,
                 frigate_url=entry.data.get(CONF_URL),
                 tap_action=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+                critical_sound=subentry.data.get(CONF_CRITICAL_SOUND, DEFAULT_CRITICAL_SOUND),
+                critical_volume=subentry.data.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME),
             )
             coordinator = FrigateEventManagerCoordinator(
                 hass, entry, subentry,

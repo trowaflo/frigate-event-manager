@@ -12,15 +12,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import FEMConfigEntry
 from .const import (
     ACTION_BTN_OPTIONS,
-    CONF_ACTION_BTN1,
-    CONF_ACTION_BTN2,
-    CONF_ACTION_BTN3,
     DEFAULT_ACTION_BTN,
     DEFAULT_SEVERITY,
     DEFAULT_TAP_ACTION,
     DOMAIN,
     SEVERITY_OPTIONS,
-    SUBENTRY_TYPE_CAMERA,
     TAP_ACTION_OPTIONS,
 )
 from .coordinator import FrigateEventManagerCoordinator

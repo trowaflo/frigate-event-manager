@@ -24,7 +24,9 @@ from .const import (
     CONF_ACTION_BTN3,
     CONF_CAMERA,
     CONF_COOLDOWN,
+    CONF_CRITICAL_SOUND,
     CONF_CRITICAL_TEMPLATE,
+    CONF_CRITICAL_VOLUME,
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
@@ -39,6 +41,8 @@ from .const import (
     CONF_USERNAME,
     CONF_ZONES,
     DEFAULT_ACTION_BTN,
+    DEFAULT_CRITICAL_SOUND,
+    DEFAULT_CRITICAL_VOLUME,
     DEFAULT_DEBOUNCE,
     DEFAULT_SEVERITY,
     DEFAULT_SILENT_DURATION,
@@ -279,6 +283,23 @@ def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
             "critical_template_custom",
             default=custom_default,
         ): selector.TemplateSelector(),
+        vol.Optional(
+            CONF_CRITICAL_SOUND,
+            default=configure_data.get(CONF_CRITICAL_SOUND, DEFAULT_CRITICAL_SOUND),
+        ): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+        ),
+        vol.Optional(
+            CONF_CRITICAL_VOLUME,
+            default=configure_data.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0.0,
+                max=1.0,
+                step=0.1,
+                mode=selector.NumberSelectorMode.SLIDER,
+            )
+        ),
     })
 
 
@@ -619,6 +640,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 CONF_NOTIF_TITLE: (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None,
                 CONF_NOTIF_MESSAGE: (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None,
                 CONF_CRITICAL_TEMPLATE: _resolve_critical_template(user_input),
+                CONF_CRITICAL_SOUND: (user_input.get(CONF_CRITICAL_SOUND) or DEFAULT_CRITICAL_SOUND).strip() or DEFAULT_CRITICAL_SOUND,
+                CONF_CRITICAL_VOLUME: float(user_input.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME)),
             })
 
             return self.async_create_entry(
@@ -744,6 +767,8 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 CONF_NOTIF_TITLE: (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None,
                 CONF_NOTIF_MESSAGE: (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None,
                 CONF_CRITICAL_TEMPLATE: _resolve_critical_template(user_input),
+                CONF_CRITICAL_SOUND: (user_input.get(CONF_CRITICAL_SOUND) or DEFAULT_CRITICAL_SOUND).strip() or DEFAULT_CRITICAL_SOUND,
+                CONF_CRITICAL_VOLUME: float(user_input.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME)),
             })
 
             # Supprimer la clé caméra de l'accumulateur pour les data_updates

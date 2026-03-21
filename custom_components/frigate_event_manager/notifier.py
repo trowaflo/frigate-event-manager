@@ -11,6 +11,8 @@ from homeassistant.helpers import template as template_helper
 
 from .const import (
     DEFAULT_ACTION_BTN,
+    DEFAULT_CRITICAL_SOUND,
+    DEFAULT_CRITICAL_VOLUME,
     DEFAULT_NOTIF_MESSAGE,
     DEFAULT_NOTIF_TITLE,
     DEFAULT_TAP_ACTION,
@@ -47,6 +49,8 @@ class HANotifier:
         signer: MediaSignerPort | None = None,
         frigate_url: str | None = None,
         tap_action: str = DEFAULT_TAP_ACTION,
+        critical_sound: str = DEFAULT_CRITICAL_SOUND,
+        critical_volume: float = DEFAULT_CRITICAL_VOLUME,
     ) -> None:
         """Initialise avec la cible, les templates optionnels et le signer media."""
         self._hass = hass
@@ -56,6 +60,8 @@ class HANotifier:
         self._signer = signer
         self._frigate_url = frigate_url.rstrip("/") if frigate_url else None
         self._tap_action = tap_action
+        self._critical_sound = critical_sound
+        self._critical_volume = critical_volume
         # Configurations des boutons d'action (none = pas de bouton)
         self._action_btns: list[str] = [DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN]
 
@@ -216,7 +222,7 @@ class HANotifier:
             # Notification critique (iOS critical alert + Android channel haute priorité)
             if critical:
                 companion_data["push"] = {
-                    "sound": {"name": "default", "critical": 1, "volume": 1.0}
+                    "sound": {"name": self._critical_sound, "critical": 1, "volume": self._critical_volume}
                 }
                 companion_data["channel"] = "frigate_critical"
 
