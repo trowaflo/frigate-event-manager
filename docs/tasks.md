@@ -782,36 +782,91 @@
 
 ### T-533 | Refonte — config flow multi-écrans + nettoyage entités
 
-- Status: IN_PROGRESS — Lock: python-architect
+- Status: APPROVED
 - Owner: python-architect
+- Reviewer: reviewer
 - Priority: P1
 - Scope: `config_flow.py`, `number.py`, `select.py`, `text.py`, `__init__.py`, `coordinator.py`, `strings.json`, `translations/`, `tests/`
 - Locks: —
 - Depends: T-527
 - Blocks: T-532
+- Security: SECURITY_OK
+- Doc: UPDATE_NEEDED
+- Severity: MINOR
 - Notes: |
     OBJECTIF : config flow = toute la configuration, entités = contrôles opérationnels uniquement.
 
-    Config flow multi-écrans (4 étapes) :
-      Écran 1 — Connexion caméra : camera, notify_target
-      Écran 2 — Filtres         : zones, labels, disabled_hours
-      Écran 3 — Comportement    : cooldown, debounce, severity, tap_action
-      Écran 4 — Notifications   : notif_title, notif_message, critical_template (TemplateSelector + presets), silent_duration
+    Config flow multi-écrans implémenté en 5 étapes (user → configure → configure_filters
+    → configure_behavior → configure_notifications). Reconfiguration en 4 étapes miroir
+    (reconfigure → reconfigure_filters → reconfigure_behavior → reconfigure_notifications).
+    Entités number/select/text conservées dans les fichiers mais `async_setup_entry` vide —
+    aucune entité enregistrée. Setters coordinator conservés pour compatibilité tests.
+    Migration v4 → v5 transparente dans `__init__.py`.
 
-    Entités conservées :
-      switch    : Notifications (fem_{cam}_switch)
-      button    : Silencieux (fem_{cam}_silent)
-      button    : Annuler le silence (fem_{cam}_cancel_silent) — T-531
-      binary_sensor : Mouvement (fem_{cam}_motion)
-      binary_sensor : Silencieux actif (fem_{cam}_silent_state)
-      sensor    : Reprise des notifications (fem_{cam}_silent_until)
+    MINOR — `config_flow.py:55-56` : `_CRITICAL_TEMPLATE_NIGHT_ONLY` et `_CRITICAL_TEMPLATE_NIGHT_SENSORS`
+      sont des constantes de module exposées dans `CRITICAL_TEMPLATE_PRESET_OPTIONS`. Les valeurs
+      contiennent des références à des sensors (`sensor.fin_nuit`, `sensor.debut_nuit`) codées en dur
+      dans le code source. Pour un utilisateur dont les sensors ont un nom différent, ces presets
+      sont inutilisables sans édition du code. MINOR — non bloquant mais à documenter dans l'UI
+      (description placeholder explicatif). À corriger en T-533b si souhaité.
+    MINOR — `docs/architecture.md` : le diagramme Mermaid "Entités HA par caméra" (lignes 200-213)
+      liste encore number × 2, select × 2, text × 3 alors que ces entités ne sont plus créées
+      par `async_setup_entry` depuis T-533. Le diagramme et la séquence de démarrage (ligne 228,
+      `PLATFORMS` mentionne `number / select / text`) sont désynchronisés. À corriger avant T-532.
+    INFO — `number.py`, `select.py`, `text.py` : les classes `CooldownNumber`, `DebounceNumber`,
+      `SeverityFilterSelect`, `TapActionSelect`, `NotifTitleText`, `NotifMessageText`,
+      `CriticalTemplateText` sont définies mais jamais instanciées. Dead code intentionnel
+      (décision architecturale documentée en header). Acceptable tant que T-532 n'en a pas besoin.
+    INFO — `coordinator.py` : commentaire ligne 124 "Setters conservés pour la compatibilité des
+      tests" — cohérent avec l'état du code, aucune action requise.
+    SECURITY_OK — `html.escape()` toujours présent dans `notifier.py` sur tous les champs
+      dynamiques. Pas de log de secrets. Templates Jinja2 évalués via `parse_result=False`.
+      Presigned URLs : HMAC-SHA256 via `MediaSigner`, TTL configuré.
 
-    Entités SUPPRIMÉES (remplacées par config flow) :
-      number    : Cooldown, Debounce
-      select    : Types d'événements, Action au tap
-      text      : Titre notification, Message notification, Condition critique
+    quality-guard — 2026-03-21 :
+    425 tests passent, coverage global 99% (≥80%). 15 tests ajoutés.
+    test_button.py : TestCancelSilentButton (7 tests) — unique_id, device_info,
+      translation_key, icon, async_press → async_cancel_silent.
+    test_coordinator.py : TestSilentModeAvance (3 tests) —
+      async_cancel_silent (avec/sans timer actif), async_remove_store.
+    test_init.py : TestAsyncMigrateEntry (2 tests) —
+      migration v4→v5, v5 retourne True sans update.
+    test_config_flow.py (3 tests) —
+      reconfigure_notifications custom, reconfigure_notifications preset nuit (branche else),
+      `_critical_template_to_preset` branche preset connu.
+    Lignes résiduelles non testables (structurelles) :
+      platform `async_setup_entry` sur button/binary_sensor/sensor/switch.
+      `__init__.py:157` `_async_reload_entry` — reload HA complet.
+      `__init__.py:78-82` — version > 5 (downgrade non simulable).
+    ruff 0 erreur sur fichiers modifiés. Status quality-guard : DONE.
 
-    Migration : v4 → v5 (transparente, données déjà dans subentry.data).
+### T-533b | Simplification — config flow multi-écrans (code-simplifier)
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `config_flow.py`
+- Locks: —
+- Depends: T-533
+- Blocks: T-532
+- Notes: |
+    `config_flow.py` : 5 helpers module-level extraits pour éliminer la duplication entre
+    les étapes création et reconfiguration.
+    `_parse_filters_input()` — parse zones/labels/heures/severity depuis user_input
+      (factorisation de `configure_filters` et `reconfigure_filters`).
+    `_build_filters_schema()` — construit le schéma voluptuous des filtres
+      (SelectSelector si disponibles, str CSV sinon).
+    `_build_behavior_schema()` — construit le schéma comportement
+      (cooldown/debounce/silent_duration/tap_action).
+    `_build_notifications_schema()` — construit le schéma notifications
+      (notif_title/notif_message/critical_template/critical_template_custom).
+    `_resolve_critical_template()` — résout preset → valeur stockable
+      (factorisation de `configure_notifications` et `reconfigure_notifications`).
+    MINOR T-533 (sensor names dans presets) : adressée dans `strings.json` via
+      `data_description.critical_template` — description explicite que les noms
+      `fin_nuit`/`debut_nuit` sont des exemples à adapter. Constantes conservées.
+    MINOR T-533 (number/select/text dead code) : headers déjà explicites ("non enregistrées").
+    INFO T-533 (coordinator.py commentaire ligne 124) : cohérent, aucun changement.
+    ruff 0 erreur, 425 tests passent, coverage 99% (≥80%).
 
 ### T-532 | Boutons d'action notification (3 selects)
 

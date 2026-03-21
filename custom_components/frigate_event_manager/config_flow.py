@@ -70,6 +70,198 @@ def _parse_csv_str(value: str) -> list[str]:
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
+def _parse_filters_input(
+    user_input: dict[str, Any],
+    zones_available: list[str],
+    labels_available: list[str],
+) -> dict[str, Any]:
+    """Parse les champs zones/labels/heures/severity depuis user_input.
+
+    Gère le double mode : SelectSelector (liste disponible) ou texte libre CSV (fallback).
+    """
+    raw_zones = user_input.get(CONF_ZONES, [])
+    if zones_available:
+        zones: list[str] = raw_zones if isinstance(raw_zones, list) else []
+    else:
+        zones = _parse_csv_str(raw_zones if isinstance(raw_zones, str) else "")
+
+    raw_labels = user_input.get(CONF_LABELS, [])
+    if labels_available:
+        labels: list[str] = raw_labels if isinstance(raw_labels, list) else []
+    else:
+        labels = _parse_csv_str(raw_labels if isinstance(raw_labels, str) else "")
+
+    raw_hours = user_input.get(CONF_DISABLED_HOURS, [])
+    disabled_hours: list[int] = [int(h) for h in raw_hours if str(h).isdigit()]
+
+    raw_severity = user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY)
+    severity: list[str] = raw_severity if isinstance(raw_severity, list) else DEFAULT_SEVERITY
+
+    return {
+        CONF_ZONES: zones,
+        CONF_LABELS: labels,
+        CONF_DISABLED_HOURS: disabled_hours,
+        CONF_SEVERITY: severity,
+    }
+
+
+def _build_filters_schema(
+    configure_data: dict[str, Any],
+    zones_available: list[str],
+    labels_available: list[str],
+) -> vol.Schema:
+    """Construit le schéma voluptuous pour l'étape filtres de détection."""
+    existing_zones: list[str] = configure_data.get(CONF_ZONES, [])
+    existing_labels: list[str] = configure_data.get(CONF_LABELS, [])
+
+    zones_default: list[str] | str = (
+        existing_zones if zones_available else ",".join(existing_zones)
+    )
+    labels_default: list[str] | str = (
+        existing_labels if labels_available else ",".join(existing_labels)
+    )
+
+    zones_field: object = (
+        selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=zones_available,
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        )
+        if zones_available
+        else str
+    )
+    labels_field: object = (
+        selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=labels_available,
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        )
+        if labels_available
+        else str
+    )
+
+    return vol.Schema({
+        vol.Optional(CONF_ZONES, default=zones_default): zones_field,
+        vol.Optional(CONF_LABELS, default=labels_default): labels_field,
+        vol.Optional(
+            CONF_DISABLED_HOURS,
+            default=[str(h) for h in configure_data.get(CONF_DISABLED_HOURS, [])],
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=_HOUR_OPTIONS,
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            CONF_SEVERITY,
+            default=configure_data.get(CONF_SEVERITY, DEFAULT_SEVERITY),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["alert", "detection"],
+                multiple=True,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+    })
+
+
+def _build_behavior_schema(configure_data: dict[str, Any]) -> vol.Schema:
+    """Construit le schéma voluptuous pour l'étape comportement."""
+    return vol.Schema({
+        vol.Optional(
+            CONF_COOLDOWN,
+            default=configure_data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=3600,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
+        vol.Optional(
+            CONF_DEBOUNCE,
+            default=configure_data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=60,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
+        vol.Optional(
+            CONF_SILENT_DURATION,
+            default=configure_data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1,
+                max=480,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="min",
+            )
+        ),
+        vol.Optional(
+            CONF_TAP_ACTION,
+            default=configure_data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=TAP_ACTION_OPTIONS,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+    })
+
+
+def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
+    """Construit le schéma voluptuous pour l'étape notifications."""
+    existing_tpl = configure_data.get(CONF_CRITICAL_TEMPLATE)
+    preset_default = _critical_template_to_preset(existing_tpl)
+    custom_default = existing_tpl if preset_default == _CRITICAL_TEMPLATE_CUSTOM else ""
+
+    return vol.Schema({
+        vol.Optional(
+            CONF_NOTIF_TITLE,
+            default=configure_data.get(CONF_NOTIF_TITLE) or "",
+        ): selector.TemplateSelector(),
+        vol.Optional(
+            CONF_NOTIF_MESSAGE,
+            default=configure_data.get(CONF_NOTIF_MESSAGE) or "",
+        ): selector.TemplateSelector(),
+        vol.Optional(
+            CONF_CRITICAL_TEMPLATE,
+            default=preset_default,
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=CRITICAL_TEMPLATE_PRESET_OPTIONS,
+                mode=selector.SelectSelectorMode.LIST,
+            )
+        ),
+        vol.Optional(
+            "critical_template_custom",
+            default=custom_default,
+        ): selector.TemplateSelector(),
+    })
+
+
+def _resolve_critical_template(user_input: dict[str, Any]) -> str | None:
+    """Résout le preset critical_template en valeur stockable (template ou None)."""
+    preset = user_input.get(CONF_CRITICAL_TEMPLATE, _CRITICAL_TEMPLATE_NEVER)
+    if preset == _CRITICAL_TEMPLATE_CUSTOM:
+        return (user_input.get("critical_template_custom") or "").strip() or None
+    if preset == _CRITICAL_TEMPLATE_NEVER:
+        return None
+    return preset
+
+
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
     """Retourne url/username/password depuis l'intégration Frigate HA si présente."""
     for entry in hass.config_entries.async_entries("frigate"):  # type: ignore[union-attr]
@@ -340,70 +532,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Étape 3 — filtres de détection (zones, labels, heures, severity)."""
         if user_input is not None:
-            # Zones
-            raw_zones = user_input.get(CONF_ZONES, [])
-            if self._zones_available:
-                zones: list[str] = raw_zones if isinstance(raw_zones, list) else []
-            else:
-                zones = _parse_csv_str(raw_zones if isinstance(raw_zones, str) else "")
-
-            # Labels
-            raw_labels = user_input.get(CONF_LABELS, [])
-            if self._labels_available:
-                labels: list[str] = raw_labels if isinstance(raw_labels, list) else []
-            else:
-                labels = _parse_csv_str(raw_labels if isinstance(raw_labels, str) else "")
-
-            # Heures : SelectSelector → list[str] → list[int]
-            raw_hours = user_input.get(CONF_DISABLED_HOURS, [])
-            disabled_hours: list[int] = [int(h) for h in raw_hours if str(h).isdigit()]
-
-            # Severity : SelectSelector multiple → list[str]
-            raw_severity = user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY)
-            severity: list[str] = raw_severity if isinstance(raw_severity, list) else DEFAULT_SEVERITY
-
-            self._configure_data.update({
-                CONF_ZONES: zones,
-                CONF_LABELS: labels,
-                CONF_DISABLED_HOURS: disabled_hours,
-                CONF_SEVERITY: severity,
-            })
+            self._configure_data.update(
+                _parse_filters_input(user_input, self._zones_available, self._labels_available)
+            )
             return await self.async_step_configure_behavior()
-
-        # Construire les champs zones/labels (multi-select si disponibles, sinon texte libre)
-        zones_default: list[str] | str = (
-            self._configure_data.get(CONF_ZONES, [])
-            if self._zones_available
-            else ",".join(self._configure_data.get(CONF_ZONES, []))
-        )
-        labels_default: list[str] | str = (
-            self._configure_data.get(CONF_LABELS, [])
-            if self._labels_available
-            else ",".join(self._configure_data.get(CONF_LABELS, []))
-        )
-
-        zones_field: object = (
-            selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=self._zones_available,
-                    multiple=True,
-                    mode=selector.SelectSelectorMode.LIST,
-                )
-            )
-            if self._zones_available
-            else str
-        )
-        labels_field: object = (
-            selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=self._labels_available,
-                    multiple=True,
-                    mode=selector.SelectSelectorMode.LIST,
-                )
-            )
-            if self._labels_available
-            else str
-        )
 
         warning = (
             "⚠ Frigate inaccessible — saisissez les zones et labels manuellement."
@@ -413,32 +545,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="configure_filters",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_ZONES, default=zones_default): zones_field,
-                vol.Optional(CONF_LABELS, default=labels_default): labels_field,
-                vol.Optional(
-                    CONF_DISABLED_HOURS,
-                    default=[
-                        str(h) for h in self._configure_data.get(CONF_DISABLED_HOURS, [])
-                    ],
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=_HOUR_OPTIONS,
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-                vol.Optional(
-                    CONF_SEVERITY,
-                    default=self._configure_data.get(CONF_SEVERITY, DEFAULT_SEVERITY),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=["alert", "detection"],
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
+            data_schema=_build_filters_schema(
+                self._configure_data, self._zones_available, self._labels_available
+            ),
             description_placeholders={"warning": warning},
         )
 
@@ -461,53 +570,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="configure_behavior",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    CONF_COOLDOWN,
-                    default=self._configure_data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=3600,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-                vol.Optional(
-                    CONF_DEBOUNCE,
-                    default=self._configure_data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=60,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-                vol.Optional(
-                    CONF_SILENT_DURATION,
-                    default=self._configure_data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=1,
-                        max=480,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="min",
-                    )
-                ),
-                vol.Optional(
-                    CONF_TAP_ACTION,
-                    default=self._configure_data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=TAP_ACTION_OPTIONS,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
+            data_schema=_build_behavior_schema(self._configure_data),
         )
 
     # -----------------------------------------------------------------------
@@ -519,22 +582,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Étape 5 — templates de notification et condition critique."""
         if user_input is not None:
-            notif_title = (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None
-            notif_message = (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None
-
-            # Résolution du critical_template
-            preset = user_input.get(CONF_CRITICAL_TEMPLATE, _CRITICAL_TEMPLATE_NEVER)
-            if preset == _CRITICAL_TEMPLATE_CUSTOM:
-                critical_template = (user_input.get("critical_template_custom") or "").strip() or None
-            elif preset == _CRITICAL_TEMPLATE_NEVER:
-                critical_template = None
-            else:
-                critical_template = preset
-
             self._configure_data.update({
-                CONF_NOTIF_TITLE: notif_title,
-                CONF_NOTIF_MESSAGE: notif_message,
-                CONF_CRITICAL_TEMPLATE: critical_template,
+                CONF_NOTIF_TITLE: (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None,
+                CONF_NOTIF_MESSAGE: (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None,
+                CONF_CRITICAL_TEMPLATE: _resolve_critical_template(user_input),
             })
 
             return self.async_create_entry(
@@ -546,35 +597,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 unique_id=f"fem_{self._camera}",
             )
 
-        existing_preset = self._configure_data.get(CONF_CRITICAL_TEMPLATE)
-        preset_default = _critical_template_to_preset(existing_preset)
-        custom_default = existing_preset if preset_default == _CRITICAL_TEMPLATE_CUSTOM else ""
-
         return self.async_show_form(
             step_id="configure_notifications",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    CONF_NOTIF_TITLE,
-                    default=self._configure_data.get(CONF_NOTIF_TITLE) or "",
-                ): selector.TemplateSelector(),
-                vol.Optional(
-                    CONF_NOTIF_MESSAGE,
-                    default=self._configure_data.get(CONF_NOTIF_MESSAGE) or "",
-                ): selector.TemplateSelector(),
-                vol.Optional(
-                    CONF_CRITICAL_TEMPLATE,
-                    default=preset_default,
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=CRITICAL_TEMPLATE_PRESET_OPTIONS,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-                vol.Optional(
-                    "critical_template_custom",
-                    default=custom_default,
-                ): selector.TemplateSelector(),
-            }),
+            data_schema=_build_notifications_schema(self._configure_data),
         )
 
     # -----------------------------------------------------------------------
@@ -634,66 +659,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     ) -> SubentryFlowResult:
         """Reconfiguration — étape 2 (filtres de détection)."""
         if user_input is not None:
-            raw_zones = user_input.get(CONF_ZONES, [])
-            if self._zones_available:
-                zones: list[str] = raw_zones if isinstance(raw_zones, list) else []
-            else:
-                zones = _parse_csv_str(raw_zones if isinstance(raw_zones, str) else "")
-
-            raw_labels = user_input.get(CONF_LABELS, [])
-            if self._labels_available:
-                labels: list[str] = raw_labels if isinstance(raw_labels, list) else []
-            else:
-                labels = _parse_csv_str(raw_labels if isinstance(raw_labels, str) else "")
-
-            raw_hours = user_input.get(CONF_DISABLED_HOURS, [])
-            disabled_hours: list[int] = [int(h) for h in raw_hours if str(h).isdigit()]
-
-            raw_severity = user_input.get(CONF_SEVERITY, DEFAULT_SEVERITY)
-            severity: list[str] = raw_severity if isinstance(raw_severity, list) else DEFAULT_SEVERITY
-
-            self._configure_data.update({
-                CONF_ZONES: zones,
-                CONF_LABELS: labels,
-                CONF_DISABLED_HOURS: disabled_hours,
-                CONF_SEVERITY: severity,
-            })
+            self._configure_data.update(
+                _parse_filters_input(user_input, self._zones_available, self._labels_available)
+            )
             return await self.async_step_reconfigure_behavior()
-
-        existing_zones: list[str] = self._configure_data.get(CONF_ZONES, [])
-        existing_labels: list[str] = self._configure_data.get(CONF_LABELS, [])
-        existing_hours: list[str] = [str(h) for h in self._configure_data.get(CONF_DISABLED_HOURS, [])]
-        existing_severity: list[str] = self._configure_data.get(CONF_SEVERITY, DEFAULT_SEVERITY)
-
-        zones_default: list[str] | str = (
-            existing_zones if self._zones_available else ",".join(existing_zones)
-        )
-        labels_default: list[str] | str = (
-            existing_labels if self._labels_available else ",".join(existing_labels)
-        )
-
-        zones_field: object = (
-            selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=self._zones_available,
-                    multiple=True,
-                    mode=selector.SelectSelectorMode.LIST,
-                )
-            )
-            if self._zones_available
-            else str
-        )
-        labels_field: object = (
-            selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=self._labels_available,
-                    multiple=True,
-                    mode=selector.SelectSelectorMode.LIST,
-                )
-            )
-            if self._labels_available
-            else str
-        )
 
         warning = (
             "⚠ Frigate inaccessible — saisissez les zones et labels manuellement."
@@ -703,24 +672,9 @@ class CameraSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="reconfigure_filters",
-            data_schema=vol.Schema({
-                vol.Optional(CONF_ZONES, default=zones_default): zones_field,
-                vol.Optional(CONF_LABELS, default=labels_default): labels_field,
-                vol.Optional(CONF_DISABLED_HOURS, default=existing_hours): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=_HOUR_OPTIONS,
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-                vol.Optional(CONF_SEVERITY, default=existing_severity): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=["alert", "detection"],
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
+            data_schema=_build_filters_schema(
+                self._configure_data, self._zones_available, self._labels_available
+            ),
             description_placeholders={"warning": warning},
         )
 
@@ -739,53 +693,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
 
         return self.async_show_form(
             step_id="reconfigure_behavior",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    CONF_COOLDOWN,
-                    default=self._configure_data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=3600,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-                vol.Optional(
-                    CONF_DEBOUNCE,
-                    default=self._configure_data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=60,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-                vol.Optional(
-                    CONF_SILENT_DURATION,
-                    default=self._configure_data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=1,
-                        max=480,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="min",
-                    )
-                ),
-                vol.Optional(
-                    CONF_TAP_ACTION,
-                    default=self._configure_data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=TAP_ACTION_OPTIONS,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
+            data_schema=_build_behavior_schema(self._configure_data),
         )
 
     async def async_step_reconfigure_notifications(
@@ -796,21 +704,10 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         entry = self._get_entry()
 
         if user_input is not None:
-            notif_title = (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None
-            notif_message = (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None
-
-            preset = user_input.get(CONF_CRITICAL_TEMPLATE, _CRITICAL_TEMPLATE_NEVER)
-            if preset == _CRITICAL_TEMPLATE_CUSTOM:
-                critical_template = (user_input.get("critical_template_custom") or "").strip() or None
-            elif preset == _CRITICAL_TEMPLATE_NEVER:
-                critical_template = None
-            else:
-                critical_template = preset
-
             self._configure_data.update({
-                CONF_NOTIF_TITLE: notif_title,
-                CONF_NOTIF_MESSAGE: notif_message,
-                CONF_CRITICAL_TEMPLATE: critical_template,
+                CONF_NOTIF_TITLE: (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None,
+                CONF_NOTIF_MESSAGE: (user_input.get(CONF_NOTIF_MESSAGE) or "").strip() or None,
+                CONF_CRITICAL_TEMPLATE: _resolve_critical_template(user_input),
             })
 
             # Supprimer la clé caméra de l'accumulateur pour les data_updates
@@ -822,33 +719,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 data_updates=data_updates,
             )
 
-        existing_tpl = self._configure_data.get(CONF_CRITICAL_TEMPLATE)
-        preset_default = _critical_template_to_preset(existing_tpl)
-        custom_default = existing_tpl if preset_default == _CRITICAL_TEMPLATE_CUSTOM else ""
-
         return self.async_show_form(
             step_id="reconfigure_notifications",
-            data_schema=vol.Schema({
-                vol.Optional(
-                    CONF_NOTIF_TITLE,
-                    default=self._configure_data.get(CONF_NOTIF_TITLE) or "",
-                ): selector.TemplateSelector(),
-                vol.Optional(
-                    CONF_NOTIF_MESSAGE,
-                    default=self._configure_data.get(CONF_NOTIF_MESSAGE) or "",
-                ): selector.TemplateSelector(),
-                vol.Optional(
-                    CONF_CRITICAL_TEMPLATE,
-                    default=preset_default,
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=CRITICAL_TEMPLATE_PRESET_OPTIONS,
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-                vol.Optional(
-                    "critical_template_custom",
-                    default=custom_default,
-                ): selector.TemplateSelector(),
-            }),
+            data_schema=_build_notifications_schema(self._configure_data),
         )
