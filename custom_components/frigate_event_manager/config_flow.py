@@ -1,4 +1,4 @@
-"""Config flow pour Frigate Event Manager."""
+"""Config flow for Frigate Event Manager."""
 
 from __future__ import annotations
 
@@ -55,10 +55,10 @@ from .const import (
 )
 from .frigate_client import FrigateClient
 
-# Options statiques pour les heures bloquées (0-23)
+# Static options for blocked hours (0-23)
 _HOUR_OPTIONS = [str(h) for h in range(24)]
 
-# Options pour le critical_template — presets prédéfinis + custom
+# Options for critical_template — predefined presets + custom
 _CRITICAL_TEMPLATE_NEVER = "false"
 _CRITICAL_TEMPLATE_ALWAYS = "true"
 _CRITICAL_TEMPLATE_NIGHT_ONLY = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
@@ -73,7 +73,7 @@ CRITICAL_TEMPLATE_PRESET_OPTIONS = [
 
 
 def _parse_csv_str(value: str) -> list[str]:
-    """Parse une string CSV en liste de strings."""
+    """Parse a CSV string into a list of strings."""
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
@@ -82,9 +82,9 @@ def _parse_filters_input(
     zones_available: list[str],
     labels_available: list[str],
 ) -> dict[str, Any]:
-    """Parse les champs zones/labels/heures/severity depuis user_input.
+    """Parse zones/labels/hours/severity fields from user_input.
 
-    Gère le double mode : SelectSelector (liste disponible) ou texte libre CSV (fallback).
+    Handles dual mode: SelectSelector (available list) or free-text CSV (fallback).
     """
     raw_zones = user_input.get(CONF_ZONES, [])
     if zones_available:
@@ -117,7 +117,7 @@ def _build_filters_schema(
     zones_available: list[str],
     labels_available: list[str],
 ) -> vol.Schema:
-    """Construit le schéma voluptuous pour l'étape filtres de détection."""
+    """Build the voluptuous schema for the detection filters step."""
     existing_zones: list[str] = configure_data.get(CONF_ZONES, [])
     existing_labels: list[str] = configure_data.get(CONF_LABELS, [])
 
@@ -178,7 +178,7 @@ def _build_filters_schema(
 
 
 def _build_behavior_schema(configure_data: dict[str, Any]) -> vol.Schema:
-    """Construit le schéma voluptuous pour l'étape comportement."""
+    """Build the voluptuous schema for the behavior step."""
     return vol.Schema({
         vol.Optional(
             CONF_COOLDOWN,
@@ -256,7 +256,7 @@ def _build_behavior_schema(configure_data: dict[str, Any]) -> vol.Schema:
 
 
 def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
-    """Construit le schéma voluptuous pour l'étape notifications."""
+    """Build the voluptuous schema for the notifications step."""
     existing_tpl = configure_data.get(CONF_CRITICAL_TEMPLATE)
     preset_default = _critical_template_to_preset(existing_tpl)
     custom_default = existing_tpl if preset_default == _CRITICAL_TEMPLATE_CUSTOM else ""
@@ -304,7 +304,7 @@ def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
 
 
 def _resolve_critical_template(user_input: dict[str, Any]) -> str | None:
-    """Résout le preset critical_template en valeur stockable (template ou None)."""
+    """Resolve the critical_template preset to a storable value (template or None)."""
     preset = user_input.get(CONF_CRITICAL_TEMPLATE, _CRITICAL_TEMPLATE_NEVER)
     if preset == _CRITICAL_TEMPLATE_CUSTOM:
         return (user_input.get("critical_template_custom") or "").strip() or None
@@ -314,7 +314,7 @@ def _resolve_critical_template(user_input: dict[str, Any]) -> str | None:
 
 
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
-    """Retourne url/username/password depuis l'intégration Frigate HA si présente."""
+    """Return url/username/password from the HA Frigate integration if present."""
     for entry in hass.config_entries.async_entries("frigate"):  # type: ignore[union-attr]
         url = entry.data.get("url") or entry.data.get("host")
         if url:
@@ -327,18 +327,18 @@ def _detect_frigate_config(hass: object) -> dict[str, str | None]:
 
 
 def _get_notify_options(hass: object) -> list[str]:
-    """Retourne la liste des services notify disponibles + persistent_notification."""
+    """Return the list of available notify services + persistent_notification."""
     services = sorted(
         f"notify.{svc}"
         for svc in hass.services.async_services_for_domain("notify")  # type: ignore[union-attr]
         if svc != "persistent_notification"
     )
-    # persistent_notification toujours disponible en premier
+    # persistent_notification always available as first option
     return [PERSISTENT_NOTIFICATION] + services
 
 
 def _configured_cameras(entry: ConfigEntry) -> set[str]:
-    """Retourne les noms de caméras déjà configurées dans les subentries."""
+    """Return the camera names already configured in subentries."""
     return {
         subentry.data[CONF_CAMERA]
         for subentry in entry.subentries.values()
@@ -347,7 +347,7 @@ def _configured_cameras(entry: ConfigEntry) -> set[str]:
 
 
 def _critical_template_to_preset(tpl: str | None) -> str:
-    """Convertit un template stocké en option de preset (ou 'custom')."""
+    """Convert a stored template to a preset option (or 'custom')."""
     if not tpl:
         return _CRITICAL_TEMPLATE_NEVER
     if tpl in CRITICAL_TEMPLATE_PRESET_OPTIONS:
@@ -356,13 +356,13 @@ def _critical_template_to_preset(tpl: str | None) -> str:
 
 
 class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Config flow — 1 étape : connexion Frigate."""
+    """Config flow — 1 step: Frigate connection."""
 
     VERSION = 5
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
-        """Initialise le flow."""
+        """Initialize the flow."""
         self._url: str = ""
         self._username: str | None = None
         self._password: str | None = None
@@ -372,13 +372,13 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Retourne les types de subentry supportés (caméras)."""
+        """Return the supported subentry types (cameras)."""
         return {SUBENTRY_TYPE_CAMERA: CameraSubentryFlow}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Étape unique : connexion Frigate (URL + credentials)."""
+        """Single step: Frigate connection (URL + credentials)."""
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
 
@@ -419,7 +419,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Reconfiguration : modifier URL et credentials Frigate."""
+        """Reconfiguration: modify Frigate URL and credentials."""
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}
 
@@ -460,28 +460,28 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class CameraSubentryFlow(ConfigSubentryFlow):
-    """Subentry flow — ajout en 5 étapes et reconfiguration d'une caméra."""
+    """Subentry flow — 5-step add and reconfiguration of a camera."""
 
     def __init__(self) -> None:
-        """Initialise le flow caméra."""
+        """Initialize the camera flow."""
         super().__init__()
         self._camera: str = ""
-        # Zones et labels récupérés depuis Frigate (mémorisés pour le parsing)
+        # Zones and labels fetched from Frigate (stored for parsing)
         self._zones_available: list[str] = []
         self._labels_available: list[str] = []
-        # Vrai si Frigate était inaccessible lors du fetch de la config caméra
+        # True if Frigate was unreachable when fetching the camera config
         self._frigate_unreachable: bool = False
-        # Dictionnaire accumulateur pour les données inter-étapes
+        # Accumulator dict for inter-step data
         self._configure_data: dict[str, Any] = {}
 
     # -----------------------------------------------------------------------
-    # Étape 1 — Sélection de la caméra
+    # Step 1 — Camera selection
     # -----------------------------------------------------------------------
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Étape 1 — sélection de la caméra uniquement."""
+        """Step 1 — camera selection only."""
         entry = self._get_entry()
         errors: dict[str, str] = {}
 
@@ -489,7 +489,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             self._camera = user_input[CONF_CAMERA]
             return await self.async_step_configure()
 
-        # Caméras disponibles = toutes les caméras Frigate - déjà configurées
+        # Available cameras = all Frigate cameras - already configured ones
         try:
             all_cameras = await FrigateClient(
                 entry.data[CONF_URL],
@@ -529,20 +529,20 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         )
 
     # -----------------------------------------------------------------------
-    # Étape 2 — Service de notification
+    # Step 2 — Notification service
     # -----------------------------------------------------------------------
 
     async def async_step_configure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Étape 2 — service de notification."""
+        """Step 2 — notification service."""
         if user_input is not None:
             self._configure_data[CONF_NOTIFY_TARGET] = user_input[CONF_NOTIFY_TARGET]
             return await self.async_step_configure_filters()
 
         entry = self._get_entry()
 
-        # Récupérer les zones et labels depuis Frigate pour cette caméra
+        # Fetch zones and labels from Frigate for this camera
         try:
             cam_config = await FrigateClient(
                 entry.data[CONF_URL],
@@ -575,13 +575,13 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         )
 
     # -----------------------------------------------------------------------
-    # Étape 3 — Filtres de détection
+    # Step 3 — Detection filters
     # -----------------------------------------------------------------------
 
     async def async_step_configure_filters(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Étape 3 — filtres de détection (zones, labels, heures, severity)."""
+        """Step 3 — detection filters (zones, labels, hours, severity)."""
         if user_input is not None:
             self._configure_data.update(
                 _parse_filters_input(user_input, self._zones_available, self._labels_available)
@@ -589,7 +589,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             return await self.async_step_configure_behavior()
 
         warning = (
-            "⚠ Frigate inaccessible — saisissez les zones et labels manuellement."
+            "⚠ Frigate unreachable — enter zones and labels manually."
             if self._frigate_unreachable
             else ""
         )
@@ -603,13 +603,13 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         )
 
     # -----------------------------------------------------------------------
-    # Étape 4 — Comportement
+    # Step 4 — Behavior
     # -----------------------------------------------------------------------
 
     async def async_step_configure_behavior(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Étape 4 — comportement (cooldown, debounce, silent_duration, tap_action)."""
+        """Step 4 — behavior (cooldown, debounce, silent_duration, tap_action)."""
         if user_input is not None:
             self._configure_data.update({
                 CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
@@ -628,13 +628,13 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         )
 
     # -----------------------------------------------------------------------
-    # Étape 5 — Notifications (dernier écran — crée la subentry)
+    # Step 5 — Notifications (last screen — creates the subentry)
     # -----------------------------------------------------------------------
 
     async def async_step_configure_notifications(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Étape 5 — templates de notification et condition critique."""
+        """Step 5 — notification templates and critical condition."""
         if user_input is not None:
             self._configure_data.update({
                 CONF_NOTIF_TITLE: (user_input.get(CONF_NOTIF_TITLE) or "").strip() or None,
@@ -659,18 +659,18 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         )
 
     # -----------------------------------------------------------------------
-    # Reconfiguration (5 étapes pré-remplies)
+    # Reconfiguration (5 pre-filled steps)
     # -----------------------------------------------------------------------
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfiguration — étape 1 (service de notification)."""
+        """Reconfiguration — step 1 (notification service)."""
         subentry = self._get_reconfigure_subentry()
         entry = self._get_entry()
         self._camera = subentry.data[CONF_CAMERA]
 
-        # Initialiser _configure_data depuis les données existantes
+        # Initialize _configure_data from existing data
         if not self._configure_data:
             self._configure_data = dict(subentry.data)
 
@@ -678,7 +678,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             self._configure_data[CONF_NOTIFY_TARGET] = user_input[CONF_NOTIFY_TARGET]
             return await self.async_step_reconfigure_filters()
 
-        # Récupérer les zones et labels depuis Frigate
+        # Fetch zones and labels from Frigate
         try:
             cam_config = await FrigateClient(
                 entry.data[CONF_URL],
@@ -713,7 +713,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     async def async_step_reconfigure_filters(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfiguration — étape 2 (filtres de détection)."""
+        """Reconfiguration — step 2 (detection filters)."""
         if user_input is not None:
             self._configure_data.update(
                 _parse_filters_input(user_input, self._zones_available, self._labels_available)
@@ -721,7 +721,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             return await self.async_step_reconfigure_behavior()
 
         warning = (
-            "⚠ Frigate inaccessible — saisissez les zones et labels manuellement."
+            "⚠ Frigate unreachable — enter zones and labels manually."
             if self._frigate_unreachable
             else ""
         )
@@ -737,7 +737,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     async def async_step_reconfigure_behavior(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfiguration — étape 3 (comportement)."""
+        """Reconfiguration — step 3 (behavior)."""
         if user_input is not None:
             self._configure_data.update({
                 CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
@@ -758,7 +758,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     async def async_step_reconfigure_notifications(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Reconfiguration — étape 4 (notifications) — dernière étape, sauvegarde."""
+        """Reconfiguration — step 4 (notifications) — last step, save."""
         subentry = self._get_reconfigure_subentry()
         entry = self._get_entry()
 
@@ -771,7 +771,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
                 CONF_CRITICAL_VOLUME: float(user_input.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME)),
             })
 
-            # Supprimer la clé caméra de l'accumulateur pour les data_updates
+            # Remove the camera key from the accumulator for data_updates
             data_updates = {k: v for k, v in self._configure_data.items() if k != CONF_CAMERA}
 
             return self.async_update_and_abort(

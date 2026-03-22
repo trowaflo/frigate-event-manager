@@ -1,4 +1,4 @@
-"""Intégration Frigate Event Manager pour Home Assistant."""
+"""Frigate Event Manager integration for Home Assistant."""
 
 from __future__ import annotations
 
@@ -45,55 +45,55 @@ type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
-    """Migration des config entries vers la version actuelle."""
+    """Migrate config entries to the current version."""
     _LOGGER.debug(
-        "Migration de la version %d.%d",
+        "migrating from version %d.%d",
         entry.version,
         entry.minor_version,
     )
 
     if entry.version == 2:
-        # v2 -> v3 : suppression de notify_target global de entry.data
+        # v2 -> v3: remove global notify_target from entry.data
         new_data = {k: v for k, v in entry.data.items() if k != "notify_target"}
         hass.config_entries.async_update_entry(
             entry, data=new_data, version=3, minor_version=1
         )
-        _LOGGER.info("Migration v2 -> v3 terminée")
+        _LOGGER.info("migration v2 -> v3 complete")
         return True
 
     if entry.version == 3:
-        # v3 -> v4 : les paramètres de réglage restent dans subentry.data — aucune transformation.
+        # v3 -> v4: tuning parameters remain in subentry.data — no transformation.
         hass.config_entries.async_update_entry(entry, version=4, minor_version=1)
-        _LOGGER.info("Migration v3 -> v4 terminée")
+        _LOGGER.info("migration v3 -> v4 complete")
         return True
 
     if entry.version == 4:
-        # v4 -> v5 : les paramètres de réglage (cooldown, debounce, severity, tap_action,
-        # notif_title, notif_message, critical_template) restent dans subentry.data —
-        # migration transparente, toutes les clés sont déjà présentes.
+        # v4 -> v5: tuning parameters (cooldown, debounce, severity, tap_action,
+        # notif_title, notif_message, critical_template) remain in subentry.data —
+        # transparent migration, all keys are already present.
         hass.config_entries.async_update_entry(entry, version=5, minor_version=1)
-        _LOGGER.info("Migration v4 -> v5 terminée")
+        _LOGGER.info("migration v4 -> v5 complete")
         return True
 
     if entry.version == 5:
         return True
 
-    # Version inconnue (supérieure) — bloquer le chargement pour éviter des données incompatibles
+    # Unknown (higher) version — block loading to avoid incompatible data
     _LOGGER.error(
-        "Version de config entry %d non supportée — downgrade non pris en charge",
+        "config entry version %d not supported — downgrade not handled",
         entry.version,
     )
     return False
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
-    """Initialise l'intégration depuis une config entry."""
+    """Set up the integration from a config entry."""
     if not await mqtt.async_wait_for_mqtt_client(hass):
         raise ConfigEntryNotReady(
-            "MQTT non disponible — configurez l'intégration MQTT d'abord."
+            "MQTT not available — configure the MQTT integration first."
         )
 
-    # Signer HMAC — généré une fois, réutilisé entre les reloads de l'intégration
+    # HMAC signer — generated once, reused across integration reloads
     if SIGNER_DOMAIN_KEY not in hass.data:
         ha_url = hass.config.external_url or hass.config.internal_url or ""
         if ha_url:
@@ -101,12 +101,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
             hass.data[SIGNER_DOMAIN_KEY] = MediaSigner(proxy_base, ttl=MEDIA_URL_TTL)
         else:
             _LOGGER.warning(
-                "URL externe HA non configurée — presigned URLs médias désactivées"
+                "HA external URL not configured — presigned media URLs disabled"
             )
 
     signer = hass.data.get(SIGNER_DOMAIN_KEY)
 
-    # Client Frigate pour le proxy (mis à jour à chaque reload)
+    # Frigate client for the proxy (updated on each reload)
     frigate_client = FrigateClient(
         entry.data[CONF_URL],
         entry.data.get(CONF_USERNAME),
@@ -114,7 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
     )
     hass.data[PROXY_CLIENT_KEY] = frigate_client
 
-    # View proxy — enregistrée une seule fois dans le serveur HTTP de HA
+    # Proxy view — registered once in the HA HTTP server
     if signer and PROXY_VIEW_KEY not in hass.data:
         hass.http.register_view(FrigateMediaProxyView())
         hass.data[PROXY_VIEW_KEY] = True
@@ -123,7 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
 
     for subentry_id, subentry in entry.subentries.items():
         if subentry.subentry_type == SUBENTRY_TYPE_CAMERA:
-            # notify_target depuis subentry uniquement — fallback persistent_notification
+            # notify_target from subentry only — fallback to persistent_notification
             notify_target = subentry.data.get(CONF_NOTIFY_TARGET) or PERSISTENT_NOTIFICATION
             notifier = HANotifier(
                 hass,
@@ -146,28 +146,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
 
     entry.runtime_data = coordinators
 
-    # Recharge l'intégration quand une subentry est ajoutée/supprimée
+    # Reload the integration when a subentry is added/removed
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.debug(
-        "Frigate Event Manager initialisé — %d caméra(s) configurée(s)",
+        "Frigate Event Manager initialized — %d camera(s) configured",
         len(coordinators),
     )
     return True
 
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Recharge l'intégration quand une subentry est ajoutée/modifiée/supprimée."""
+    """Reload the integration when a subentry is added/modified/removed."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
-    """Décharge l'intégration et arrête toutes les souscriptions MQTT."""
+    """Unload the integration and stop all MQTT subscriptions."""
     old_coordinators: dict[str, FrigateEventManagerCoordinator] = getattr(entry, "runtime_data", {})
 
-    # Nettoyer les stores des subentries supprimées (avant unload, entry.subentries est déjà à jour)
+    # Clean up stores for removed subentries (before unload, entry.subentries is already updated)
     for subentry_id, coordinator in old_coordinators.items():
         if subentry_id not in entry.subentries:
             await coordinator.async_remove_store()
