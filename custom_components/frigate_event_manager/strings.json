@@ -206,7 +206,7 @@
       }
     },
     "binary_sensor": {
-      "mouvement": {
+      "motion": {
         "name": "Motion"
       },
       "silent_state": {

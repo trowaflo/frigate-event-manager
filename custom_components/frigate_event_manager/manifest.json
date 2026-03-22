@@ -4,7 +4,7 @@
   "version": "0.9.0",
   "codeowners": ["@trowaflo"],
   "config_flow": true,
-  "dependencies": ["mqtt"],
+  "dependencies": ["http", "mqtt"],
   "documentation": "https://github.com/trowaflo/frigate-event-manager",
   "integration_type": "hub",
   "iot_class": "local_push",

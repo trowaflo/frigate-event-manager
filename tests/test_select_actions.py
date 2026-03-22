@@ -8,12 +8,8 @@ import pytest
 
 from custom_components.frigate_event_manager.const import (
     ACTION_BTN_OPTIONS,
-    CONF_ACTION_BTN1,
-    CONF_ACTION_BTN2,
-    CONF_ACTION_BTN3,
     DEFAULT_ACTION_BTN,
     DOMAIN,
-    SUBENTRY_TYPE_CAMERA,
 )
 from custom_components.frigate_event_manager.select import (
     ActionButton1Select,

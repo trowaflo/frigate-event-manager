@@ -40,7 +40,7 @@ class FrigateMotionSensor(
     """
 
     _attr_has_entity_name = True
-    _attr_translation_key = "mouvement"
+    _attr_translation_key = "motion"
     _attr_device_class = BinarySensorDeviceClass.MOTION
     _attr_icon = "mdi:motion-sensor"
 

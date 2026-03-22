@@ -164,7 +164,7 @@ class TestFrigateMotionSensor:
 
     def test_nom_entite_est_mouvement(self) -> None:
         sensor = self._build(cam_name="piscine")
-        assert sensor._attr_translation_key == "mouvement"
+        assert sensor._attr_translation_key == "motion"
 
     def test_device_info_identifiers_contient_subentry_id(self) -> None:
         sensor = self._build()
