@@ -1,4 +1,4 @@
-"""Entités text — non enregistrées (configuration déplacée dans le config flow)."""
+"""Text entities — not registered (configuration moved to config flow)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Aucune entité text créée — paramètres gérés dans le config flow."""
+    """No text entity created — parameters managed in config flow."""
 
 
 class _FEMTextBase(
@@ -27,7 +27,7 @@ class _FEMTextBase(
     TextEntity,
     RestoreEntity,
 ):
-    """Base commune aux entités text FEM (templates Jinja2)."""
+    """Common base for FEM text entities (Jinja2 templates)."""
 
     _attr_has_entity_name = True
     _attr_mode = TextMode.TEXT
@@ -39,7 +39,7 @@ class _FEMTextBase(
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise l'entité text."""
+        """Initialize the text entity."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_device_info = DeviceInfo(
@@ -50,7 +50,7 @@ class _FEMTextBase(
         self._attr_native_value = initial
 
     async def async_added_to_hass(self) -> None:
-        """Restaure la valeur depuis l'état précédent si disponible."""
+        """Restore value from previous state if available."""
         await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state is not None and state.state not in ("unknown", "unavailable"):
@@ -58,12 +58,12 @@ class _FEMTextBase(
             self._apply_value(state.state)
 
     def _apply_value(self, value: str) -> None:
-        """Applique la valeur sur le coordinator — à implémenter dans chaque sous-classe."""
+        """Apply the value to the coordinator — to be implemented in each subclass."""
         raise NotImplementedError
 
 
 class NotifTitleText(_FEMTextBase):
-    """Template Jinja2 du titre de notification."""
+    """Jinja2 template for the notification title."""
 
     _attr_translation_key = "notif_title"
     _attr_icon = "mdi:format-title"
@@ -74,13 +74,13 @@ class NotifTitleText(_FEMTextBase):
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise l'entité titre de notification."""
+        """Initialize the notification title entity."""
         super().__init__(coordinator, subentry_id, initial)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_notif_title"
 
     async def async_set_value(self, value: str) -> None:
-        """Met à jour le template de titre sur le coordinator en live."""
+        """Update the title template on the coordinator live."""
         self._attr_native_value = value
         self._apply_value(value)
         self.async_write_ha_state()
@@ -90,7 +90,7 @@ class NotifTitleText(_FEMTextBase):
 
 
 class NotifMessageText(_FEMTextBase):
-    """Template Jinja2 du message de notification."""
+    """Jinja2 template for the notification message."""
 
     _attr_translation_key = "notif_message"
     _attr_icon = "mdi:message-text-outline"
@@ -101,13 +101,13 @@ class NotifMessageText(_FEMTextBase):
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise l'entité message de notification."""
+        """Initialize the notification message entity."""
         super().__init__(coordinator, subentry_id, initial)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_notif_message"
 
     async def async_set_value(self, value: str) -> None:
-        """Met à jour le template de message sur le coordinator en live."""
+        """Update the message template on the coordinator live."""
         self._attr_native_value = value
         self._apply_value(value)
         self.async_write_ha_state()
@@ -117,7 +117,7 @@ class NotifMessageText(_FEMTextBase):
 
 
 class CriticalTemplateText(_FEMTextBase):
-    """Condition Jinja2 pour les notifications critiques."""
+    """Jinja2 condition for critical notifications."""
 
     _attr_translation_key = "critical_template"
     _attr_icon = "mdi:alert-circle-outline"
@@ -128,13 +128,13 @@ class CriticalTemplateText(_FEMTextBase):
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise l'entité template critique."""
+        """Initialize the critical template entity."""
         super().__init__(coordinator, subentry_id, initial)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_critical_template"
 
     async def async_set_value(self, value: str) -> None:
-        """Met à jour le template critique sur le coordinator en live."""
+        """Update the critical template on the coordinator live."""
         self._attr_native_value = value
         self._apply_value(value)
         self.async_write_ha_state()

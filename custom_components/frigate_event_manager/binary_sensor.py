@@ -1,4 +1,4 @@
-"""Entité binary_sensor — détection de mouvement et mode silencieux par caméra."""
+"""Binary sensor entity — motion detection and silent mode per camera."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée les entités binary_sensor par caméra configurée."""
+    """Create binary sensor entities per configured camera."""
     for subentry_id, coordinator in entry.runtime_data.items():
         async_add_entities(
             [
@@ -34,9 +34,9 @@ async def async_setup_entry(
 class FrigateMotionSensor(
     CoordinatorEntity[FrigateEventManagerCoordinator], BinarySensorEntity
 ):
-    """Indique si un mouvement est actif sur une caméra Frigate.
+    """Indicates whether motion is active on a Frigate camera.
 
-    ON lors d'un événement type=new, OFF lors de type=end.
+    ON on event type=new, OFF on type=end.
     """
 
     _attr_has_entity_name = True
@@ -49,7 +49,7 @@ class FrigateMotionSensor(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le binary_sensor pour la caméra donnée."""
+        """Initialize the binary sensor for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_motion"
@@ -61,7 +61,7 @@ class FrigateMotionSensor(
 
     @property
     def is_on(self) -> bool | None:
-        """Retourne True si un mouvement est actif."""
+        """Return True if motion is active."""
         data = self.coordinator.data
         if data:
             return bool(data.get("motion", False))
@@ -71,9 +71,9 @@ class FrigateMotionSensor(
 class SilentStateSensor(
     CoordinatorEntity[FrigateEventManagerCoordinator], BinarySensorEntity
 ):
-    """Indique si le mode silencieux est actif pour cette caméra.
+    """Indicates whether silent mode is active for this camera.
 
-    ON si _silent_until est dans le futur, OFF sinon.
+    ON if _silent_until is in the future, OFF otherwise.
     """
 
     _attr_has_entity_name = True
@@ -86,7 +86,7 @@ class SilentStateSensor(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le binary_sensor silence pour la caméra donnée."""
+        """Initialize the silent binary sensor for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_silent_state"
@@ -98,5 +98,5 @@ class SilentStateSensor(
 
     @property
     def is_on(self) -> bool:
-        """Retourne True si le mode silencieux est actif."""
+        """Return True if silent mode is active."""
         return time.time() < self.coordinator.silent_until

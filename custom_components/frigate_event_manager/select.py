@@ -1,4 +1,4 @@
-"""Entités select — boutons d'action notification par caméra."""
+"""Select entities — notification action buttons per camera."""
 
 from __future__ import annotations
 
@@ -21,25 +21,25 @@ from .const import (
 )
 from .coordinator import FrigateEventManagerCoordinator
 
-# Option pour "alert et detection" dans le select mono-valeur
+# Option for "alert and detection" in the single-value select
 _SEVERITY_BOTH = "alert,detection"
 
-# Mapping option UI → liste de sévérités
+# Mapping UI option → severity list
 _SEVERITY_UI_TO_LIST: dict[str, list[str]] = {
     "alert": ["alert"],
     "detection": ["detection"],
     _SEVERITY_BOTH: ["alert", "detection"],
 }
 
-# Mapping liste de sévérités → option UI (lookup inverse)
+# Mapping severity list → UI option (reverse lookup)
 def _severity_list_to_ui(severities: list[str]) -> str:
-    """Convertit une liste de sévérités en option UI mono-valeur."""
+    """Convert a severity list to a single-value UI option."""
     s = sorted(severities)
     if s == ["alert"]:
         return "alert"
     if s == ["detection"]:
         return "detection"
-    # cas par défaut : les deux
+    # default case: both
     return _SEVERITY_BOTH
 
 
@@ -48,7 +48,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Aucune entité select créée — boutons d'action gérés dans le config flow."""
+    """No select entity created — action buttons managed in config flow."""
 
 
 class SeverityFilterSelect(
@@ -56,13 +56,13 @@ class SeverityFilterSelect(
     SelectEntity,
     RestoreEntity,
 ):
-    """Filtre de sévérité — Alert / Detection / Les deux."""
+    """Severity filter — Alert / Detection / Both."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "severity_filter"
     _attr_icon = "mdi:filter-variant"
 
-    # Options UI : alert seul, detection seul, les deux
+    # UI options: alert only, detection only, both
     _attr_options = [
         *SEVERITY_OPTIONS,
         _SEVERITY_BOTH,
@@ -74,7 +74,7 @@ class SeverityFilterSelect(
         subentry_id: str,
         initial: list[str],
     ) -> None:
-        """Initialise le select de sévérité."""
+        """Initialize the severity select."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_severity"
@@ -86,7 +86,7 @@ class SeverityFilterSelect(
         )
 
     async def async_added_to_hass(self) -> None:
-        """Restaure la valeur depuis l'état précédent si disponible."""
+        """Restore value from previous state if available."""
         await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state is not None and state.state in self._attr_options:
@@ -96,7 +96,7 @@ class SeverityFilterSelect(
             )
 
     async def async_select_option(self, option: str) -> None:
-        """Met à jour le filtre de sévérité sur le coordinator en live."""
+        """Update the severity filter on the coordinator live."""
         self._attr_current_option = option
         self.coordinator.set_severity(_SEVERITY_UI_TO_LIST.get(option, DEFAULT_SEVERITY))
         self.async_write_ha_state()
@@ -107,7 +107,7 @@ class TapActionSelect(
     SelectEntity,
     RestoreEntity,
 ):
-    """Action au tap de la notification (clip / snapshot / preview)."""
+    """Notification tap action (clip / snapshot / preview)."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "tap_action"
@@ -120,7 +120,7 @@ class TapActionSelect(
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise le select d'action au tap."""
+        """Initialize the tap action select."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_tap_action"
@@ -132,7 +132,7 @@ class TapActionSelect(
         )
 
     async def async_added_to_hass(self) -> None:
-        """Restaure la valeur depuis l'état précédent si disponible."""
+        """Restore value from previous state if available."""
         await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state is not None and state.state in TAP_ACTION_OPTIONS:
@@ -140,7 +140,7 @@ class TapActionSelect(
             self.coordinator.set_tap_action(state.state)
 
     async def async_select_option(self, option: str) -> None:
-        """Met à jour l'action au tap sur le coordinator en live."""
+        """Update the tap action on the coordinator live."""
         self._attr_current_option = option
         self.coordinator.set_tap_action(option)
         self.async_write_ha_state()
@@ -151,13 +151,13 @@ class _ActionButtonSelectBase(
     SelectEntity,
     RestoreEntity,
 ):
-    """Classe de base pour les selects boutons d'action notification."""
+    """Base class for notification action button selects."""
 
     _attr_has_entity_name = True
     _attr_icon = "mdi:gesture-tap-button"
     _attr_options = ACTION_BTN_OPTIONS
 
-    # À surcharger dans les sous-classes
+    # To be overridden in subclasses
     _btn_key: str = ""
 
     def __init__(
@@ -166,7 +166,7 @@ class _ActionButtonSelectBase(
         subentry_id: str,
         initial: str,
     ) -> None:
-        """Initialise le select bouton d'action."""
+        """Initialize the action button select."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_{self._btn_key}"
@@ -180,7 +180,7 @@ class _ActionButtonSelectBase(
         )
 
     async def async_added_to_hass(self) -> None:
-        """Restaure la valeur depuis l'état précédent si disponible."""
+        """Restore value from previous state if available."""
         await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state is not None and state.state in ACTION_BTN_OPTIONS:
@@ -188,18 +188,18 @@ class _ActionButtonSelectBase(
             self._apply_to_coordinator(state.state)
 
     def _apply_to_coordinator(self, option: str) -> None:
-        """Délègue la valeur au coordinator — surchargé par chaque sous-classe."""
+        """Delegate the value to the coordinator — overridden by each subclass."""
         raise NotImplementedError
 
     async def async_select_option(self, option: str) -> None:
-        """Met à jour le bouton d'action sur le coordinator en live."""
+        """Update the action button on the coordinator live."""
         self._attr_current_option = option
         self._apply_to_coordinator(option)
         self.async_write_ha_state()
 
 
 class ActionButton1Select(_ActionButtonSelectBase):
-    """Bouton d'action n°1 dans les notifications."""
+    """Action button #1 in notifications."""
 
     _attr_translation_key = "action_btn1"
     _btn_key = "action_btn1"
@@ -209,7 +209,7 @@ class ActionButton1Select(_ActionButtonSelectBase):
 
 
 class ActionButton2Select(_ActionButtonSelectBase):
-    """Bouton d'action n°2 dans les notifications."""
+    """Action button #2 in notifications."""
 
     _attr_translation_key = "action_btn2"
     _btn_key = "action_btn2"
@@ -219,7 +219,7 @@ class ActionButton2Select(_ActionButtonSelectBase):
 
 
 class ActionButton3Select(_ActionButtonSelectBase):
-    """Bouton d'action n°3 dans les notifications."""
+    """Action button #3 in notifications."""
 
     _attr_translation_key = "action_btn3"
     _btn_key = "action_btn3"

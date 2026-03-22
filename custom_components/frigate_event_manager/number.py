@@ -1,4 +1,4 @@
-"""Entités number — non enregistrées (configuration déplacée dans le config flow)."""
+"""Number entities — not registered (configuration moved to config flow)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Aucune entité number créée — paramètres gérés dans le config flow."""
+    """No number entity created — parameters managed in config flow."""
 
 
 class _FEMNumberBase(
@@ -27,7 +27,7 @@ class _FEMNumberBase(
     NumberEntity,
     RestoreEntity,
 ):
-    """Base commune aux entités number FEM."""
+    """Common base for FEM number entities."""
 
     _attr_has_entity_name = True
     _attr_mode = NumberMode.BOX
@@ -38,7 +38,7 @@ class _FEMNumberBase(
         subentry_id: str,
         initial: float,
     ) -> None:
-        """Initialise l'entité number."""
+        """Initialize the number entity."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_device_info = DeviceInfo(
@@ -49,7 +49,7 @@ class _FEMNumberBase(
         self._attr_native_value = float(initial)
 
     async def async_added_to_hass(self) -> None:
-        """Restaure la valeur depuis l'état précédent si disponible."""
+        """Restore value from previous state if available."""
         await super().async_added_to_hass()
         state = await self.async_get_last_state()
         if state is not None:
@@ -65,12 +65,12 @@ class _FEMNumberBase(
                 pass
 
     def _apply_value(self, value: int) -> None:
-        """Applique la valeur sur le coordinator — à implémenter dans chaque sous-classe."""
+        """Apply the value to the coordinator — to be implemented in each subclass."""
         raise NotImplementedError
 
 
 class CooldownNumber(_FEMNumberBase):
-    """Cooldown anti-spam en secondes (0–3600)."""
+    """Anti-spam cooldown in seconds (0–3600)."""
 
     _attr_translation_key = "cooldown"
     _attr_native_min_value = 0
@@ -85,13 +85,13 @@ class CooldownNumber(_FEMNumberBase):
         subentry_id: str,
         initial: int,
     ) -> None:
-        """Initialise l'entité cooldown."""
+        """Initialize the cooldown entity."""
         super().__init__(coordinator, subentry_id, float(initial))
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_cooldown"
 
     async def async_set_native_value(self, value: float) -> None:
-        """Met à jour le cooldown sur le coordinator en live."""
+        """Update the cooldown on the coordinator live."""
         self._attr_native_value = value
         self._apply_value(int(value))
         self.async_write_ha_state()
@@ -101,7 +101,7 @@ class CooldownNumber(_FEMNumberBase):
 
 
 class DebounceNumber(_FEMNumberBase):
-    """Fenêtre de debounce en secondes (0–60)."""
+    """Debounce window in seconds (0–60)."""
 
     _attr_translation_key = "debounce"
     _attr_native_min_value = 0
@@ -116,13 +116,13 @@ class DebounceNumber(_FEMNumberBase):
         subentry_id: str,
         initial: int,
     ) -> None:
-        """Initialise l'entité debounce."""
+        """Initialize the debounce entity."""
         super().__init__(coordinator, subentry_id, float(initial))
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_debounce"
 
     async def async_set_native_value(self, value: float) -> None:
-        """Met à jour le debounce sur le coordinator en live."""
+        """Update the debounce on the coordinator live."""
         self._attr_native_value = value
         self._apply_value(int(value))
         self.async_write_ha_state()

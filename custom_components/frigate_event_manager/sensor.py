@@ -1,4 +1,4 @@
-"""Sensor timestamp de réactivation du mode silencieux par caméra."""
+"""Sensor — silent mode reactivation timestamp per camera."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée un sensor timestamp par caméra configurée."""
+    """Create one timestamp sensor per configured camera."""
     for subentry_id, coordinator in entry.runtime_data.items():
         async_add_entities(
             [SilentUntilSensor(coordinator, subentry_id)],
@@ -32,10 +32,10 @@ async def async_setup_entry(
 class SilentUntilSensor(
     CoordinatorEntity[FrigateEventManagerCoordinator], SensorEntity
 ):
-    """Timestamp de fin du mode silencieux. None si silence inactif.
+    """End timestamp of silent mode. None if silence is inactive.
 
-    Expose la date/heure de réactivation des notifications sous forme
-    d'un sensor de type TIMESTAMP, compatible avec les automations HA.
+    Exposes the notification reactivation date/time as a TIMESTAMP
+    sensor, compatible with HA automations.
     """
 
     _attr_has_entity_name = True
@@ -48,7 +48,7 @@ class SilentUntilSensor(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le sensor pour la caméra donnée."""
+        """Initialize the sensor for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_silent_until"
@@ -60,7 +60,7 @@ class SilentUntilSensor(
 
     @property
     def native_value(self) -> datetime | None:
-        """Retourne la date de fin du silence, None si silence inactif."""
+        """Return the end of silence date, None if silence is inactive."""
         silent_until = self.coordinator.silent_until
         if time.time() >= silent_until:
             return None

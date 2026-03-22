@@ -1,4 +1,4 @@
-"""Entité bouton — activation du mode silencieux par caméra."""
+"""Button entity — activate silent mode per camera."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée une entité bouton silencieux par caméra configurée."""
+    """Create one silent button entity per configured camera."""
     for subentry_id, coordinator in entry.runtime_data.items():
         async_add_entities(
             [
@@ -32,7 +32,7 @@ async def async_setup_entry(
 class SilentButton(
     CoordinatorEntity[FrigateEventManagerCoordinator], ButtonEntity
 ):
-    """Bouton pour activer le mode silencieux sur une caméra."""
+    """Button to activate silent mode on a camera."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "silent_button"
@@ -43,7 +43,7 @@ class SilentButton(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le bouton pour la caméra donnée."""
+        """Initialize the button for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_silent"
@@ -54,14 +54,14 @@ class SilentButton(
         )
 
     async def async_press(self) -> None:
-        """Active le mode silencieux pour cette caméra."""
+        """Activate silent mode for this camera."""
         self.coordinator.activate_silent_mode()
 
 
 class CancelSilentButton(
     CoordinatorEntity[FrigateEventManagerCoordinator], ButtonEntity
 ):
-    """Bouton pour annuler le mode silencieux actif sur une caméra."""
+    """Button to cancel the active silent mode on a camera."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "cancel_silent_button"
@@ -72,7 +72,7 @@ class CancelSilentButton(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le bouton d'annulation de silence pour la caméra donnée."""
+        """Initialize the cancel silent button for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_cancel_silent"
@@ -83,5 +83,5 @@ class CancelSilentButton(
         )
 
     async def async_press(self) -> None:
-        """Annule le mode silencieux actif pour cette caméra."""
+        """Cancel the active silent mode for this camera."""
         await self.coordinator.async_cancel_silent()

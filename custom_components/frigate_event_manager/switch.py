@@ -1,4 +1,4 @@
-"""Entité switch — activation/désactivation des notifications par caméra."""
+"""Switch entity — enable/disable notifications per camera."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ async def async_setup_entry(
     entry: FEMConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Crée une entité switch par caméra configurée."""
+    """Create one switch entity per configured camera."""
     for subentry_id, coordinator in entry.runtime_data.items():
         async_add_entities(
             [FrigateNotificationSwitch(coordinator, subentry_id)],
@@ -29,7 +29,7 @@ async def async_setup_entry(
 class FrigateNotificationSwitch(
     CoordinatorEntity[FrigateEventManagerCoordinator], SwitchEntity
 ):
-    """Active ou désactive les notifications pour une caméra."""
+    """Enable or disable notifications for a camera."""
 
     _attr_has_entity_name = True
     _attr_translation_key = "notifications"
@@ -40,7 +40,7 @@ class FrigateNotificationSwitch(
         coordinator: FrigateEventManagerCoordinator,
         subentry_id: str,
     ) -> None:
-        """Initialise le switch pour la caméra donnée."""
+        """Initialize the switch for the given camera."""
         super().__init__(coordinator)
         cam_name = coordinator.camera
         self._attr_unique_id = f"fem_{cam_name}_switch"
@@ -52,16 +52,16 @@ class FrigateNotificationSwitch(
 
     @property
     def is_on(self) -> bool:
-        """Retourne l'état enabled depuis coordinator.data."""
+        """Return the enabled state from coordinator.data."""
         data = self.coordinator.data
         if data:
             return bool(data.get("enabled", True))
         return self.coordinator.camera_state.enabled
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Active les notifications pour cette caméra."""
+        """Enable notifications for this camera."""
         self.coordinator.set_camera_enabled(True)
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Désactive les notifications pour cette caméra."""
+        """Disable notifications for this camera."""
         self.coordinator.set_camera_enabled(False)
