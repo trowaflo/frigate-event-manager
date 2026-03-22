@@ -19,3 +19,10 @@ coverage.out
 .ruff_cache/
 dist/
 *.egg-info/
+
+# Secrets et fichiers sensibles
+.env
+*.key
+*.pem
+*.p12
+*.pfx
