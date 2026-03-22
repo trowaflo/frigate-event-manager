@@ -1,4 +1,4 @@
-"""Tests de FrigateMediaProxyView — validation HMAC et proxy Frigate."""
+"""Tests for FrigateMediaProxyView — HMAC validation and Frigate proxy."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _make_client(content: bytes = b"imgdata", content_type: str = "image/jpeg") 
 
 
 def _make_request(hass: HomeAssistant, url_params: str) -> MagicMock:
-    """Construit un faux aiohttp.web.Request."""
+    """Build a fake aiohttp.web.Request."""
     from urllib.parse import parse_qs
     params = parse_qs(url_params)
     request = MagicMock()
@@ -37,7 +37,7 @@ def _make_request(hass: HomeAssistant, url_params: str) -> MagicMock:
 
 
 async def test_proxy_signature_valide_retourne_media(hass: HomeAssistant) -> None:
-    """Une requête avec une signature valide retourne le contenu Frigate."""
+    """A request with a valid signature returns the Frigate content."""
     signer = _make_signer()
     client = _make_client(b"jpeg_content", "image/jpeg")
     hass.data[SIGNER_DOMAIN_KEY] = signer
@@ -56,7 +56,7 @@ async def test_proxy_signature_valide_retourne_media(hass: HomeAssistant) -> Non
 
 
 async def test_proxy_signature_invalide_retourne_401(hass: HomeAssistant) -> None:
-    """Une signature forgée retourne 401."""
+    """A forged signature returns 401."""
     signer = _make_signer()
     hass.data[SIGNER_DOMAIN_KEY] = signer
     hass.data[PROXY_CLIENT_KEY] = _make_client()
@@ -71,7 +71,7 @@ async def test_proxy_signature_invalide_retourne_401(hass: HomeAssistant) -> Non
 
 
 async def test_proxy_url_expiree_retourne_401(hass: HomeAssistant) -> None:
-    """Une URL expirée retourne 401."""
+    """An expired URL returns 401."""
     signer = _make_signer()
     hass.data[SIGNER_DOMAIN_KEY] = signer
     hass.data[PROXY_CLIENT_KEY] = _make_client()
@@ -86,10 +86,10 @@ async def test_proxy_url_expiree_retourne_401(hass: HomeAssistant) -> None:
 
 
 async def test_proxy_frigate_erreur_retourne_502(hass: HomeAssistant) -> None:
-    """Une erreur Frigate retourne 502."""
+    """A Frigate error returns 502."""
     signer = _make_signer()
     client = AsyncMock()
-    client.get_media.side_effect = Exception("connexion refusée")
+    client.get_media.side_effect = Exception("connection refused")
     hass.data[SIGNER_DOMAIN_KEY] = signer
     hass.data[PROXY_CLIENT_KEY] = client
 
@@ -103,7 +103,7 @@ async def test_proxy_frigate_erreur_retourne_502(hass: HomeAssistant) -> None:
 
 
 async def test_proxy_sans_signer_retourne_503(hass: HomeAssistant) -> None:
-    """Sans signer dans hass.data, retourne 503."""
+    """Without a signer in hass.data, returns 503."""
     hass.data[PROXY_CLIENT_KEY] = _make_client()
     # SIGNER_DOMAIN_KEY absent
 

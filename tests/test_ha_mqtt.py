@@ -1,4 +1,4 @@
-"""Tests de HaMqttAdapter."""
+"""Tests for HaMqttAdapter."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from custom_components.frigate_event_manager.ha_mqtt import HaMqttAdapter
 
 class TestHaMqttAdapter:
     def test_init_stocke_hass(self, hass: HomeAssistant) -> None:
-        """HaMqttAdapter.__init__ stocke l'instance hass."""
+        """HaMqttAdapter.__init__ stores the hass instance."""
         adapter = HaMqttAdapter(hass)
         assert adapter._hass is hass
 
     async def test_async_subscribe_appelle_mqtt_subscribe(
         self, hass: HomeAssistant
     ) -> None:
-        """async_subscribe délègue à mqtt.async_subscribe et retourne le callback."""
+        """async_subscribe delegates to mqtt.async_subscribe and returns the callback."""
         mock_unsubscribe = MagicMock()
         callback = MagicMock()
 
@@ -35,7 +35,7 @@ class TestHaMqttAdapter:
     async def test_async_subscribe_retourne_callable(
         self, hass: HomeAssistant
     ) -> None:
-        """async_subscribe retourne un callable (la fonction de désabonnement)."""
+        """async_subscribe returns a callable (the unsubscribe function)."""
         unsubscribe_fn = MagicMock()
 
         with patch(

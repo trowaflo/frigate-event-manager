@@ -1,4 +1,4 @@
-"""Tests du client HTTP Frigate."""
+"""Tests for the Frigate HTTP client."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 from custom_components.frigate_event_manager.frigate_client import FrigateClient
 
-# Cible de patch : aiohttp.ClientSession dans le module frigate_client
+# Patch target: aiohttp.ClientSession in the frigate_client module
 PATCH_CLIENT_SESSION = (
     "custom_components.frigate_event_manager.frigate_client.aiohttp.ClientSession"
 )
@@ -21,7 +21,7 @@ PATCH_CLIENT_SESSION = (
 
 
 def _make_response(json_data, status: int = 200) -> MagicMock:
-    """Crée un mock de réponse aiohttp avec json() async."""
+    """Create a mock aiohttp response with async json()."""
     response = MagicMock()
     response.status = status
     response.json = AsyncMock(return_value=json_data)
@@ -30,7 +30,7 @@ def _make_response(json_data, status: int = 200) -> MagicMock:
 
 
 def _make_session(response: MagicMock) -> MagicMock:
-    """Crée un mock de ClientSession utilisant un context manager async."""
+    """Create a mock ClientSession using an async context manager."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(return_value=response)
@@ -44,12 +44,12 @@ def _make_session(response: MagicMock) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# Tests happy path
+# Happy path tests
 # ---------------------------------------------------------------------------
 
 
 async def test_get_cameras_returns_camera_names() -> None:
-    """Happy path : /api/config retourne un dict avec 'cameras' → get_cameras() retourne les noms."""
+    """Happy path: /api/config returns a dict with 'cameras' → get_cameras() returns names."""
     api_response = {
         "cameras": {
             "jardin": {"fps": 5},
@@ -69,7 +69,7 @@ async def test_get_cameras_returns_camera_names() -> None:
 
 
 async def test_get_cameras_single_camera() -> None:
-    """Une seule caméra dans la réponse → liste d'un élément."""
+    """Single camera in response → list of one element."""
     api_response = {"cameras": {"salon": {"fps": 15}}}
     response = _make_response(api_response)
     cm_session = _make_session(response)
@@ -82,7 +82,7 @@ async def test_get_cameras_single_camera() -> None:
 
 
 async def test_get_cameras_strips_trailing_slash() -> None:
-    """L'URL avec slash final ne duplique pas le séparateur dans le chemin."""
+    """URL with trailing slash does not duplicate the separator in the path."""
     api_response = {"cam1": {}}
     response = _make_response(api_response)
     captured_url: list[str] = []
@@ -109,12 +109,12 @@ async def test_get_cameras_strips_trailing_slash() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests réponse non-dict
+# Non-dict response tests
 # ---------------------------------------------------------------------------
 
 
 async def test_get_cameras_returns_empty_list_when_response_is_list() -> None:
-    """Réponse JSON = liste → retourne [] (pas un dict)."""
+    """JSON response = list → returns [] (not a dict)."""
     response = _make_response(["cam1", "cam2"])
     cm_session = _make_session(response)
 
@@ -126,7 +126,7 @@ async def test_get_cameras_returns_empty_list_when_response_is_list() -> None:
 
 
 async def test_get_cameras_returns_empty_list_when_response_is_string() -> None:
-    """Réponse JSON = string → retourne []."""
+    """JSON response = string → returns []."""
     response = _make_response("not a dict")
     cm_session = _make_session(response)
 
@@ -138,7 +138,7 @@ async def test_get_cameras_returns_empty_list_when_response_is_string() -> None:
 
 
 async def test_get_cameras_returns_empty_list_when_response_is_none() -> None:
-    """Réponse JSON = null → retourne []."""
+    """JSON response = null → returns []."""
     response = _make_response(None)
     cm_session = _make_session(response)
 
@@ -150,7 +150,7 @@ async def test_get_cameras_returns_empty_list_when_response_is_none() -> None:
 
 
 async def test_get_cameras_returns_empty_list_for_empty_dict() -> None:
-    """Réponse JSON = dict vide → retourne liste vide."""
+    """JSON response = empty dict → returns empty list."""
     response = _make_response({})
     cm_session = _make_session(response)
 
@@ -162,16 +162,16 @@ async def test_get_cameras_returns_empty_list_for_empty_dict() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests erreur réseau
+# Network error tests
 # ---------------------------------------------------------------------------
 
 
 async def test_get_cameras_propagates_client_connection_error() -> None:
-    """aiohttp.ClientConnectionError (sous-classe ClientError) doit être propagée."""
+    """aiohttp.ClientConnectionError (subclass of ClientError) must be propagated."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(
-        side_effect=aiohttp.ClientConnectionError("connexion refusée")
+        side_effect=aiohttp.ClientConnectionError("connection refused")
     )
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
@@ -187,7 +187,7 @@ async def test_get_cameras_propagates_client_connection_error() -> None:
 
 
 async def test_get_cameras_propagates_server_connection_error() -> None:
-    """ServerConnectionError (sous-classe de ClientError) doit être propagée."""
+    """ServerConnectionError (subclass of ClientError) must be propagated."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(
@@ -207,7 +207,7 @@ async def test_get_cameras_propagates_server_connection_error() -> None:
 
 
 async def test_get_cameras_propagates_raise_for_status_error() -> None:
-    """raise_for_status() levant ClientResponseError doit être propagée."""
+    """raise_for_status() raising ClientResponseError must be propagated."""
     response = MagicMock()
     response.raise_for_status = MagicMock(
         side_effect=aiohttp.ClientResponseError(MagicMock(), (), status=404)
@@ -222,12 +222,12 @@ async def test_get_cameras_propagates_raise_for_status_error() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests construction URL
+# URL construction tests
 # ---------------------------------------------------------------------------
 
 
 async def test_get_cameras_correct_endpoint() -> None:
-    """Le client appelle bien /api/config sur le bon host."""
+    """Client calls /api/config on the correct host."""
     api_response = {"cameras": {"cam": {}}}
     response = _make_response(api_response)
     captured_url: list[str] = []
@@ -254,14 +254,14 @@ async def test_get_cameras_correct_endpoint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests authentification — get_cameras avec credentials
+# Authentication tests — get_cameras with credentials
 # ---------------------------------------------------------------------------
 
 
 def _make_session_with_login(
     login_response: MagicMock, config_response: MagicMock
 ) -> MagicMock:
-    """Crée un mock de session qui renvoie login_response pour POST et config_response pour GET."""
+    """Create a mock session that returns login_response for POST and config_response for GET."""
     session = MagicMock()
 
     cm_login = MagicMock()
@@ -281,8 +281,8 @@ def _make_session_with_login(
 
 
 async def test_get_cameras_avec_credentials_appelle_login() -> None:
-    """Avec username, get_cameras() appelle POST /api/login avant GET /api/config."""
-    # Réponse login avec cookie
+    """With username, get_cameras() calls POST /api/login before GET /api/config."""
+    # Login response with cookie
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
     token_cookie = MagicMock()
@@ -301,10 +301,10 @@ async def test_get_cameras_avec_credentials_appelle_login() -> None:
 
 
 async def test_get_cameras_avec_credentials_sans_cookie_token() -> None:
-    """Avec username mais sans cookie retourné → pas de header Cookie ajouté."""
+    """With username but no cookie returned → no Cookie header added."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
-    login_resp.cookies = {}  # pas de frigate_token
+    login_resp.cookies = {}  # no frigate_token
 
     config_resp = _make_response({"cameras": {"jardin": {}}})
     cm_session = _make_session_with_login(login_resp, config_resp)
@@ -317,7 +317,7 @@ async def test_get_cameras_avec_credentials_sans_cookie_token() -> None:
 
 
 async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None:
-    """Login retourne 401 → raise_for_status lève ClientResponseError."""
+    """Login returns 401 → raise_for_status raises ClientResponseError."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock(
         side_effect=aiohttp.ClientResponseError(MagicMock(), (), status=401)
@@ -328,7 +328,7 @@ async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None
     cm_session = _make_session_with_login(login_resp, config_resp)
 
     with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="mauvais")
+        client = FrigateClient("http://frigate.local", username="admin", password="wrong")
         with pytest.raises(aiohttp.ClientError):
             await client.get_cameras()
 
@@ -339,7 +339,7 @@ async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None
 
 
 def _make_media_response(content: bytes = b"data", content_type: str = "image/jpeg") -> MagicMock:
-    """Crée un mock de réponse pour get_media."""
+    """Create a mock response for get_media."""
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.headers = {"Content-Type": content_type}
@@ -348,7 +348,7 @@ def _make_media_response(content: bytes = b"data", content_type: str = "image/jp
 
 
 def _make_session_for_media(resp: MagicMock) -> MagicMock:
-    """Crée un mock de ClientSession pour get_media (sans login)."""
+    """Create a mock ClientSession for get_media (without login)."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(return_value=resp)
@@ -362,7 +362,7 @@ def _make_session_for_media(resp: MagicMock) -> MagicMock:
 
 
 async def test_get_media_retourne_contenu_et_content_type() -> None:
-    """get_media() retourne (bytes, content_type) sur une réponse valide."""
+    """get_media() returns (bytes, content_type) on a valid response."""
     cm_session = _make_session_for_media(_make_media_response(b"image_data", "image/jpeg"))
 
     with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
@@ -374,10 +374,10 @@ async def test_get_media_retourne_contenu_et_content_type() -> None:
 
 
 async def test_get_media_content_type_defaut_si_absent() -> None:
-    """get_media() retourne application/octet-stream si Content-Type absent."""
+    """get_media() returns application/octet-stream if Content-Type is absent."""
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
-    resp.headers = {}  # pas de Content-Type
+    resp.headers = {}  # no Content-Type
     resp.read = AsyncMock(return_value=b"binary")
     cm_session = _make_session_for_media(resp)
 
@@ -390,7 +390,7 @@ async def test_get_media_content_type_defaut_si_absent() -> None:
 
 
 async def test_get_media_avec_credentials_appelle_login() -> None:
-    """get_media() avec credentials appelle POST /api/login."""
+    """get_media() with credentials calls POST /api/login."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
     token_cookie = MagicMock()
@@ -424,7 +424,7 @@ async def test_get_media_avec_credentials_appelle_login() -> None:
 
 
 async def test_get_media_erreur_reseau_propage_client_error() -> None:
-    """get_media() propage aiohttp.ClientError en cas d'erreur réseau."""
+    """get_media() propagates aiohttp.ClientError on network error."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(side_effect=aiohttp.ClientConnectionError("timeout"))
@@ -447,7 +447,7 @@ async def test_get_media_erreur_reseau_propage_client_error() -> None:
 
 
 async def test_get_camera_config_happy_path() -> None:
-    """Happy path : retourne zones et labels de la caméra depuis /api/config."""
+    """Happy path: returns zones and labels for a camera from /api/config."""
     api_response = {
         "cameras": {
             "jardin": {
@@ -468,7 +468,7 @@ async def test_get_camera_config_happy_path() -> None:
 
 
 async def test_get_camera_config_camera_absente_retourne_vide() -> None:
-    """Caméra absente de la config Frigate → retourne zones et labels vides."""
+    """Camera absent from Frigate config → returns empty zones and labels."""
     api_response = {
         "cameras": {
             "entree": {"zones": {}, "objects": {"track": ["person"]}},
@@ -485,11 +485,11 @@ async def test_get_camera_config_camera_absente_retourne_vide() -> None:
 
 
 async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
-    """Erreur réseau sur get_camera_config → lève aiohttp.ClientError."""
+    """Network error on get_camera_config → raises aiohttp.ClientError."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(
-        side_effect=aiohttp.ClientConnectionError("connexion refusée")
+        side_effect=aiohttp.ClientConnectionError("connection refused")
     )
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
@@ -505,8 +505,8 @@ async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
 
 
 async def test_get_camera_config_reponse_non_dict_retourne_vide() -> None:
-    """Réponse JSON non-dict sur get_camera_config → retourne zones et labels vides."""
-    response = _make_response(["pas", "un", "dict"])
+    """Non-dict JSON response on get_camera_config → returns empty zones and labels."""
+    response = _make_response(["not", "a", "dict"])
     cm_session = _make_session(response)
 
     with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
@@ -517,7 +517,7 @@ async def test_get_camera_config_reponse_non_dict_retourne_vide() -> None:
 
 
 async def test_get_camera_config_avec_credentials_appelle_login() -> None:
-    """get_camera_config() avec credentials → POST /api/login avant GET /api/config."""
+    """get_camera_config() with credentials → POST /api/login before GET /api/config."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
     token_cookie = MagicMock()

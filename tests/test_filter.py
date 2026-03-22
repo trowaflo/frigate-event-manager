@@ -1,7 +1,7 @@
-"""Tests des filtres d'événements Frigate — ZoneFilter, LabelFilter, TimeFilter, FilterChain.
+"""Tests for Frigate event filters — ZoneFilter, LabelFilter, TimeFilter, FilterChain.
 
-Traduit les cas de tests Go (zone_multi, order_enforced, clock mock) en Python.
-Convention testée : liste vide = tout accepter (aucun filtrage).
+Translated from Go test cases (zone_multi, order_enforced, clock mock) to Python.
+Tested convention: empty list = accept all (no filtering).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from custom_components.frigate_event_manager.domain.model import FrigateEvent
 
 
 # ---------------------------------------------------------------------------
-# Helpers — constructeurs minimaux de FrigateEvent
+# Helpers — minimal FrigateEvent constructors
 # ---------------------------------------------------------------------------
 
 
@@ -35,7 +35,7 @@ def make_event(
     objects: list[str] | None = None,
     zones: list[str] | None = None,
 ) -> FrigateEvent:
-    """Construit un FrigateEvent minimal pour les tests de filtres."""
+    """Build a minimal FrigateEvent for filter tests."""
     return FrigateEvent(
         type=type,
         camera=camera,
@@ -46,7 +46,7 @@ def make_event(
 
 
 def make_clock(hour: int) -> MagicMock:
-    """Retourne une clock mockée dont l'heure est fixée à `hour`."""
+    """Return a mocked clock with hour fixed at `hour`."""
     dt = MagicMock(spec=datetime)
     dt.hour = hour
     clock = MagicMock(return_value=dt)
@@ -54,12 +54,12 @@ def make_clock(hour: int) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# Tests du protocole Filter
+# Tests for the Filter protocol
 # ---------------------------------------------------------------------------
 
 
 class TestFilterProtocol:
-    """Vérifie que les classes implémentent bien le protocole Filter."""
+    """Verify that classes correctly implement the Filter protocol."""
 
     def test_zone_filter_implements_protocol(self) -> None:
         assert isinstance(ZoneFilter([]), Filter)
@@ -83,117 +83,117 @@ class TestFilterProtocol:
 
 
 class TestZoneFilter:
-    """Tests du filtre de zones — sans ordre et avec ordre."""
+    """Tests for zone filter — without order and with order."""
 
-    # --- Liste vide = tout accepter ---
+    # --- Empty list = accept all ---
 
     def test_liste_vide_accepte_tout_zones_vides(self) -> None:
-        """Filtre sans zones requises accepte un événement sans zones."""
+        """Filter with no required zones accepts an event with no zones."""
         f = ZoneFilter([])
         assert f.apply(make_event(zones=[])) is True
 
     def test_liste_vide_accepte_tout_avec_zones(self) -> None:
-        """Filtre sans zones requises accepte un événement avec zones."""
+        """Filter with no required zones accepts an event with zones."""
         f = ZoneFilter([])
         assert f.apply(make_event(zones=["entree", "jardin"])) is True
 
-    # --- Sans ordre (zone_order_enforced=False) ---
+    # --- Without order (zone_order_enforced=False) ---
 
     def test_zone_multi_sans_ordre_toutes_presentes(self) -> None:
-        """Toutes les zones requises présentes → True."""
+        """All required zones present → True."""
         f = ZoneFilter(["entree", "jardin"])
         assert f.apply(make_event(zones=["jardin", "entree", "rue"])) is True
 
     def test_zone_multi_sans_ordre_exactement_presentes(self) -> None:
-        """Zones requises exactement égales à zones de l'événement → True."""
+        """Required zones exactly equal to event zones → True."""
         f = ZoneFilter(["entree", "jardin"])
         assert f.apply(make_event(zones=["entree", "jardin"])) is True
 
     def test_zone_multi_sans_ordre_une_manquante(self) -> None:
-        """Une zone requise absente → False."""
+        """One required zone missing → False."""
         f = ZoneFilter(["entree", "jardin", "rue"])
         assert f.apply(make_event(zones=["entree", "jardin"])) is False
 
     def test_zone_multi_sans_ordre_toutes_manquantes(self) -> None:
-        """Aucune zone requise présente → False."""
+        """No required zone present → False."""
         f = ZoneFilter(["garage", "piscine"])
         assert f.apply(make_event(zones=["entree", "jardin"])) is False
 
     def test_zone_multi_sans_ordre_event_sans_zones(self) -> None:
-        """Zones requises non vides mais événement sans zones → False."""
+        """Required zones not empty but event has no zones → False."""
         f = ZoneFilter(["entree"])
         assert f.apply(make_event(zones=[])) is False
 
     def test_zone_multi_sans_ordre_une_zone_requise(self) -> None:
-        """Une seule zone requise, présente → True."""
+        """Single required zone, present → True."""
         f = ZoneFilter(["jardin"])
         assert f.apply(make_event(zones=["jardin", "rue"])) is True
 
     def test_zone_multi_sans_ordre_une_zone_requise_absente(self) -> None:
-        """Une seule zone requise, absente → False."""
+        """Single required zone, absent → False."""
         f = ZoneFilter(["piscine"])
         assert f.apply(make_event(zones=["jardin", "rue"])) is False
 
-    # --- Avec ordre (zone_order_enforced=True) ---
+    # --- With order (zone_order_enforced=True) ---
 
     def test_zone_order_enforced_sous_sequence_correcte(self) -> None:
-        """Sous-séquence ordonnée correcte → True."""
+        """Correct ordered subsequence → True."""
         f = ZoneFilter(["jardin", "rue"], zone_order_enforced=True)
         assert f.apply(make_event(zones=["entree", "jardin", "rue"])) is True
 
     def test_zone_order_enforced_sequence_exacte(self) -> None:
-        """Séquence identique aux zones de l'événement → True."""
+        """Sequence identical to event zones → True."""
         f = ZoneFilter(["entree", "jardin"], zone_order_enforced=True)
         assert f.apply(make_event(zones=["entree", "jardin"])) is True
 
     def test_zone_order_enforced_ordre_incorrect(self) -> None:
-        """Zones présentes mais dans le mauvais ordre → False."""
+        """Zones present but in wrong order → False."""
         f = ZoneFilter(["jardin", "entree"], zone_order_enforced=True)
-        # événement : entree, puis jardin — sous-séquence requise est jardin→entree
+        # event: entree, then jardin — required subsequence is jardin→entree
         assert f.apply(make_event(zones=["entree", "jardin"])) is False
 
     def test_zone_order_enforced_ordre_inverse(self) -> None:
-        """Sous-séquence requise en ordre inverse → False."""
+        """Required subsequence in reverse order → False."""
         f = ZoneFilter(["rue", "jardin"], zone_order_enforced=True)
         assert f.apply(make_event(zones=["jardin", "rue"])) is False
 
     def test_zone_order_enforced_une_zone_manquante(self) -> None:
-        """Une zone de la sous-séquence absente → False."""
+        """One zone of the subsequence missing → False."""
         f = ZoneFilter(["jardin", "piscine"], zone_order_enforced=True)
         assert f.apply(make_event(zones=["entree", "jardin", "rue"])) is False
 
     def test_zone_order_enforced_event_sans_zones(self) -> None:
-        """Zones requises non vides, événement sans zones → False."""
+        """Required zones not empty, event with no zones → False."""
         f = ZoneFilter(["jardin"], zone_order_enforced=True)
         assert f.apply(make_event(zones=[])) is False
 
     def test_zone_order_enforced_liste_vide_accepte_tout(self) -> None:
-        """Zone_order_enforced=True avec liste vide → tout accepter."""
+        """zone_order_enforced=True with empty list → accept all."""
         f = ZoneFilter([], zone_order_enforced=True)
         assert f.apply(make_event(zones=["entree"])) is True
 
     def test_zone_order_enforced_une_zone_correcte(self) -> None:
-        """Sous-séquence d'une seule zone présente → True."""
+        """Single-zone subsequence present → True."""
         f = ZoneFilter(["jardin"], zone_order_enforced=True)
         assert f.apply(make_event(zones=["entree", "jardin", "rue"])) is True
 
     def test_zone_order_enforced_non_contigu(self) -> None:
-        """Zones requises non contiguës mais dans le bon ordre → True.
+        """Required zones non-contiguous but in correct order → True.
 
-        Go implémente une sous-séquence (pas une sous-chaîne contiguë).
+        Go implements a subsequence (not a contiguous substring).
         """
         f = ZoneFilter(["entree", "rue"], zone_order_enforced=True)
-        # entree est avant rue → sous-séquence valide même si jardin intercalé
+        # entree is before rue → valid subsequence even with jardin interleaved
         assert f.apply(make_event(zones=["entree", "jardin", "rue"])) is True
 
 
 # ---------------------------------------------------------------------------
-# Tests _est_sous_sequence (helper interne)
+# Tests _est_sous_sequence (internal helper)
 # ---------------------------------------------------------------------------
 
 
 class TestEstSousSequence:
-    """Tests de la fonction helper _est_sous_sequence."""
+    """Tests for the _est_sous_sequence helper function."""
 
     def test_sous_sequence_simple(self) -> None:
         assert _est_sous_sequence(["a", "b"], ["a", "x", "b"]) is True
@@ -226,63 +226,63 @@ class TestEstSousSequence:
 
 
 class TestLabelFilter:
-    """Tests du filtre par labels (objets détectés)."""
+    """Tests for label (detected objects) filter."""
 
-    # --- Liste vide = tout accepter ---
+    # --- Empty list = accept all ---
 
     def test_liste_vide_accepte_tout_objets_vides(self) -> None:
-        """Filtre sans labels accepte un événement sans objets."""
+        """Filter with no labels accepts an event with no objects."""
         f = LabelFilter([])
         assert f.apply(make_event(objects=[])) is True
 
     def test_liste_vide_accepte_tout_avec_objets(self) -> None:
-        """Filtre sans labels accepte un événement avec objets."""
+        """Filter with no labels accepts an event with objects."""
         f = LabelFilter([])
         assert f.apply(make_event(objects=["personne", "chien"])) is True
 
-    # --- Au moins un match → True ---
+    # --- At least one match → True ---
 
     def test_un_objet_match(self) -> None:
-        """Un objet de l'événement dans les labels → True."""
+        """One event object in labels → True."""
         f = LabelFilter(["personne", "voiture"])
         assert f.apply(make_event(objects=["personne"])) is True
 
     def test_plusieurs_objets_un_match(self) -> None:
-        """Plusieurs objets, au moins un match → True."""
+        """Multiple objects, at least one match → True."""
         f = LabelFilter(["personne"])
         assert f.apply(make_event(objects=["chien", "personne", "chat"])) is True
 
     def test_tous_les_objets_matchent(self) -> None:
-        """Tous les objets de l'événement sont dans les labels → True."""
+        """All event objects are in the labels → True."""
         f = LabelFilter(["personne", "chien"])
         assert f.apply(make_event(objects=["personne", "chien"])) is True
 
     def test_un_label_exactement_matching(self) -> None:
-        """Label unique correspondant exactement → True."""
+        """Unique label matching exactly → True."""
         f = LabelFilter(["voiture"])
         assert f.apply(make_event(objects=["voiture"])) is True
 
-    # --- Aucun match → False ---
+    # --- No match → False ---
 
     def test_aucun_match(self) -> None:
-        """Aucun objet de l'événement dans les labels → False."""
+        """No event object in labels → False."""
         f = LabelFilter(["personne", "voiture"])
         assert f.apply(make_event(objects=["chien", "chat"])) is False
 
     def test_event_sans_objets(self) -> None:
-        """Labels non vides mais événement sans objets → False."""
+        """Labels not empty but event has no objects → False."""
         f = LabelFilter(["personne"])
         assert f.apply(make_event(objects=[])) is False
 
     def test_labels_non_vides_objets_differents(self) -> None:
-        """Labels présents mais aucune intersection → False."""
+        """Labels present but no intersection → False."""
         f = LabelFilter(["voiture", "moto"])
         assert f.apply(make_event(objects=["personne", "chien"])) is False
 
     def test_correspondance_sensible_casse(self) -> None:
-        """La correspondance est sensible à la casse (Python str)."""
+        """Matching is case-sensitive (Python str)."""
         f = LabelFilter(["Personne"])
-        # "personne" (minuscule) != "Personne" (majuscule)
+        # "personne" (lowercase) != "Personne" (capitalized)
         assert f.apply(make_event(objects=["personne"])) is False
 
 
@@ -292,61 +292,61 @@ class TestLabelFilter:
 
 
 class TestTimeFilter:
-    """Tests du filtre horaire avec clock injectable."""
+    """Tests for time filter with injectable clock."""
 
-    # --- Liste vide = tout accepter ---
+    # --- Empty list = accept all ---
 
     def test_liste_vide_accepte_tout_nimporte_quelle_heure(self) -> None:
-        """Aucune heure désactivée → toujours accepter."""
+        """No disabled hours → always accept."""
         f = TimeFilter([], clock=make_clock(3))
         assert f.apply(make_event()) is True
 
     def test_liste_vide_accepte_minuit(self) -> None:
-        """Aucune heure désactivée, heure=0 → accepter."""
+        """No disabled hours, hour=0 → accept."""
         f = TimeFilter([], clock=make_clock(0))
         assert f.apply(make_event()) is True
 
-    # --- Heure dans disabled_hours → False ---
+    # --- Hour in disabled_hours → False ---
 
     def test_heure_dans_disabled_hours_bloque(self) -> None:
-        """Heure courante dans disabled_hours → False."""
+        """Current hour in disabled_hours → False."""
         f = TimeFilter([2, 3, 4], clock=make_clock(3))
         assert f.apply(make_event()) is False
 
     def test_heure_minuit_desactivee(self) -> None:
-        """Heure 0 (minuit) désactivée → False."""
+        """Hour 0 (midnight) disabled → False."""
         f = TimeFilter([0, 1, 2], clock=make_clock(0))
         assert f.apply(make_event()) is False
 
     def test_heure_23_desactivee(self) -> None:
-        """Heure 23 désactivée → False."""
+        """Hour 23 disabled → False."""
         f = TimeFilter([22, 23], clock=make_clock(23))
         assert f.apply(make_event()) is False
 
     def test_toutes_heures_desactivees(self) -> None:
-        """Toutes les heures désactivées → toujours False."""
+        """All hours disabled → always False."""
         f = TimeFilter(list(range(24)), clock=make_clock(12))
         assert f.apply(make_event()) is False
 
-    # --- Heure hors disabled_hours → True ---
+    # --- Hour outside disabled_hours → True ---
 
     def test_heure_hors_disabled_hours_accepte(self) -> None:
-        """Heure courante hors disabled_hours → True."""
+        """Current hour outside disabled_hours → True."""
         f = TimeFilter([2, 3, 4], clock=make_clock(10))
         assert f.apply(make_event()) is True
 
     def test_heure_juste_avant_plage_desactivee(self) -> None:
-        """Heure juste avant la plage désactivée → True."""
+        """Hour just before disabled range → True."""
         f = TimeFilter([2, 3, 4], clock=make_clock(1))
         assert f.apply(make_event()) is True
 
     def test_heure_juste_apres_plage_desactivee(self) -> None:
-        """Heure juste après la plage désactivée → True."""
+        """Hour just after disabled range → True."""
         f = TimeFilter([2, 3, 4], clock=make_clock(5))
         assert f.apply(make_event()) is True
 
     def test_clock_appelee_a_chaque_apply(self) -> None:
-        """La clock est appelée à chaque appel d'apply (pas mis en cache)."""
+        """Clock is called on each apply() call (not cached)."""
         clock = make_clock(10)
         f = TimeFilter([10], clock=clock)
         f.apply(make_event())
@@ -354,14 +354,14 @@ class TestTimeFilter:
         assert clock.call_count == 2
 
     def test_event_non_utilise(self) -> None:
-        """Le filtre horaire ignore le contenu de l'événement."""
+        """Time filter ignores event content."""
         f = TimeFilter([14], clock=make_clock(14))
-        # L'événement n'a aucun objet ni zone — aucune importance
+        # Event has no objects or zones — irrelevant
         assert f.apply(make_event(objects=["personne"], zones=["jardin"])) is False
 
     def test_clock_par_defaut_est_datetime_now(self) -> None:
-        """Sans clock injectable, le filtre utilise datetime.now (pas d'erreur)."""
-        f = TimeFilter([])  # liste vide = tout accepter, peu importe l'heure
+        """Without injectable clock, filter uses datetime.now (no error)."""
+        f = TimeFilter([])  # empty list = accept all, regardless of hour
         assert f.apply(make_event()) is True
 
 
@@ -371,24 +371,24 @@ class TestTimeFilter:
 
 
 class TestFilterChain:
-    """Tests de la chaîne de filtres — logique ET avec court-circuit."""
+    """Tests for filter chain — AND logic with short-circuit."""
 
-    # --- Chaîne vide → accepte tout ---
+    # --- Empty chain → accept all ---
 
     def test_chaine_vide_accepte_tout(self) -> None:
-        """Chaîne sans filtres → True pour tout événement."""
+        """Chain with no filters → True for any event."""
         chain = FilterChain([])
         assert chain.apply(make_event()) is True
 
     def test_chaine_vide_accepte_event_vide(self) -> None:
-        """Chaîne vide → True même pour un événement sans données."""
+        """Empty chain → True even for event with no data."""
         chain = FilterChain([])
         assert chain.apply(make_event(objects=[], zones=[])) is True
 
-    # --- Tous acceptent → True ---
+    # --- All accept → True ---
 
     def test_tous_filtres_acceptent(self) -> None:
-        """Tous les filtres acceptent → True."""
+        """All filters accept → True."""
         chain = FilterChain([
             ZoneFilter([]),
             LabelFilter([]),
@@ -397,7 +397,7 @@ class TestFilterChain:
         assert chain.apply(make_event()) is True
 
     def test_filtres_avec_conditions_toutes_verifiees(self) -> None:
-        """Filtres avec conditions réelles, toutes satisfaites → True."""
+        """Filters with real conditions, all satisfied → True."""
         chain = FilterChain([
             ZoneFilter(["jardin"]),
             LabelFilter(["personne"]),
@@ -407,42 +407,42 @@ class TestFilterChain:
         assert chain.apply(event) is True
 
     def test_un_seul_filtre_qui_accepte(self) -> None:
-        """Chaîne d'un seul filtre acceptant → True."""
+        """Chain of one accepting filter → True."""
         chain = FilterChain([LabelFilter([])])
         assert chain.apply(make_event()) is True
 
-    # --- Un refuse → False (court-circuit) ---
+    # --- One rejects → False (short-circuit) ---
 
     def test_premier_filtre_refuse(self) -> None:
-        """Le premier filtre refuse → False (court-circuit)."""
+        """First filter rejects → False (short-circuit)."""
         chain = FilterChain([
-            LabelFilter(["voiture"]),   # refuse : pas de voiture
-            LabelFilter([]),             # accepterait tout
+            LabelFilter(["voiture"]),   # rejects: no car
+            LabelFilter([]),             # would accept all
         ])
         event = make_event(objects=["personne"])
         assert chain.apply(event) is False
 
     def test_dernier_filtre_refuse(self) -> None:
-        """Tous les filtres acceptent sauf le dernier → False."""
+        """All filters accept except the last → False."""
         chain = FilterChain([
             ZoneFilter([]),
             LabelFilter([]),
-            TimeFilter([12], clock=make_clock(12)),  # refuse à 12h
+            TimeFilter([12], clock=make_clock(12)),  # rejects at 12h
         ])
         assert chain.apply(make_event()) is False
 
     def test_filtre_du_milieu_refuse(self) -> None:
-        """Le filtre intermédiaire refuse → False."""
+        """Middle filter rejects → False."""
         chain = FilterChain([
-            ZoneFilter([]),                          # accepte
-            LabelFilter(["voiture"]),                # refuse
-            TimeFilter([], clock=make_clock(10)),    # accepterait
+            ZoneFilter([]),                          # accepts
+            LabelFilter(["voiture"]),                # rejects
+            TimeFilter([], clock=make_clock(10)),    # would accept
         ])
         event = make_event(objects=["personne"])
         assert chain.apply(event) is False
 
     def test_court_circuit_verifie_via_mock(self) -> None:
-        """Court-circuit : le troisième filtre n'est pas appelé si le second refuse."""
+        """Short-circuit: third filter is not called if second rejects."""
         filtre_espion = MagicMock(spec=Filter)
         filtre_espion.apply.return_value = True
 
@@ -458,11 +458,11 @@ class TestFilterChain:
         assert result is False
         filtre_espion.apply.assert_called_once()
         filtre_refus.apply.assert_called_once()
-        # Court-circuit : le troisième filtre n'est jamais appelé
+        # Short-circuit: third filter is never called
         filtre_non_appele.apply.assert_not_called()
 
     def test_chaine_mixte_zone_label_time(self) -> None:
-        """Chaîne réaliste complète — event conforme passe, non-conforme échoue."""
+        """Realistic full chain — compliant event passes, non-compliant fails."""
         chain = FilterChain([
             ZoneFilter(["entree", "jardin"]),
             LabelFilter(["personne"]),
@@ -477,7 +477,7 @@ class TestFilterChain:
         assert chain.apply(event_mauvais_label) is False
 
     def test_chaine_avec_severity_filter(self) -> None:
-        """SeverityFilter intégré dans la chaîne — severity non autorisée bloque."""
+        """SeverityFilter integrated in the chain — unauthorized severity is blocked."""
         chain = FilterChain([
             LabelFilter([]),
             SeverityFilter(["alert"]),
@@ -492,60 +492,60 @@ class TestFilterChain:
 
 
 class TestSeverityFilter:
-    """Tests du filtre par severity Frigate."""
+    """Tests for Frigate severity filter."""
 
-    # --- Liste vide = tout accepter ---
+    # --- Empty list = accept all ---
 
     def test_liste_vide_accepte_alert(self) -> None:
-        """Filtre sans severities accepte une severity alert."""
+        """Filter with no severities accepts alert severity."""
         f = SeverityFilter([])
         assert f.apply(make_event(severity="alert")) is True
 
     def test_liste_vide_accepte_detection(self) -> None:
-        """Filtre sans severities accepte une severity detection."""
+        """Filter with no severities accepts detection severity."""
         f = SeverityFilter([])
         assert f.apply(make_event(severity="detection")) is True
 
     def test_liste_vide_accepte_severity_inconnue(self) -> None:
-        """Filtre sans severities accepte n'importe quelle severity."""
+        """Filter with no severities accepts any severity."""
         f = SeverityFilter([])
         assert f.apply(make_event(severity="unknown")) is True
 
-    # --- Severity dans la liste → True ---
+    # --- Severity in list → True ---
 
     def test_alert_dans_filtre_alert(self) -> None:
-        """Severity alert avec filtre ["alert"] → True."""
+        """Alert severity with filter ["alert"] → True."""
         f = SeverityFilter(["alert"])
         assert f.apply(make_event(severity="alert")) is True
 
     def test_detection_dans_filtre_detection(self) -> None:
-        """Severity detection avec filtre ["detection"] → True."""
+        """Detection severity with filter ["detection"] → True."""
         f = SeverityFilter(["detection"])
         assert f.apply(make_event(severity="detection")) is True
 
     def test_alert_dans_filtre_alert_et_detection(self) -> None:
-        """Severity alert avec filtre ["alert", "detection"] → True."""
+        """Alert severity with filter ["alert", "detection"] → True."""
         f = SeverityFilter(["alert", "detection"])
         assert f.apply(make_event(severity="alert")) is True
 
     def test_detection_dans_filtre_alert_et_detection(self) -> None:
-        """Severity detection avec filtre ["alert", "detection"] → True."""
+        """Detection severity with filter ["alert", "detection"] → True."""
         f = SeverityFilter(["alert", "detection"])
         assert f.apply(make_event(severity="detection")) is True
 
-    # --- Severity hors liste → False ---
+    # --- Severity outside list → False ---
 
     def test_detection_bloquee_par_filtre_alert(self) -> None:
-        """Severity detection avec filtre ["alert"] → False."""
+        """Detection severity with filter ["alert"] → False."""
         f = SeverityFilter(["alert"])
         assert f.apply(make_event(severity="detection")) is False
 
     def test_alert_bloquee_par_filtre_detection(self) -> None:
-        """Severity alert avec filtre ["detection"] → False."""
+        """Alert severity with filter ["detection"] → False."""
         f = SeverityFilter(["detection"])
         assert f.apply(make_event(severity="alert")) is False
 
     def test_severity_inconnue_bloquee(self) -> None:
-        """Severity non listée dans le filtre → False."""
+        """Severity not in filter → False."""
         f = SeverityFilter(["alert"])
         assert f.apply(make_event(severity="unknown")) is False

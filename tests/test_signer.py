@@ -1,4 +1,4 @@
-"""Tests du MediaSigner HMAC-SHA256."""
+"""Tests for the HMAC-SHA256 MediaSigner."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _make_signer(ttl: int = 3600, now: float | None = None) -> MediaSigner:
 
 
 def test_sign_url_contient_exp_et_sig() -> None:
-    """L'URL générée contient les paramètres exp et sig."""
+    """Generated URL contains exp and sig parameters."""
     signer = _make_signer()
     url = signer.sign_url("/api/events/abc/snapshot.jpg")
     assert "?exp=" in url
@@ -27,14 +27,14 @@ def test_sign_url_contient_exp_et_sig() -> None:
 
 
 def test_sign_url_contient_le_path() -> None:
-    """L'URL contient le path Frigate signé."""
+    """URL contains the signed Frigate path."""
     signer = _make_signer()
     url = signer.sign_url("/api/review/xyz/preview")
     assert "/api/review/xyz/preview" in url
 
 
 def test_sign_url_base_url_correcte() -> None:
-    """L'URL commence par la base URL du proxy."""
+    """URL starts with the proxy base URL."""
     signer = _make_signer()
     url = signer.sign_url("/api/events/abc/clip.mp4")
     assert url.startswith("https://ha.local/api/frigate_em/media/api/events/abc/clip.mp4")
@@ -46,7 +46,7 @@ def test_sign_url_base_url_correcte() -> None:
 
 
 def test_verify_url_valide() -> None:
-    """Une URL signée est vérifiée avec succès."""
+    """A signed URL is successfully verified."""
     now = time.time()
     signer = _make_signer(ttl=3600, now=now)
     url = signer.sign_url("/api/events/abc/snapshot.jpg")
@@ -61,7 +61,7 @@ def test_verify_url_valide() -> None:
 
 
 def test_verify_url_expiree() -> None:
-    """Une URL expirée est rejetée."""
+    """An expired URL is rejected."""
     now = time.time()
     signer = _make_signer(ttl=3600, now=now)
     url = signer.sign_url("/api/events/abc/snapshot.jpg")
@@ -71,32 +71,25 @@ def test_verify_url_expiree() -> None:
     params = parse_qs(parsed.query)
     sig = params["sig"][0]
 
-    # Avancer le temps au-delà du TTL
-    MediaSigner(
-        "https://ha.local/api/frigate_em/media",
-        ttl=3600,
-        _now=lambda: now + 7200,
-    )
-    # Même clé ? Non — clé différente donc on teste l'expiration sur le même signer
-    # On forge une URL avec exp dans le passé
+    # Forge a URL with exp in the past
     exp_passé = str(int(now) - 1)
     assert signer.verify("/api/events/abc/snapshot.jpg", exp_passé, sig) is False
 
 
 def test_verify_signature_falsifiee() -> None:
-    """Une signature forgée est rejetée."""
+    """A forged signature is rejected."""
     signer = _make_signer()
     assert signer.verify("/api/events/abc/snapshot.jpg", str(int(time.time()) + 3600), "fakesig") is False
 
 
 def test_verify_exp_invalide() -> None:
-    """Un exp non numérique est rejeté proprement."""
+    """A non-numeric exp is rejected cleanly."""
     signer = _make_signer()
     assert signer.verify("/api/events/abc/snapshot.jpg", "notanumber", "sig") is False
 
 
 def test_verify_path_different_rejete() -> None:
-    """Une signature valide ne s'applique pas à un autre path."""
+    """A valid signature does not apply to a different path."""
     now = time.time()
     signer = _make_signer(now=now)
     url = signer.sign_url("/api/events/abc/snapshot.jpg")
@@ -106,5 +99,5 @@ def test_verify_path_different_rejete() -> None:
     exp_str = params["exp"][0]
     sig = params["sig"][0]
 
-    # Même exp et sig mais path différent
+    # Same exp and sig but different path
     assert signer.verify("/api/events/abc/clip.mp4", exp_str, sig) is False
