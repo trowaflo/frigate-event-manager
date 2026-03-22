@@ -23,3 +23,6 @@ jobs:
 
   markdown:
     uses: trowaflo/github-actions/.github/workflows/lint-markdown.yml@main
+
+  kics:
+    uses: trowaflo/github-actions/.github/workflows/kics.yml@main
