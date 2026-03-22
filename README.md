@@ -1,97 +1,111 @@
 # Frigate Event Manager
 
-Intégration Home Assistant (HACS) qui écoute les événements Frigate via MQTT et crée des entités HA par caméra : sensors, switch de notifications et binary_sensor de mouvement.
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Prérequis
+Home Assistant integration that listens to [Frigate NVR](https://frigate.video) events via MQTT,
+applies configurable filters, and sends rich notifications to the HA Companion app.
 
-- Home Assistant avec l'[intégration MQTT native](https://www.home-assistant.io/integrations/mqtt/) activée et configurée
-- [Frigate NVR](https://frigate.video/) publiant ses événements sur le broker MQTT
-- [HACS](https://hacs.xyz/) installé dans Home Assistant
+## Features
 
-## Installation via HACS
+- **Per-camera configuration** — each camera is an independent config entry with its own filters, throttle and notification settings
+- **Smart filtering** — filter by zone, object label, time of day and severity (`alert` / `detection`)
+- **Anti-spam** — configurable cooldown (per camera) and debounce to group rapid detections
+- **Rich notifications** — snapshot, clip and preview URLs (presigned HMAC-SHA256), action buttons, iOS critical alerts
+- **Silent mode** — mute a camera for a configurable duration directly from the notification
+- **Jinja2 templates** — fully customisable title, message and critical condition
 
-1. Dans Home Assistant, aller dans **HACS → Integrations → ⋮ → Custom repositories**
-2. Ajouter l'URL : `https://github.com/trowaflo/frigate-event-manager`
-   - Catégorie : **Integration**
-3. Rechercher **Frigate Event Manager** dans HACS et cliquer sur **Download**
-4. Redémarrer Home Assistant
-5. Aller dans **Settings → Devices & Services → Add Integration**
-6. Rechercher **Frigate Event Manager** et suivre le formulaire de configuration
+## Prerequisites
+
+- Home Assistant 2024.1+
+- [Frigate NVR](https://frigate.video) with MQTT enabled
+- MQTT broker integrated in Home Assistant (`Settings > Devices & Services > MQTT`)
+- [HA Companion app](https://companion.home-assistant.io/) for mobile notifications (optional — `persistent_notification` is also supported)
+
+## Installation
+
+### Via HACS (recommended)
+
+1. Open HACS → Integrations → ⋮ → Custom repositories
+2. Add `https://github.com/trowaflo/frigate-event-manager` — type **Integration**
+3. Install **Frigate Event Manager**
+4. Restart Home Assistant
+
+### Manual
+
+Copy `custom_components/frigate_event_manager/` to your `<config>/custom_components/` directory and restart.
 
 ## Configuration
 
-Le formulaire de configuration demande les champs suivants.
+Go to **Settings → Devices & Services → Add integration → Frigate Event Manager**.
 
-| Champ | Obligatoire | Défaut | Description |
-| --- | :-: | --- | --- |
-| `mqtt_topic` | ✅ | `frigate/reviews` | Topic MQTT publié par Frigate |
-| `notify_target` | ✅ | — | Service de notification HA (ex : `mobile_app_iphone`) |
-| `severity_filter` | | _(tout accepter)_ | Liste de sévérités acceptées : `alert`, `detection` |
-| `zones` | | _(tout accepter)_ | Zones Frigate requises (ex : `jardin`, `entree`) |
-| `labels` | | _(tout accepter)_ | Labels d'objets requis (ex : `person`, `car`) |
-| `disable_times` | | _(jamais désactivé)_ | Heures (0–23) où les notifications sont silencieuses |
-| `cooldown` | | `60` | Secondes minimum entre deux notifications pour une même caméra |
+The setup wizard has 5 steps:
 
-**Règle liste vide** : une liste vide signifie "tout accepter" — aucun filtrage appliqué sur ce critère.
+| Step | What you configure |
+| --- | --- |
+| **Connection** | Frigate URL, notification target (`notify.mobile_app_xxx` or `persistent_notification`) |
+| **Camera** | Camera to monitor, MQTT topic |
+| **Filters** | Zones, object labels, disabled hours, severity (`alert` / `detection` / both) |
+| **Behaviour** | Cooldown (s), debounce (s), silent duration (min), tap action, 3 action buttons |
+| **Notifications** | Title template, message template, critical condition, sound and volume |
 
-**`disable_times`** : exprimées en heure locale du serveur Home Assistant. Si HA tourne en UTC, configurer en UTC.
+Repeat for each camera. Reconfiguration is available from the integration options at any time.
 
-## Entités créées par caméra
+## Entities per camera
 
-Les entités sont créées automatiquement à la première réception d'un événement MQTT pour chaque caméra. Un **reload de l'intégration** est nécessaire si une caméra est découverte après le démarrage initial.
-
-### Sensors
-
-| Entité | `unique_id` | Description |
+| Entity | Type | Description |
 | --- | --- | --- |
-| `sensor.fem_{cam}_last_severity` | `fem_{cam}_last_severity` | Sévérité du dernier événement : `alert` ou `detection` |
-| `sensor.fem_{cam}_last_object` | `fem_{cam}_last_object` | Premier objet détecté (attribut `all_objects` : liste complète) |
-| `sensor.fem_{cam}_event_count_24h` | `fem_{cam}_event_count_24h` | Nombre d'événements de type `new` reçus depuis le démarrage |
+| Notifications | `switch` | Enable / disable notifications for this camera |
+| Motion | `binary_sensor` | `on` when a Frigate event is active |
+| Active silence | `binary_sensor` | `on` while the camera is silenced |
+| Silent mode | `button` | Activate silence for the configured duration |
+| Cancel silence | `button` | Cancel an active silence immediately |
+| Silence end | `sensor` | Timestamp when notifications will resume |
 
-### Switch
+## Notification templates
 
-| Entité | `unique_id` | Description |
-| --- | --- | --- |
-| `switch.fem_{cam}_notifications` | `fem_{cam}_notifications` | Active / désactive les notifications push pour cette caméra |
+Title, message and critical condition support [Jinja2 templates](https://www.home-assistant.io/docs/configuration/templating/).
 
-### Binary Sensor
+Quick examples:
 
-| Entité | `unique_id` | `device_class` | Description |
-| --- | --- | --- | --- |
-| `binary_sensor.fem_{cam}_motion` | `fem_{cam}_motion` | `motion` | ON quand un événement `new` est actif, OFF sur `end` |
+```jinja2
+{# Title #}
+{{ label | title }} — {{ camera | replace('_', ' ') | title }}
 
-`{cam}` est le nom de la caméra tel que déclaré dans Frigate (champ `camera` du payload MQTT).
+{# Message #}
+{{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}
 
-## Fonctionnement
-
-```text
-MQTT (frigate/reviews)
-    → Coordinator (parse payload Frigate)
-        → FilterChain (ZoneFilter + LabelFilter + TimeFilter)
-            → Throttler (cooldown anti-spam par caméra)
-                → HANotifier (notify.<target> via services HA)
-        → Entités HA mises à jour (sensor, switch, binary_sensor)
+{# Critical — alert only #}
+{{ severity == 'alert' }}
 ```
 
-- **Coordinator** : mode push MQTT uniquement, aucun polling. La reconnexion est gérée nativement par l'intégration MQTT de HA.
-- **FilterChain** : un seul refus suffit pour bloquer l'événement.
-- **Throttler** : cooldown configurable, indépendant par caméra.
-- **HANotifier** : notification HA Companion avec collapse par caméra (tag), action "Voir le clip", et bypass DND iOS pour les alertes.
+Full variable reference and filter examples → [`docs/notifications.md`](docs/notifications.md)
 
-## Structure du custom component
+## Action buttons
 
-```text
-custom_components/frigate_event_manager/
-    __init__.py         — setup / unload de la config entry
-    const.py            — constantes DOMAIN, CONF_*, DEFAULTS
-    config_flow.py      — formulaire de configuration HACS
-    coordinator.py      — DataUpdateCoordinator MQTT (FrigateEvent, CameraState)
-    filter.py           — ZoneFilter, LabelFilter, TimeFilter, FilterChain
-    registry.py         — CameraRegistry (persistence JSON atomique)
-    event_store.py      — ring buffer d'événements (deque maxlen=200)
-    throttle.py         — Throttler anti-spam par caméra
-    notifier.py         — HANotifier (notifications HA Companion)
-    sensor.py           — 3 sensors par caméra
-    switch.py           — switch notifications par caméra
-    binary_sensor.py    — binary_sensor mouvement par caméra
-```
+Up to 3 action buttons can be configured per camera:
+
+| Value | Behaviour |
+| --- | --- |
+| `clip` | Opens the event clip (presigned URL) |
+| `snapshot` | Opens the snapshot image |
+| `preview` | Opens the animated preview |
+| `silent_30min` | Silences the camera for 30 minutes |
+| `silent_1h` | Silences the camera for 1 hour |
+| `dismiss` | Dismisses the notification |
+
+When all buttons are set to `none`, a default **Silence 30 min** button is added automatically.
+
+## Architecture
+
+Hexagonal architecture — domain logic has zero HA dependency.
+Diagrams and component details → [`docs/architecture.md`](docs/architecture.md)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests welcome — please use the provided templates.
+
+## License
+
+[MIT](LICENSE) — © 2026 trowaflo
