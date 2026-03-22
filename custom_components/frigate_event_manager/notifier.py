@@ -26,6 +26,24 @@ from .domain.ports import MediaSignerPort
 
 _LOGGER = logging.getLogger(__name__)
 
+# Stub values used when a template is rendered without a real event (e.g. config flow preview).
+# Real event variables always override these.
+_TEMPLATE_STUB: dict = {
+    "camera": "<camera>",
+    "camera_name": "<camera>",
+    "label": "<label>",
+    "objects": ["<object>"],
+    "zones": [],
+    "severity": "<severity>",
+    "score": 0.0,
+    "start_time": 0.0,
+    "review_id": "<review_id>",
+    "clip_url": "",
+    "snapshot_url": "",
+    "preview_url": "",
+    "thumbnail_url": "",
+}
+
 # Action button config: title, SF Symbols icon, destructive (red)
 _ACTION_BTN_CONFIG: dict[str, dict] = {
     "clip":        {"title": "Clip",          "icon": "sfsymbols:video"},
@@ -84,11 +102,17 @@ class HANotifier:
         self._action_btns = [btn1, btn2, btn3]
 
     def _render(self, tpl_str: str, variables: dict) -> str:
-        """Render a HA Jinja2 template with the event variables."""
+        """Render a HA Jinja2 template with the event variables.
+
+        Known variables missing from the context (e.g. during a preview without a
+        real event) are replaced by stub placeholders such as ``<camera>`` so the
+        template renders gracefully instead of raising an UndefinedError.
+        Real values always take precedence over stubs.
+        """
         try:
             return str(
                 template_helper.Template(tpl_str, self._hass).async_render(
-                    variables, parse_result=False
+                    {**_TEMPLATE_STUB, **variables}, parse_result=False
                 )
             )
         except Exception:  # noqa: BLE001
