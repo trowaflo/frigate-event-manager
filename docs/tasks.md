@@ -53,7 +53,7 @@
 
 ### T-543 | Traduction anglais — code, commentaires, logs, docs
 
-- Status: TODO
+- Status: DONE
 - Owner: orchestrator
 - Priority: P1
 - Scope: tous les fichiers Python, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `docs/`
