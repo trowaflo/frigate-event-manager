@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator MQTT pour Frigate Event Manager — push uniquement."""
+"""MQTT DataUpdateCoordinator for Frigate Event Manager — push-only."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Coordinator MQTT — push uniquement, par caméra (subentry)."""
+    """MQTT Coordinator — push-only, per camera (subentry)."""
 
     def __init__(
         self,
@@ -58,9 +58,9 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         notifier: NotifierPort | None = None,
         event_source: EventSourcePort,
     ) -> None:
-        """Initialise le coordinator pour une caméra donnée.
+        """Initialize the coordinator for a given camera.
 
-        event_source doit être injecté : HaMqttAdapter en production, fake en tests.
+        event_source must be injected: HaMqttAdapter in production, fake in tests.
         """
         super().__init__(
             hass,
@@ -77,7 +77,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._throttler = Throttler(
             cooldown=subentry.data.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)
         )
-        # Stockage des paramètres filtres pour reconstruction à chaud
+        # Store filter parameters for hot-rebuild
         self._zones: list[str] = subentry.data.get(CONF_ZONES, [])
         self._labels: list[str] = subentry.data.get(CONF_LABELS, [])
         self._disabled_hours: list[int] = subentry.data.get(CONF_DISABLED_HOURS, [])
@@ -88,104 +88,104 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._debounce_seconds: int = subentry.data.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)
         self._debounce_task: asyncio.Task | None = None
         self._pending_objects: set[str] = set()
-        self._pending_event: Any = None  # FrigateEvent dernier reçu
+        self._pending_event: Any = None  # last received FrigateEvent
 
-        # Tracker des reviews actifs — pour éviter motion=False prématuré si multi-events
+        # Active reviews tracker — prevents premature motion=False on multi-events
         self._active_reviews: set[str] = set()
 
-        # Template critique
+        # Critical template
         self._critical_template: str | None = subentry.data.get(CONF_CRITICAL_TEMPLATE) or None
 
         # Silent mode
         self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
         self._cancel_silent: Any = None
-        # Persistance du silent mode via HA Store — survie au redémarrage
+        # Persist silent mode via HA Store — survives restarts
         self._store: Store = Store(
             hass,
             1,
             f"frigate_event_manager_{self._camera}",
         )
 
-        # Boutons d'action notification (configurable via entités select)
+        # Notification action buttons (configurable via select entities)
         self._action_btn1: str = subentry.data.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN)
         self._action_btn2: str = subentry.data.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN)
         self._action_btn3: str = subentry.data.get(CONF_ACTION_BTN3, DEFAULT_ACTION_BTN)
 
-        # Désinscription du listener mobile_app_notification_action
+        # Unsubscribe handle for mobile_app_notification_action listener
         self._unsubscribe_notif_action: Any = None
 
     @property
     def camera(self) -> str:
-        """Nom de la caméra gérée par ce coordinator."""
+        """Camera name managed by this coordinator."""
         return self._camera
 
     @property
     def camera_state(self) -> CameraState:
-        """Accès direct au CameraState."""
+        """Direct access to CameraState."""
         return self._camera_state
 
     @property
     def silent_until(self) -> float:
-        """Timestamp de fin du mode silencieux (0.0 si inactif)."""
+        """End timestamp of silent mode (0.0 if inactive)."""
         return self._silent_until
 
     def set_camera_enabled(self, enabled: bool) -> None:
-        """Active ou désactive les notifications pour cette caméra."""
+        """Enable or disable notifications for this camera."""
         self._camera_state.enabled = enabled
         self.async_set_updated_data(self._camera_state.as_dict())
 
-    # --- Setters conservés pour la compatibilité des tests ---
+    # --- Setters kept for test compatibility ---
 
     def set_cooldown(self, seconds: int) -> None:
-        """Met à jour le cooldown anti-spam à chaud."""
+        """Update the anti-spam cooldown live."""
         self._throttler = Throttler(cooldown=seconds)
 
     def set_debounce(self, seconds: int) -> None:
-        """Met à jour la fenêtre de debounce à chaud."""
+        """Update the debounce window live."""
         self._debounce_seconds = seconds
 
     def set_severity(self, severities: list[str]) -> None:
-        """Met à jour le filtre de sévérité à chaud."""
+        """Update the severity filter live."""
         self._severities = severities
         self._filter_chain = self._build_filter_chain()
 
     def set_tap_action(self, tap_action: str) -> None:
-        """Met à jour l'action au tap à chaud (délègue au notifier)."""
+        """Update the tap action live (delegates to notifier)."""
         if self._notifier is not None and hasattr(self._notifier, "set_tap_action"):
             self._notifier.set_tap_action(tap_action)  # type: ignore[union-attr]
 
     def set_notif_title(self, tpl: str | None) -> None:
-        """Met à jour le template de titre à chaud (délègue au notifier)."""
+        """Update the title template live (delegates to notifier)."""
         if self._notifier is not None and hasattr(self._notifier, "set_title_template"):
             self._notifier.set_title_template(tpl)  # type: ignore[union-attr]
 
     def set_notif_message(self, tpl: str | None) -> None:
-        """Met à jour le template de message à chaud (délègue au notifier)."""
+        """Update the message template live (delegates to notifier)."""
         if self._notifier is not None and hasattr(self._notifier, "set_message_template"):
             self._notifier.set_message_template(tpl)  # type: ignore[union-attr]
 
     def set_critical_template(self, tpl: str | None) -> None:
-        """Met à jour le template critique à chaud."""
+        """Update the critical template live."""
         self._critical_template = tpl or None
 
     def set_action_btn1(self, value: str) -> None:
-        """Met à jour le bouton d'action n°1 à chaud."""
+        """Update action button #1 live."""
         self._action_btn1 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
         self._sync_action_btns_to_notifier()
 
     def set_action_btn2(self, value: str) -> None:
-        """Met à jour le bouton d'action n°2 à chaud."""
+        """Update action button #2 live."""
         self._action_btn2 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
         self._sync_action_btns_to_notifier()
 
     def set_action_btn3(self, value: str) -> None:
-        """Met à jour le bouton d'action n°3 à chaud."""
+        """Update action button #3 live."""
         self._action_btn3 = value if value in ACTION_BTN_OPTIONS else DEFAULT_ACTION_BTN
         self._sync_action_btns_to_notifier()
 
     def _sync_action_btns_to_notifier(self) -> None:
-        """Propage les 3 boutons d'action au notifier."""
+        """Propagate the 3 action buttons to the notifier."""
         if self._notifier is not None and hasattr(self._notifier, "set_action_buttons"):
             self._notifier.set_action_buttons(  # type: ignore[union-attr]
                 self._action_btn1, self._action_btn2, self._action_btn3
@@ -193,17 +193,17 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _handle_notification_action(self, event: Any) -> None:
-        """Traite les événements mobile_app_notification_action — active le mode silencieux."""
+        """Handle mobile_app_notification_action events — activates silent mode."""
         action = event.data.get("action", "")
         if action == f"fem_silent_30min_{self._camera}":
-            _LOGGER.debug("Action silent 30min reçue — caméra=%s", self._camera)
+            _LOGGER.debug("silent 30min action received — camera=%s", self._camera)
             self.activate_silent_mode(duration_min=30)
         elif action == f"fem_silent_1h_{self._camera}":
-            _LOGGER.debug("Action silent 1h reçue — caméra=%s", self._camera)
+            _LOGGER.debug("silent 1h action received — camera=%s", self._camera)
             self.activate_silent_mode(duration_min=60)
 
     def _build_filter_chain(self) -> FilterChain:
-        """Reconstruit la FilterChain depuis les attributs stockés."""
+        """Rebuild the FilterChain from stored attributes."""
         return FilterChain([
             ZoneFilter(self._zones),
             LabelFilter(self._labels),
@@ -212,7 +212,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ])
 
     def _is_critical(self, event: Any) -> bool:
-        """Évalue le template critique — retourne True si la notification doit être critique."""
+        """Evaluate the critical template — returns True if the notification should be critical."""
         if not self._critical_template:
             return False
         variables = {
@@ -229,21 +229,21 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return str(result).strip().lower() == "true"
         except Exception:  # noqa: BLE001
             _LOGGER.warning(
-                "Erreur évaluation critical_template — caméra=%s template=%r",
+                "critical_template evaluation error — camera=%s template=%r",
                 self._camera,
                 self._critical_template,
             )
             return False
 
     def _on_silent_expired(self, _: Any) -> None:
-        """Réinitialise le mode silencieux après expiration du timer."""
+        """Reset silent mode after timer expiration."""
         self._silent_until = 0.0
         self._cancel_silent = None
         self.hass.async_create_task(self._store.async_save({"silent_until": 0.0}))
         self.async_set_updated_data(self._camera_state.as_dict())
 
     def activate_silent_mode(self, *, duration_min: int | None = None) -> None:
-        """Active le mode silencieux pour la durée configurée (ou duration_min si fourni)."""
+        """Activate silent mode for the configured duration (or duration_min if provided)."""
         if self._cancel_silent is not None:
             self._cancel_silent()
         effective_duration = duration_min if duration_min is not None else self._silent_duration
@@ -254,42 +254,42 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             effective_duration * 60,
             self._on_silent_expired,
         )
-        # Persister la valeur pour survivre à un redémarrage HA
+        # Persist the value to survive an HA restart
         self.hass.async_create_task(
             self._store.async_save({"silent_until": self._silent_until})
         )
         self.async_set_updated_data(self._camera_state.as_dict())
         _LOGGER.info(
-            "Mode silencieux activé — caméra=%s durée=%d min",
+            "silent mode activated — camera=%s duration=%d min",
             self._camera,
             effective_duration,
         )
 
     async def async_start(self) -> None:
-        """Souscrit au topic MQTT Frigate via l'adaptateur injecté."""
+        """Subscribe to the Frigate MQTT topic via the injected adapter."""
         self._unsubscribe_mqtt = await self._event_source.async_subscribe(
             DEFAULT_MQTT_TOPIC,
             self._handle_mqtt_message,
         )
-        _LOGGER.info("Souscrit MQTT — caméra=%s topic=%s", self._camera, DEFAULT_MQTT_TOPIC)
+        _LOGGER.info("MQTT subscribed — camera=%s topic=%s", self._camera, DEFAULT_MQTT_TOPIC)
 
-        # Écoute des actions de notification mobile (silent_30min / silent_1h)
+        # Listen for mobile notification actions (silent_30min / silent_1h)
         self._unsubscribe_notif_action = self.hass.bus.async_listen(
             EVENT_MOBILE_APP_NOTIFICATION_ACTION,
             self._handle_notification_action,
         )
 
-        # Synchronisation initiale des boutons d'action avec le notifier
+        # Initial sync of action buttons with the notifier
         self._sync_action_btns_to_notifier()
 
-        # Restaurer le mode silencieux depuis le Store si encore actif
+        # Restore silent mode from Store if still active
         stored = await self._store.async_load() or {}
         silent_until = float(stored.get("silent_until", 0.0))
         if silent_until > time.time():
             self._silent_until = silent_until
             remaining = silent_until - time.time()
             _LOGGER.info(
-                "Mode silencieux restauré — caméra=%s restant=%.0fs",
+                "silent mode restored — camera=%s remaining=%.0fs",
                 self._camera,
                 remaining,
             )
@@ -301,7 +301,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
     async def async_cancel_silent(self) -> None:
-        """Annule le mode silencieux actif immédiatement."""
+        """Cancel the active silent mode immediately."""
         if self._cancel_silent is not None:
             self._cancel_silent()
             self._cancel_silent = None
@@ -310,14 +310,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._store.async_save({"silent_until": 0.0})
         )
         self.async_set_updated_data(self._camera_state.as_dict())
-        _LOGGER.info("Mode silencieux annulé — caméra=%s", self._camera)
+        _LOGGER.info("silent mode cancelled — camera=%s", self._camera)
 
     async def async_remove_store(self) -> None:
-        """Supprime le store persistant associé à cette caméra."""
+        """Remove the persistent store associated with this camera."""
         await self._store.async_remove()
 
     async def async_stop(self) -> None:
-        """Désabonnement MQTT et listener notification action."""
+        """Unsubscribe from MQTT and the notification action listener."""
         if self._debounce_task is not None:
             self._debounce_task.cancel()
             self._debounce_task = None
@@ -330,14 +330,14 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._unsubscribe_mqtt is not None:
             self._unsubscribe_mqtt()
             self._unsubscribe_mqtt = None
-            _LOGGER.debug("Désabonné MQTT — caméra=%s", self._camera)
+            _LOGGER.debug("MQTT unsubscribed — camera=%s", self._camera)
 
     @callback
     def _handle_mqtt_message(self, message: Any) -> None:
-        """Callback MQTT — parse, filtre par caméra, met à jour l'état, notifie."""
+        """MQTT callback — parse, filter by camera, update state, notify."""
         event = _parse_event(message.payload)
         if event is None:
-            _LOGGER.debug("Payload MQTT ignoré — non parseable (caméra=%s)", self._camera)
+            _LOGGER.debug("MQTT payload ignored — not parseable (camera=%s)", self._camera)
             return
         if event.camera != self._camera:
             return
@@ -355,12 +355,12 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif event.type == "end":
             if event.review_id:
                 self._active_reviews.discard(event.review_id)
-            # motion reste True si d'autres reviews sont encore actifs
+            # motion stays True if other reviews are still active
             state.motion = len(self._active_reviews) > 0
             state.last_event_time = event.end_time or event.start_time
 
         _LOGGER.debug(
-            "Événement traité — caméra=%s type=%s sévérité=%s objets=%s",
+            "event processed — camera=%s type=%s severity=%s objects=%s",
             event.camera, event.type, event.severity, event.objects,
         )
 
@@ -373,7 +373,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 and time.time() > self._silent_until
             ):
                 if self._debounce_seconds == 0:
-                    # Envoi immédiat — record() après await pour éviter le cooldown en cas d'échec
+                    # Immediate send — record() after await to avoid cooldown on failure
                     async def _notify_and_record(evt: Any, crit: bool) -> None:
                         await self._notifier.async_notify(evt, critical=crit)
                         self._throttler.record(self._camera)
@@ -382,7 +382,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         _notify_and_record(event, self._is_critical(event))
                     )
                 else:
-                    # Accumulation pour debounce
+                    # Accumulate for debounce
                     self._pending_objects.update(event.objects)
                     self._pending_event = event
                     if self._debounce_task is not None:
@@ -391,7 +391,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self._debounce_send()
                     )
         elif event.type == "end":
-            # Annulation du debounce + libération du cooldown à la fin de l'événement
+            # Cancel debounce + release cooldown at end of event
             if self._debounce_task is not None:
                 self._debounce_task.cancel()
                 self._debounce_task = None
@@ -402,7 +402,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(state.as_dict())
 
     async def _debounce_send(self) -> None:
-        """Envoie la notification groupée après la fenêtre de debounce."""
+        """Send the grouped notification after the debounce window."""
         try:
             await asyncio.sleep(self._debounce_seconds)
         except asyncio.CancelledError:
@@ -411,22 +411,22 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._pending_event is None or self._notifier is None:
             return
 
-        # Event synthétique avec tous les objets accumulés
+        # Synthetic event with all accumulated objects
         grouped_event = replace(
             self._pending_event,
             objects=list(self._pending_objects),
         )
-        # _is_critical est évalué sur grouped_event dont la severity est celle du dernier
-        # update reçu (pas nécessairement la plus haute) — comportement intentionnel,
-        # cohérent avec la logique debounce qui conserve le dernier état connu de la caméra.
+        # _is_critical is evaluated on grouped_event whose severity is that of the last
+        # update received (not necessarily the highest) — intentional behavior,
+        # consistent with the debounce logic that retains the last known camera state.
         await self._notifier.async_notify(grouped_event, critical=self._is_critical(grouped_event))
         self._throttler.record(self._camera)
 
-        # Réinitialisation
+        # Reset
         self._pending_objects.clear()
         self._pending_event = None
         self._debounce_task = None
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Non utilisé — coordinator en mode push MQTT uniquement."""
+        """Not used — coordinator in push-only MQTT mode."""
         return self.data or {}
