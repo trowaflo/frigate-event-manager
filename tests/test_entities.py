@@ -1,4 +1,4 @@
-"""Tests des entités HA — switch, binary_sensor, sensor."""
+"""Tests for HA entities — switch, binary_sensor, sensor."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def _cam_dict(
     motion: bool = False,
     enabled: bool = True,
 ) -> dict:
-    """Retourne un dict conforme à CameraState.as_dict()."""
+    """Return a dict conforming to CameraState.as_dict()."""
     return CameraState(
         name=name,
         last_severity=last_severity,
@@ -56,7 +56,7 @@ def _cam_dict(
 
 
 class TestFrigateNotificationSwitch:
-    """Tests de FrigateNotificationSwitch."""
+    """Tests for FrigateNotificationSwitch."""
 
     def _build(self, cam_name: str = "jardin", data: dict | None = None) -> FrigateNotificationSwitch:
         coordinator = _make_coordinator(cam_name, data)
@@ -125,7 +125,7 @@ class TestFrigateNotificationSwitch:
 
 
 class TestFrigateMotionSensor:
-    """Tests de FrigateMotionSensor."""
+    """Tests for FrigateMotionSensor."""
 
     def _build(self, cam_name: str = "jardin", data: dict | None = None) -> FrigateMotionSensor:
         coordinator = _make_coordinator(cam_name, data)
@@ -182,7 +182,7 @@ class TestFrigateMotionSensor:
 
 
 class TestSilentStateSensor:
-    """Tests de SilentStateSensor (binary_sensor silence actif)."""
+    """Tests for SilentStateSensor (silent active binary_sensor)."""
 
     def _build(self, cam_name: str = "jardin", silent_until: float = 0.0) -> SilentStateSensor:
         coordinator = _make_coordinator(cam_name)
@@ -193,17 +193,17 @@ class TestSilentStateSensor:
         return sensor
 
     def test_is_on_true_quand_silence_actif(self) -> None:
-        """is_on retourne True quand _silent_until est dans le futur."""
+        """is_on returns True when _silent_until is in the future."""
         sensor = self._build(silent_until=time.time() + 3600.0)
         assert sensor.is_on is True
 
     def test_is_on_false_quand_silence_inactif(self) -> None:
-        """is_on retourne False quand _silent_until vaut 0.0."""
+        """is_on returns False when _silent_until is 0.0."""
         sensor = self._build(silent_until=0.0)
         assert sensor.is_on is False
 
     def test_is_on_false_quand_silence_expire(self) -> None:
-        """is_on retourne False quand _silent_until est dans le passé."""
+        """is_on returns False when _silent_until is in the past."""
         sensor = self._build(silent_until=time.time() - 1.0)
         assert sensor.is_on is False
 
@@ -237,11 +237,11 @@ class TestSilentStateSensor:
         assert sensor._attr_device_info["name"] == "Caméra terrasse"
 
     def test_is_on_reflecte_mise_a_jour_silent_until(self) -> None:
-        """is_on reflète le changement de _silent_until après async_set_updated_data."""
+        """is_on reflects the change of _silent_until after async_set_updated_data."""
         sensor = self._build(silent_until=0.0)
         assert sensor.is_on is False
 
-        # Simuler la mise à jour par le coordinator (comme async_set_updated_data ferait)
+        # Simulate coordinator update (as async_set_updated_data would)
         sensor.coordinator.silent_until = time.time() + 3600.0
         assert sensor.is_on is True
 
@@ -252,7 +252,7 @@ class TestSilentStateSensor:
 
 
 class TestSilentUntilSensor:
-    """Tests de SilentUntilSensor (sensor timestamp reprise)."""
+    """Tests for SilentUntilSensor (resume timestamp sensor)."""
 
     def _build(self, cam_name: str = "jardin", silent_until: float = 0.0) -> SilentUntilSensor:
         coordinator = _make_coordinator(cam_name)
@@ -263,17 +263,17 @@ class TestSilentUntilSensor:
         return sensor
 
     def test_native_value_none_quand_silence_inactif(self) -> None:
-        """native_value vaut None quand _silent_until est 0.0."""
+        """native_value is None when _silent_until is 0.0."""
         sensor = self._build(silent_until=0.0)
         assert sensor.native_value is None
 
     def test_native_value_none_quand_silence_expire(self) -> None:
-        """native_value vaut None quand _silent_until est dans le passé."""
+        """native_value is None when _silent_until is in the past."""
         sensor = self._build(silent_until=time.time() - 1.0)
         assert sensor.native_value is None
 
     def test_native_value_datetime_quand_silence_actif(self) -> None:
-        """native_value retourne un datetime UTC quand _silent_until est dans le futur."""
+        """native_value returns a UTC datetime when _silent_until is in the future."""
         future = time.time() + 3600.0
         sensor = self._build(silent_until=future)
         result = sensor.native_value
@@ -281,7 +281,7 @@ class TestSilentUntilSensor:
         assert result.tzinfo == timezone.utc
 
     def test_native_value_timestamp_correct(self) -> None:
-        """Le timestamp du native_value correspond à _silent_until."""
+        """The timestamp of native_value matches _silent_until."""
         future = time.time() + 3600.0
         sensor = self._build(silent_until=future)
         result = sensor.native_value
