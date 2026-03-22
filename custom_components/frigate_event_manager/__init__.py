@@ -114,6 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
 
     # Frigate client for the proxy (updated on each reload)
     frigate_client = FrigateClient(
+        hass,
         entry.data[CONF_URL],
         entry.data.get(CONF_USERNAME),
         entry.data.get(CONF_PASSWORD),

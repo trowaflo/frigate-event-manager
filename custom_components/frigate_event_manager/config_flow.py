@@ -374,6 +374,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await FrigateClient(
+                    self.hass,
                     user_input[CONF_URL],
                     user_input.get(CONF_USERNAME) or None,
                     user_input.get(CONF_PASSWORD) or None,
@@ -412,6 +413,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await FrigateClient(
+                    self.hass,
                     user_input[CONF_URL],
                     user_input.get(CONF_USERNAME) or None,
                     user_input.get(CONF_PASSWORD) or None,
@@ -478,6 +480,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         # Available cameras = all Frigate cameras - already configured ones
         try:
             all_cameras = await FrigateClient(
+                self.hass,
                 entry.data[CONF_URL],
                 entry.data.get(CONF_USERNAME),
                 entry.data.get(CONF_PASSWORD),
@@ -531,6 +534,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         # Fetch zones and labels from Frigate for this camera
         try:
             cam_config = await FrigateClient(
+                self.hass,
                 entry.data[CONF_URL],
                 entry.data.get(CONF_USERNAME),
                 entry.data.get(CONF_PASSWORD),
@@ -666,6 +670,7 @@ class CameraSubentryFlow(ConfigSubentryFlow):
         # Fetch zones and labels from Frigate
         try:
             cam_config = await FrigateClient(
+                self.hass,
                 entry.data[CONF_URL],
                 entry.data.get(CONF_USERNAME),
                 entry.data.get(CONF_PASSWORD),

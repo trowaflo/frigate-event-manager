@@ -6,12 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.frigate_client import FrigateClient
 
-# Patch target: aiohttp.ClientSession in the frigate_client module
-PATCH_CLIENT_SESSION = (
-    "custom_components.frigate_event_manager.frigate_client.aiohttp.ClientSession"
+# Patch target: HA shared session helper
+PATCH_GET_SESSION = (
+    "custom_components.frigate_event_manager.frigate_client.async_get_clientsession"
 )
 
 
@@ -30,17 +31,13 @@ def _make_response(json_data, status: int = 200) -> MagicMock:
 
 
 def _make_session(response: MagicMock) -> MagicMock:
-    """Create a mock ClientSession using an async context manager."""
+    """Create a mock shared ClientSession (already open — not a context manager)."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(return_value=response)
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
-
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-    return cm_session
+    return session
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +45,7 @@ def _make_session(response: MagicMock) -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
-async def test_get_cameras_returns_camera_names() -> None:
+async def test_get_cameras_returns_camera_names(hass: HomeAssistant) -> None:
     """Happy path: /api/config returns a dict with 'cameras' → get_cameras() returns names."""
     api_response = {
         "cameras": {
@@ -57,31 +54,29 @@ async def test_get_cameras_returns_camera_names() -> None:
             "garage": {"fps": 5},
         }
     }
-    response = _make_response(api_response)
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(api_response))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local:5000")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local:5000")
         cameras = await client.get_cameras()
 
     assert set(cameras) == {"jardin", "entree", "garage"}
     assert len(cameras) == 3
 
 
-async def test_get_cameras_single_camera() -> None:
+async def test_get_cameras_single_camera(hass: HomeAssistant) -> None:
     """Single camera in response → list of one element."""
     api_response = {"cameras": {"salon": {"fps": 15}}}
-    response = _make_response(api_response)
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(api_response))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         cameras = await client.get_cameras()
 
     assert cameras == ["salon"]
 
 
-async def test_get_cameras_strips_trailing_slash() -> None:
+async def test_get_cameras_strips_trailing_slash(hass: HomeAssistant) -> None:
     """URL with trailing slash does not duplicate the separator in the path."""
     api_response = {"cam1": {}}
     response = _make_response(api_response)
@@ -97,12 +92,9 @@ async def test_get_cameras_strips_trailing_slash() -> None:
         return cm_get
 
     session.get = fake_get
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local:5000/")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local:5000/")
         await client.get_cameras()
 
     assert captured_url[0] == "http://frigate.local:5000/api/config"
@@ -113,49 +105,45 @@ async def test_get_cameras_strips_trailing_slash() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_get_cameras_returns_empty_list_when_response_is_list() -> None:
+async def test_get_cameras_returns_empty_list_when_response_is_list(hass: HomeAssistant) -> None:
     """JSON response = list → returns [] (not a dict)."""
-    response = _make_response(["cam1", "cam2"])
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(["cam1", "cam2"]))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         cameras = await client.get_cameras()
 
     assert cameras == []
 
 
-async def test_get_cameras_returns_empty_list_when_response_is_string() -> None:
+async def test_get_cameras_returns_empty_list_when_response_is_string(hass: HomeAssistant) -> None:
     """JSON response = string → returns []."""
-    response = _make_response("not a dict")
-    cm_session = _make_session(response)
+    session = _make_session(_make_response("not a dict"))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         cameras = await client.get_cameras()
 
     assert cameras == []
 
 
-async def test_get_cameras_returns_empty_list_when_response_is_none() -> None:
+async def test_get_cameras_returns_empty_list_when_response_is_none(hass: HomeAssistant) -> None:
     """JSON response = null → returns []."""
-    response = _make_response(None)
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(None))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         cameras = await client.get_cameras()
 
     assert cameras == []
 
 
-async def test_get_cameras_returns_empty_list_for_empty_dict() -> None:
+async def test_get_cameras_returns_empty_list_for_empty_dict(hass: HomeAssistant) -> None:
     """JSON response = empty dict → returns empty list."""
-    response = _make_response({})
-    cm_session = _make_session(response)
+    session = _make_session(_make_response({}))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         cameras = await client.get_cameras()
 
     assert cameras == []
@@ -166,7 +154,7 @@ async def test_get_cameras_returns_empty_list_for_empty_dict() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_get_cameras_propagates_client_connection_error() -> None:
+async def test_get_cameras_propagates_client_connection_error(hass: HomeAssistant) -> None:
     """aiohttp.ClientConnectionError (subclass of ClientError) must be propagated."""
     session = MagicMock()
     cm_get = MagicMock()
@@ -176,17 +164,13 @@ async def test_get_cameras_propagates_client_connection_error() -> None:
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_cameras()
 
 
-async def test_get_cameras_propagates_server_connection_error() -> None:
+async def test_get_cameras_propagates_server_connection_error(hass: HomeAssistant) -> None:
     """ServerConnectionError (subclass of ClientError) must be propagated."""
     session = MagicMock()
     cm_get = MagicMock()
@@ -196,27 +180,23 @@ async def test_get_cameras_propagates_server_connection_error() -> None:
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_cameras()
 
 
-async def test_get_cameras_propagates_raise_for_status_error() -> None:
+async def test_get_cameras_propagates_raise_for_status_error(hass: HomeAssistant) -> None:
     """raise_for_status() raising ClientResponseError must be propagated."""
     response = MagicMock()
     response.raise_for_status = MagicMock(
         side_effect=aiohttp.ClientResponseError(MagicMock(), (), status=404)
     )
     response.json = AsyncMock(return_value={})
-    cm_session = _make_session(response)
+    session = _make_session(response)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_cameras()
 
@@ -226,7 +206,7 @@ async def test_get_cameras_propagates_raise_for_status_error() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_get_cameras_correct_endpoint() -> None:
+async def test_get_cameras_correct_endpoint(hass: HomeAssistant) -> None:
     """Client calls /api/config on the correct host."""
     api_response = {"cameras": {"cam": {}}}
     response = _make_response(api_response)
@@ -242,12 +222,9 @@ async def test_get_cameras_correct_endpoint() -> None:
         return cm_get
 
     session.get = fake_get
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://192.168.1.100:5000")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://192.168.1.100:5000")
         await client.get_cameras()
 
     assert captured_url[0] == "http://192.168.1.100:5000/api/config"
@@ -274,15 +251,11 @@ def _make_session_with_login(
     cm_config.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_config)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-    return cm_session
+    return session
 
 
-async def test_get_cameras_avec_credentials_appelle_login() -> None:
+async def test_get_cameras_avec_credentials_appelle_login(hass: HomeAssistant) -> None:
     """With username, get_cameras() calls POST /api/login before GET /api/config."""
-    # Login response with cookie
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
     token_cookie = MagicMock()
@@ -290,33 +263,33 @@ async def test_get_cameras_avec_credentials_appelle_login() -> None:
     login_resp.cookies = {"frigate_token": token_cookie}
 
     config_resp = _make_response({"cameras": {"cam": {}}})
-    cm_session = _make_session_with_login(login_resp, config_resp)
+    session = _make_session_with_login(login_resp, config_resp)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="secret")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local", username="admin", password="secret")
         cameras = await client.get_cameras()
 
     assert cameras == ["cam"]
-    cm_session.__aenter__.return_value.post.assert_called_once()
+    session.post.assert_called_once()
 
 
-async def test_get_cameras_avec_credentials_sans_cookie_token() -> None:
+async def test_get_cameras_avec_credentials_sans_cookie_token(hass: HomeAssistant) -> None:
     """With username but no cookie returned → no Cookie header added."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
     login_resp.cookies = {}  # no frigate_token
 
     config_resp = _make_response({"cameras": {"jardin": {}}})
-    cm_session = _make_session_with_login(login_resp, config_resp)
+    session = _make_session_with_login(login_resp, config_resp)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="pass")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local", username="admin", password="pass")
         cameras = await client.get_cameras()
 
     assert cameras == ["jardin"]
 
 
-async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None:
+async def test_get_cameras_login_erreur_401_leve_client_response_error(hass: HomeAssistant) -> None:
     """Login returns 401 → raise_for_status raises ClientResponseError."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock(
@@ -325,10 +298,10 @@ async def test_get_cameras_login_erreur_401_leve_client_response_error() -> None
     login_resp.cookies = {}
 
     config_resp = _make_response({})
-    cm_session = _make_session_with_login(login_resp, config_resp)
+    session = _make_session_with_login(login_resp, config_resp)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="wrong")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local", username="admin", password="wrong")
         with pytest.raises(aiohttp.ClientError):
             await client.get_cameras()
 
@@ -348,48 +321,44 @@ def _make_media_response(content: bytes = b"data", content_type: str = "image/jp
 
 
 def _make_session_for_media(resp: MagicMock) -> MagicMock:
-    """Create a mock ClientSession for get_media (without login)."""
+    """Create a mock shared ClientSession for get_media (without login)."""
     session = MagicMock()
     cm_get = MagicMock()
     cm_get.__aenter__ = AsyncMock(return_value=resp)
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
-
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-    return cm_session
+    return session
 
 
-async def test_get_media_retourne_contenu_et_content_type() -> None:
+async def test_get_media_retourne_contenu_et_content_type(hass: HomeAssistant) -> None:
     """get_media() returns (bytes, content_type) on a valid response."""
-    cm_session = _make_session_for_media(_make_media_response(b"image_data", "image/jpeg"))
+    session = _make_session_for_media(_make_media_response(b"image_data", "image/jpeg"))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         data, ct = await client.get_media("/api/events/abc/snapshot.jpg")
 
     assert data == b"image_data"
     assert ct == "image/jpeg"
 
 
-async def test_get_media_content_type_defaut_si_absent() -> None:
+async def test_get_media_content_type_defaut_si_absent(hass: HomeAssistant) -> None:
     """get_media() returns application/octet-stream if Content-Type is absent."""
     resp = MagicMock()
     resp.raise_for_status = MagicMock()
     resp.headers = {}  # no Content-Type
     resp.read = AsyncMock(return_value=b"binary")
-    cm_session = _make_session_for_media(resp)
+    session = _make_session_for_media(resp)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         data, ct = await client.get_media("/api/events/abc/clip.mp4")
 
     assert ct == "application/octet-stream"
     assert data == b"binary"
 
 
-async def test_get_media_avec_credentials_appelle_login() -> None:
+async def test_get_media_avec_credentials_appelle_login(hass: HomeAssistant) -> None:
     """get_media() with credentials calls POST /api/login."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
@@ -410,12 +379,8 @@ async def test_get_media_avec_credentials_appelle_login() -> None:
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="pass")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local", username="admin", password="pass")
         data, ct = await client.get_media("/api/events/abc/clip.mp4")
 
     assert data == b"clip_data"
@@ -423,7 +388,7 @@ async def test_get_media_avec_credentials_appelle_login() -> None:
     session.post.assert_called_once()
 
 
-async def test_get_media_erreur_reseau_propage_client_error() -> None:
+async def test_get_media_erreur_reseau_propage_client_error(hass: HomeAssistant) -> None:
     """get_media() propagates aiohttp.ClientError on network error."""
     session = MagicMock()
     cm_get = MagicMock()
@@ -431,12 +396,8 @@ async def test_get_media_erreur_reseau_propage_client_error() -> None:
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_media("/api/events/abc/snapshot.jpg")
 
@@ -446,7 +407,7 @@ async def test_get_media_erreur_reseau_propage_client_error() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_get_camera_config_happy_path() -> None:
+async def test_get_camera_config_happy_path(hass: HomeAssistant) -> None:
     """Happy path: returns zones and labels for a camera from /api/config."""
     api_response = {
         "cameras": {
@@ -456,35 +417,33 @@ async def test_get_camera_config_happy_path() -> None:
             }
         }
     }
-    response = _make_response(api_response)
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(api_response))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local:5000")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local:5000")
         result = await client.get_camera_config("jardin")
 
     assert set(result["zones"]) == {"jardin_zone", "rue"}
     assert result["labels"] == ["person", "car"]
 
 
-async def test_get_camera_config_camera_absente_retourne_vide() -> None:
+async def test_get_camera_config_camera_absente_retourne_vide(hass: HomeAssistant) -> None:
     """Camera absent from Frigate config → returns empty zones and labels."""
     api_response = {
         "cameras": {
             "entree": {"zones": {}, "objects": {"track": ["person"]}},
         }
     }
-    response = _make_response(api_response)
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(api_response))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local:5000")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local:5000")
         result = await client.get_camera_config("jardin")
 
     assert result == {"zones": [], "labels": []}
 
 
-async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
+async def test_get_camera_config_erreur_reseau_leve_client_error(hass: HomeAssistant) -> None:
     """Network error on get_camera_config → raises aiohttp.ClientError."""
     session = MagicMock()
     cm_get = MagicMock()
@@ -494,29 +453,24 @@ async def test_get_camera_config_erreur_reseau_leve_client_error() -> None:
     cm_get.__aexit__ = AsyncMock(return_value=False)
     session.get = MagicMock(return_value=cm_get)
 
-    cm_session = MagicMock()
-    cm_session.__aenter__ = AsyncMock(return_value=session)
-    cm_session.__aexit__ = AsyncMock(return_value=False)
-
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         with pytest.raises(aiohttp.ClientError):
             await client.get_camera_config("jardin")
 
 
-async def test_get_camera_config_reponse_non_dict_retourne_vide() -> None:
+async def test_get_camera_config_reponse_non_dict_retourne_vide(hass: HomeAssistant) -> None:
     """Non-dict JSON response on get_camera_config → returns empty zones and labels."""
-    response = _make_response(["not", "a", "dict"])
-    cm_session = _make_session(response)
+    session = _make_session(_make_response(["not", "a", "dict"]))
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local")
         result = await client.get_camera_config("jardin")
 
     assert result == {"zones": [], "labels": []}
 
 
-async def test_get_camera_config_avec_credentials_appelle_login() -> None:
+async def test_get_camera_config_avec_credentials_appelle_login(hass: HomeAssistant) -> None:
     """get_camera_config() with credentials → POST /api/login before GET /api/config."""
     login_resp = MagicMock()
     login_resp.raise_for_status = MagicMock()
@@ -532,12 +486,12 @@ async def test_get_camera_config_avec_credentials_appelle_login() -> None:
             }
         }
     })
-    cm_session = _make_session_with_login(login_resp, config_resp)
+    session = _make_session_with_login(login_resp, config_resp)
 
-    with patch(PATCH_CLIENT_SESSION, return_value=cm_session):
-        client = FrigateClient("http://frigate.local", username="admin", password="secret")
+    with patch(PATCH_GET_SESSION, return_value=session):
+        client = FrigateClient(hass, "http://frigate.local", username="admin", password="secret")
         result = await client.get_camera_config("jardin")
 
     assert result["zones"] == ["jardin_zone"]
     assert result["labels"] == ["person"]
-    cm_session.__aenter__.return_value.post.assert_called_once()
+    session.post.assert_called_once()
