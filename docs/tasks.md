@@ -1059,7 +1059,7 @@
 
 ### T-538 | Branch protection rules
 
-- Status: TODO
+- Status: IN_PROGRESS
 - Owner: sre-cloud (IaC via terraform-github)
 - Priority: P1
 - Scope: `../terraform-github/terraform/repository.tf`
@@ -1069,12 +1069,13 @@
 - Notes: |
     IaC : `github_branch_protection` actif pour les repos publics. Déjà couvert :
     linear history, no force push, no delete, conversation resolution.
-    À ajouter dans le bloc existant : `required_pull_request_reviews {
-    required_approving_review_count = 1 }`
-    Signed commits (`require_signed_commits`) : OPTIONNEL — nécessite GPG configuré
-    localement. Contraignant en solo. À activer seulement si GPG setup fait.
-    Status checks (`contexts`) : renseigner les noms CI quand le workflow pytest/ruff
-    sera créé (T-541 ou CI GitHub Actions).
+    DONE (session 2026-03-22) — `required_status_checks` configurés via variable par repo.
+      `contexts = ["python / test-python", "python / lint-python", "markdown / lint-markdown"]`
+      Reusable workflows dans `trowaflo/github-actions` (`ha-integration.yml`, `lint-markdown.yml`).
+      Branche `feat/fix-status-checks-names` dans terraform-github — en attente de merge.
+    TODO — Ajouter dans le bloc existant : `required_pull_request_reviews {
+      required_approving_review_count = 1 }`
+    SKIP — Signed commits (`require_signed_commits`) : contraignant en solo, désactivé.
 
 ### T-539 | Documentation essentielle
 
@@ -1100,6 +1101,29 @@
     6. `.github/ISSUE_TEMPLATE/feature_request.md` — template demande de feature
     7. `.github/pull_request_template.md` — checklist PR
     8. CODEOWNERS — si tu veux garder la main sur les reviews (`* @trowaflo`)
+
+### T-541 | Publication HACS
+
+- Status: TODO
+- Owner: humain + python-architect
+- Priority: P1
+- Scope: racine du projet, `hacs.json`
+- Locks: —
+- Depends: T-534, T-535, T-536, T-537, T-538, T-539
+- Blocks: —
+- Notes: |
+    Prérequis HACS (à valider avant soumission) :
+    - Repo public avec description
+    - Au moins une GitHub Release (Release Please s'en charge)
+    - `manifest.json` valide (domain, version, codeowners, iot_class, config_flow)
+    - Aucun secret dans l'historique (T-534)
+    Étapes :
+    1. Créer `hacs.json` à la racine
+    2. Vérifier conformité via HACS Action (workflow `hacs/action@main`)
+    3. Passer le repo en public (terraform-github : `visibility = "public"`)
+    4. Créer une première release via Release Please (merger la PR release v0.9.0)
+    5. Ajouter le repo comme custom repository HACS pour valider en local
+    6. Soumission HACS default (optionnel) : PR sur https://github.com/hacs/default
 
 ### T-540 | Audit conformité HA (findings Haiku)
 
