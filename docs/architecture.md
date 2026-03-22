@@ -1,23 +1,23 @@
 # Architecture — Frigate Event Manager
 
-Intégration Home Assistant (HACS) écrite en Python asyncio.
-Écoute les événements Frigate via le broker MQTT natif HA, filtre, throttle et dispatche vers les notifications et les entités HA.
+Home Assistant integration (HACS) written in Python asyncio.
+Listens to Frigate events via the native HA MQTT broker, filters, throttles and dispatches to HA notifications and entities.
 
-## Vue d'ensemble
+## Overview
 
 ```mermaid
 graph TB
-    subgraph External["Systemes externes"]
+    subgraph External["External systems"]
         BROKER[("MQTT Broker")]
         FRIGATE["Frigate NVR"]
         HA_NOTIFY["HA Companion App"]
     end
 
     subgraph Integration["custom_components/frigate_event_manager"]
-        subgraph Domain["domain/ — logique pure, zero dependance HA"]
+        subgraph Domain["domain/ — pure logic, zero HA dependency"]
             MODEL["model.py\nFrigateEvent, CameraState\n_parse_event()"]
             FILTER_D["filter.py\nZoneFilter, LabelFilter\nTimeFilter, FilterChain"]
-            THROTTLE_D["throttle.py\nThrottler (clock injectable)"]
+            THROTTLE_D["throttle.py\nThrottler (injectable clock)"]
             PORTS["ports.py\nNotifierPort\nEventSourcePort\nFrigatePort"]
         end
 
@@ -26,18 +26,18 @@ graph TB
         NOTIFIER["notifier.py\nHANotifier\n(NotifierPort)"]
         CLIENT["frigate_client.py\nFrigateClient\n(FrigatePort)"]
 
-        subgraph Entities["Entites HA (par camera, via subentry)"]
+        subgraph Entities["HA Entities (per camera, via subentry)"]
             SWITCH["switch.py\n1 switch — notifications"]
-            BINSENSOR["binary_sensor.py\n2 binary_sensor — mouvement + silence actif"]
-            BUTTON["button.py\n1 button — mode silencieux"]
-            SENSOR["sensor.py\n1 sensor — timestamp fin silence"]
+            BINSENSOR["binary_sensor.py\n2 binary_sensor — motion + active silence"]
+            BUTTON["button.py\n1 button — silent mode"]
+            SENSOR["sensor.py\n1 sensor — silence end timestamp"]
         end
     end
 
     BROKER -->|"frigate/reviews (MQTT)"| HAMQTT
     HAMQTT -->|"EventSourcePort"| COORD
     COORD -->|FrigateEvent| FILTER_D
-    FILTER_D -->|accepte| THROTTLE_D
+    FILTER_D -->|accepted| THROTTLE_D
     THROTTLE_D -->|cooldown OK| NOTIFIER
     NOTIFIER -->|"notify.<target>"| HA_NOTIFY
     COORD -->|async_set_updated_data| Entities
@@ -50,26 +50,26 @@ graph TB
     style Entities fill:#0a1a1a,stroke:#3fb950
 ```
 
-## Architecture Hexagonale
+## Hexagonal Architecture
 
-Le projet suit le pattern Ports & Adaptateurs :
+The project follows the Ports & Adapters pattern:
 
-| Couche | Fichiers | Dépendances |
+| Layer | Files | Dependencies |
 | --- | --- | --- |
-| **Domain** (noyau) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib uniquement |
+| **Domain** (core) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib only |
 | **Application** | `coordinator.py` | domain + ports |
-| **Adaptateurs sortants** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
-| **Adaptateurs entrants** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py` | HA |
+| **Outbound adapters** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
+| **Inbound adapters** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py` | HA |
 
-### Ports déclarés (`domain/ports.py`)
+### Declared ports (`domain/ports.py`)
 
-| Port | Sens | Implémentation |
+| Port | Direction | Implementation |
 | --- | --- | --- |
-| `NotifierPort` | Sortant | `notifier.HANotifier` |
-| `EventSourcePort` | Entrant | `ha_mqtt.HaMqttAdapter` |
-| `FrigatePort` | Sortant | `frigate_client.FrigateClient` |
+| `NotifierPort` | Outbound | `notifier.HANotifier` |
+| `EventSourcePort` | Inbound | `ha_mqtt.HaMqttAdapter` |
+| `FrigatePort` | Outbound | `frigate_client.FrigateClient` |
 
-## Flux de données
+## Data flow
 
 ```mermaid
 sequenceDiagram
@@ -79,149 +79,149 @@ sequenceDiagram
     participant F as FilterChain
     participant T as Throttler
     participant N as HANotifier
-    participant E as Entites HA
+    participant E as HA Entities
 
-    B->>A: message MQTT (payload JSON Frigate)
+    B->>A: MQTT message (Frigate JSON payload)
     A->>C: _handle_mqtt_message(message)
     C->>C: _parse_event() → FrigateEvent
-    Note over C: champs obligatoires valides\n(type, camera)\nautres cameras → ignores
+    Note over C: required fields valid\n(type, camera)\nother cameras → ignored
 
     C->>F: apply(event)
     F-->>C: True / False
 
-    alt Filtre passe
+    alt Filter passes
         C->>T: should_notify(camera)
         T-->>C: True / False
 
-        alt Cooldown expire
+        alt Cooldown expired
             C->>N: async_notify(event)
             N->>N: html.escape(camera, severity, objects)
             N-->>B: hass.services.async_call("notify", target, ...)
             C->>T: record(camera)
-        else Cooldown actif
+        else Cooldown active
             C-->>C: drop silently
         end
 
         C->>E: async_set_updated_data(state.as_dict())
-        Note over E: switch, binary_sensor\nmis a jour via coordinator
+        Note over E: switch, binary_sensor\nupdated via coordinator
     end
 ```
 
-## Composants
+## Components
 
 ### coordinator.py — FrigateEventManagerCoordinator
 
-`DataUpdateCoordinator` en mode push MQTT uniquement (`update_interval=None`). Un coordinator par caméra (via subentry).
+`DataUpdateCoordinator` in push-only MQTT mode (`update_interval=None`). One coordinator per camera (via subentry).
 
-- **`async_start()`** : souscrit au topic MQTT via `EventSourcePort.async_subscribe()`. L'adaptateur HA (`HaMqttAdapter`) est injecté par défaut ; un adaptateur de test peut être injecté en paramètre.
-- **`async_stop()`** : désabonnement propre, appelé depuis `async_unload_entry`.
-- **`_handle_mqtt_message()`** : callback MQTT (`@callback`), parse le payload, met à jour `CameraState`, notifie les entités via `async_set_updated_data`.
-- **`set_camera_enabled()`** : mutation du flag `enabled`, déclenché par le switch HA.
+- **`async_start()`**: subscribes to the MQTT topic via `EventSourcePort.async_subscribe()`. The HA adapter (`HaMqttAdapter`) is injected by default; a test adapter can be injected as a parameter.
+- **`async_stop()`**: clean unsubscription, called from `async_unload_entry`.
+- **`_handle_mqtt_message()`**: MQTT callback (`@callback`), parses the payload, updates `CameraState`, notifies entities via `async_set_updated_data`.
+- **`set_camera_enabled()`**: mutates the `enabled` flag, triggered by the HA switch.
 
-Dataclasses exposées :
+Exposed dataclasses:
 
-| Dataclass | Champs clés |
+| Dataclass | Key fields |
 | --- | --- |
 | `FrigateEvent` | `type`, `camera`, `severity`, `objects`, `zones`, `score`, `thumb_path`, `review_id`, `start_time`, `end_time` |
 | `CameraState` | `name`, `last_severity`, `last_objects`, `last_event_time`, `motion`, `enabled` |
 
 ### domain/filter.py — FilterChain
 
-Protocole `Filter` (méthode `apply(event) → bool`). Convention : liste vide = tout accepter.
+`Filter` protocol (method `apply(event) → bool`). Convention: empty list = accept all.
 
-| Filtre | Paramètre | Comportement |
+| Filter | Parameter | Behaviour |
 | --- | --- | --- |
-| `ZoneFilter` | `zone_multi: list[str]`, `zone_order_enforced: bool` | Toutes les zones requises présentes (ou sous-séquence ordonnée si `zone_order_enforced=True`) |
-| `LabelFilter` | `labels: list[str]` | Au moins un objet de l'événement dans la liste |
-| `TimeFilter` | `disabled_hours: list[int]`, `clock: Callable` | Bloque si l'heure locale courante est dans `disabled_hours`. Clock injectable pour les tests. |
-| `FilterChain` | `filters: list[Filter]` | `all()` avec court-circuit au premier refus |
+| `ZoneFilter` | `zone_multi: list[str]`, `zone_order_enforced: bool` | All required zones present (or ordered subsequence if `zone_order_enforced=True`) |
+| `LabelFilter` | `labels: list[str]` | At least one event object in the list |
+| `TimeFilter` | `disabled_hours: list[int]`, `clock: Callable` | Blocks if the current local hour is in `disabled_hours`. Injectable clock for tests. |
+| `FilterChain` | `filters: list[Filter]` | `all()` with short-circuit on first rejection |
 
 ### domain/throttle.py — Throttler
 
-Anti-spam par caméra, séparation décision / enregistrement.
+Per-camera anti-spam, decision / recording separation.
 
-- **`should_notify(camera, now)`** : lecture seule — retourne True si aucune notification précédente ou cooldown écoulé.
-- **`record(camera, now)`** : seul point de mutation — enregistre le timestamp de la dernière notification.
-- Clock injectable pour les tests. Cooldown configurable via `DEFAULT_THROTTLE_COOLDOWN` (défaut : 60 s).
+- **`should_notify(camera, now)`**: read-only — returns True if no previous notification or cooldown elapsed.
+- **`record(camera, now)`**: sole mutation point — records the timestamp of the last notification.
+- Injectable clock for tests. Configurable cooldown via `DEFAULT_THROTTLE_COOLDOWN` (default: 60 s).
 
 ### notifier.py — HANotifier
 
-Notifications HA Companion via `hass.services.async_call("notify", target, ...)`.
+HA Companion notifications via `hass.services.async_call("notify", target, ...)`.
 
-- `html.escape()` sur tous les champs dynamiques issus du payload Frigate.
-- Gère `persistent_notification` ET les services `notify.xxx` (mobile, etc.).
-- Templates Jinja2 pour le titre et le message (`CONF_NOTIF_TITLE`, `CONF_NOTIF_MESSAGE`).
-- Notification critique (`CONF_CRITICAL_TEMPLATE`) : iOS `push.sound.critical` + Android `channel`.
+- `html.escape()` on all dynamic fields from the Frigate payload.
+- Handles `persistent_notification` AND `notify.xxx` services (mobile, etc.).
+- Jinja2 templates for title and message (`CONF_NOTIF_TITLE`, `CONF_NOTIF_MESSAGE`).
+- Critical notification (`CONF_CRITICAL_TEMPLATE`): iOS `push.sound.critical` + Android `channel`.
 
-**Variables disponibles dans les templates :**
+**Variables available in templates:**
 
 | Variable | Type | Description |
 | --- | --- | --- |
-| `camera` | `str` | Nom de la caméra |
-| `objects` | `list[str]` | Objets détectés (ex. `["personne", "chien"]`) |
-| `label` | `str` | Premier objet détecté |
-| `zones` | `list[str]` | Zones concernées |
-| `severity` | `str` | `"alert"` ou `"detection"` |
-| `score` | `float` | Score de confiance (0.0–1.0) |
-| `start_time` | `float` | Timestamp UNIX de début d'événement |
-| `review_id` | `str` | Identifiant de la review Frigate |
+| `camera` | `str` | Camera name |
+| `objects` | `list[str]` | Detected objects (e.g. `["person", "dog"]`) |
+| `label` | `str` | First detected object |
+| `zones` | `list[str]` | Zones involved |
+| `severity` | `str` | `"alert"` or `"detection"` |
+| `score` | `float` | Confidence score (0.0–1.0) |
+| `start_time` | `float` | UNIX timestamp of event start |
+| `review_id` | `str` | Frigate review identifier |
 
-**Exemples :**
+**Examples:**
 
 ```jinja2
-{# Titre #}
+{# Title #}
 🚨 {{ camera | title }} — {{ objects | join(', ') }}
 
 {# Message #}
-{{ severity | upper }} à {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}
+{{ severity | upper }} at {{ start_time | timestamp_custom('%H:%M') }}{% if zones %} · {{ zones | join(', ') }}{% endif %}
 
-{# Condition critique (nuit uniquement) #}
+{# Critical condition (night only) #}
 {{ now().hour >= 22 or now().hour < 7 }}
 ```
 
 ### ha_mqtt.py — HaMqttAdapter
 
-Adaptateur `EventSourcePort` — encapsule `mqtt.async_subscribe` de HA. Remplaçable par un fake dans les tests.
+`EventSourcePort` adapter — wraps HA's `mqtt.async_subscribe`. Replaceable by a fake in tests.
 
 ### frigate_client.py — FrigateClient
 
-Client HTTP asyncio pour l'API REST Frigate. Implémente `FrigatePort` par duck typing.
+Async HTTP client for the Frigate REST API. Implements `FrigatePort` via duck typing.
 
-- **`get_cameras()`** : retourne la liste des noms de caméras depuis `GET /api/config`.
-- **`get_camera_config(camera)`** : retourne zones et labels configurés pour une caméra depuis `GET /api/config`. Utilisé par le config flow pour peupler les multi-selects.
-- **`get_media(path)`** : récupère un média (image, clip, preview) avec authentification.
+- **`get_cameras()`**: returns the list of camera names from `GET /api/config`.
+- **`get_camera_config(camera)`**: returns zones and labels configured for a camera from `GET /api/config`. Used by the config flow to populate multi-selects.
+- **`get_media(path)`**: fetches a media file (image, clip, preview) with authentication.
 
-Toutes les méthodes supportent l'authentification JWT Frigate 0.14+ via `POST /api/login`.
+All methods support Frigate 0.14+ JWT authentication via `POST /api/login`.
 
-## Entités HA par caméra
+## HA entities per camera
 
 ```mermaid
 graph LR
-    subgraph camera["Pour chaque camera (subentry)"]
+    subgraph camera["For each camera (subentry)"]
         D["switch — Notifications\nunique_id: fem_{cam}_switch"]
-        E["binary_sensor — Mouvement\nunique_id: fem_{cam}_motion\ndevice_class: motion"]
-        E2["binary_sensor — Silence actif\nunique_id: fem_{cam}_silent_state\ndevice_class: running"]
-        F["button — Mode silencieux\nunique_id: fem_{cam}_silent"]
-        F2["button — Annuler le silence\nunique_id: fem_{cam}_cancel_silent"]
-        G["sensor — Fin du silence\nunique_id: fem_{cam}_silent_until\ndevice_class: timestamp"]
+        E["binary_sensor — Motion\nunique_id: fem_{cam}_motion\ndevice_class: motion"]
+        E2["binary_sensor — Active silence\nunique_id: fem_{cam}_silent_state\ndevice_class: running"]
+        F["button — Silent mode\nunique_id: fem_{cam}_silent"]
+        F2["button — Cancel silence\nunique_id: fem_{cam}_cancel_silent"]
+        G["sensor — Silence end\nunique_id: fem_{cam}_silent_until\ndevice_class: timestamp"]
     end
 
     style camera fill:#0a1a2a,stroke:#58a6ff
 ```
 
-Toutes les entités héritent de `CoordinatorEntity` et ont `has_entity_name=True`.
-Les données sont lues depuis `coordinator.data` (dict sérialisé par `CameraState.as_dict()`).
+All entities inherit from `CoordinatorEntity` and have `has_entity_name=True`.
+Data is read from `coordinator.data` (dict serialised by `CameraState.as_dict()`).
 
-## Séquence de démarrage
+## Startup sequence
 
 ```mermaid
 graph TD
     S1["1. async_setup_entry(hass, entry)"]
-    S2["2. Pour chaque subentry camera :\n   instancier HANotifier + FrigateEventManagerCoordinator"]
+    S2["2. For each camera subentry:\n   instantiate HANotifier + FrigateEventManagerCoordinator"]
     S3["3. coordinator.async_start()\n   → HaMqttAdapter.async_subscribe(topic, callback)"]
     S4["4. async_forward_entry_setups(entry, PLATFORMS)\n   switch / binary_sensor / button / sensor"]
-    S5["5. Entités créées depuis entry.runtime_data\n   (coordinators par subentry_id)"]
-    S6["6. Boucle asyncio HA\n   _handle_mqtt_message() sur chaque event"]
+    S5["5. Entities created from entry.runtime_data\n   (coordinators by subentry_id)"]
+    S6["6. HA asyncio loop\n   _handle_mqtt_message() on each event"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6
 
@@ -229,15 +229,15 @@ graph TD
     style S6 fill:#0a1a2a,stroke:#58a6ff
 ```
 
-## Filtres configurables par caméra
+## Configurable filters per camera
 
-Chaque subentry camera peut définir des filtres optionnels dans le config flow.
-Les zones et labels sont proposés en **multi-select** depuis l'API Frigate (`GET /api/config`) ;
-si Frigate est inaccessible lors de la configuration, un champ texte libre (format CSV) est utilisé en fallback.
-Les heures bloquées sont toujours saisies via multi-select (0-23).
+Each camera subentry can define optional filters in the config flow.
+Zones and labels are offered as **multi-select** from the Frigate API (`GET /api/config`);
+if Frigate is unreachable during configuration, a free-text field (CSV format) is used as a fallback.
+Blocked hours are always entered via multi-select (0–23).
 
-| Clé (`const.py`) | Type stocké | Mode de saisie | Comportement si vide |
+| Key (`const.py`) | Stored type | Input mode | Behaviour if empty |
 | --- | --- | --- | --- |
-| `CONF_ZONES` | `list[str]` | Multi-select Frigate API (fallback CSV) | Toutes zones acceptées |
-| `CONF_LABELS` | `list[str]` | Multi-select Frigate API (fallback CSV) | Tous objets acceptés |
-| `CONF_DISABLED_HOURS` | `list[int]` | Multi-select 0-23 | Aucune heure bloquée |
+| `CONF_ZONES` | `list[str]` | Frigate API multi-select (CSV fallback) | All zones accepted |
+| `CONF_LABELS` | `list[str]` | Frigate API multi-select (CSV fallback) | All objects accepted |
+| `CONF_DISABLED_HOURS` | `list[int]` | Multi-select 0–23 | No hours blocked |
