@@ -1,4 +1,4 @@
-"""Tests du coordinator MQTT Frigate Event Manager."""
+"""Tests for the Frigate Event Manager MQTT coordinator."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from custom_components.frigate_event_manager.domain.model import (
 )
 
 # ---------------------------------------------------------------------------
-# Payloads Frigate réalistes
+# Realistic Frigate payloads
 # ---------------------------------------------------------------------------
 
 PAYLOAD_NEW = {
@@ -83,7 +83,7 @@ PAYLOAD_END = {
 
 
 def _make_entry(notify_target: str | None = None) -> MagicMock:
-    """Crée un ConfigEntry mock minimal (globale)."""
+    """Create a minimal mock ConfigEntry (global)."""
     entry = MagicMock()
     entry.entry_id = "test-entry-id"
     entry.data = {}
@@ -93,7 +93,7 @@ def _make_entry(notify_target: str | None = None) -> MagicMock:
 
 
 def _make_subentry(cam_name: str = "jardin", notify_target: str | None = None) -> MagicMock:
-    """Crée un ConfigSubentry mock pour une caméra."""
+    """Create a mock ConfigSubentry for a camera."""
     subentry = MagicMock()
     subentry.subentry_id = f"sub_{cam_name}"
     subentry.data = {CONF_CAMERA: cam_name}
@@ -103,7 +103,7 @@ def _make_subentry(cam_name: str = "jardin", notify_target: str | None = None) -
 
 
 def _make_fake_event_source() -> AsyncMock:
-    """Crée un EventSourcePort fake (AsyncMock retournant un callable de désabonnement)."""
+    """Create a fake EventSourcePort (AsyncMock returning an unsubscribe callable)."""
     source = AsyncMock()
     source.async_subscribe = AsyncMock(return_value=MagicMock())
     return source
@@ -114,7 +114,7 @@ def _make_coordinator(
     cam_name: str = "jardin",
     notify_target: str | None = None,
 ) -> FrigateEventManagerCoordinator:
-    """Instancie un coordinator avec des mocks ConfigEntry + ConfigSubentry."""
+    """Instantiate a coordinator with mock ConfigEntry + ConfigSubentry."""
     entry = _make_entry()
     subentry = _make_subentry(cam_name, notify_target)
     return FrigateEventManagerCoordinator(
@@ -123,19 +123,19 @@ def _make_coordinator(
 
 
 def _make_msg(payload: dict | str) -> SimpleNamespace:
-    """Crée un message MQTT fake."""
+    """Create a fake MQTT message."""
     if isinstance(payload, dict):
         payload = json.dumps(payload)
     return SimpleNamespace(payload=payload)
 
 
 # ---------------------------------------------------------------------------
-# Tests de _parse_event
+# Tests for _parse_event
 # ---------------------------------------------------------------------------
 
 
 class TestParseEvent:
-    """Tests unitaires de _parse_event."""
+    """Unit tests for _parse_event."""
 
     def test_type_new_payload_complet(self) -> None:
         result = _parse_event(json.dumps(PAYLOAD_NEW))
@@ -225,21 +225,21 @@ class TestParseEvent:
         assert _parse_event(json.dumps(["new", "jardin"])) is None
 
     def test_to_float_valeur_non_convertible_retourne_defaut(self) -> None:
-        """_to_float avec une valeur non-convertible retourne la valeur par défaut."""
+        """_to_float with a non-convertible value returns the default."""
         from custom_components.frigate_event_manager.domain.model import _to_float
 
         assert _to_float("not_a_float", default=None) is None
         assert _to_float([], default=0.0) == 0.0
 
     def test_to_float_none_retourne_defaut(self) -> None:
-        """_to_float(None) retourne default."""
+        """_to_float(None) returns default."""
         from custom_components.frigate_event_manager.domain.model import _to_float
 
         assert _to_float(None, default=42.0) == 42.0
 
 
 # ---------------------------------------------------------------------------
-# Tests de CameraState
+# Tests for CameraState
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +276,7 @@ class TestCameraState:
 
 
 # ---------------------------------------------------------------------------
-# Tests du coordinator — traitement MQTT
+# Tests for coordinator — MQTT processing
 # ---------------------------------------------------------------------------
 
 
@@ -300,12 +300,12 @@ class TestHandleMqttMessage:
         assert state.last_objects == ["chien"]
 
     async def test_type_end_passe_motion_false(self, hass: HomeAssistant) -> None:
-        """Un end avec le même review_id que le new termine le mouvement."""
+        """An end with the same review_id as the new terminates motion."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
         assert coordinator.camera_state.motion is True
 
-        # End du même review (review-001 = review-001)
+        # End of the same review (review-001 = review-001)
         payload_end_meme_review = {
             "type": "end",
             "after": {
@@ -314,7 +314,7 @@ class TestHandleMqttMessage:
                 "objects": ["personne"],
                 "current_zones": ["entree"],
                 "score": 0.88,
-                "id": "review-001",  # même id que PAYLOAD_NEW
+                "id": "review-001",  # same id as PAYLOAD_NEW
                 "start_time": 1710000020.0,
                 "end_time": 1710000060.0,
             },
@@ -325,10 +325,10 @@ class TestHandleMqttMessage:
     async def test_type_end_motion_reste_true_si_autre_review_actif(
         self, hass: HomeAssistant
     ) -> None:
-        """Un end ne met pas motion=False si un autre review est encore actif."""
+        """An end does not set motion=False if another review is still active."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
 
-        # Premier review
+        # First review
         payload_new_1 = {
             "type": "new",
             "after": {
@@ -336,7 +336,7 @@ class TestHandleMqttMessage:
                 "objects": ["personne"], "id": "review-A", "start_time": 1710000000.0,
             },
         }
-        # Deuxième review
+        # Second review
         payload_new_2 = {
             "type": "new",
             "after": {
@@ -344,7 +344,7 @@ class TestHandleMqttMessage:
                 "objects": ["chien"], "id": "review-B", "start_time": 1710000005.0,
             },
         }
-        # End du premier review seulement
+        # End of the first review only
         payload_end_1 = {
             "type": "end",
             "after": {
@@ -359,7 +359,7 @@ class TestHandleMqttMessage:
         assert coordinator.camera_state.motion is True
 
         coordinator._handle_mqtt_message(_make_msg(payload_end_1))
-        # review-B est encore actif → motion doit rester True
+        # review-B is still active → motion must remain True
         assert coordinator.camera_state.motion is True
 
     async def test_type_end_last_event_time_est_end_time(self, hass: HomeAssistant) -> None:
@@ -372,7 +372,7 @@ class TestHandleMqttMessage:
     async def test_type_end_motion_false_quand_tous_reviews_termines(
         self, hass: HomeAssistant
     ) -> None:
-        """motion passe à False quand tous les reviews actifs sont terminés."""
+        """motion switches to False when all active reviews are finished."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
 
         payload_new_1 = {
@@ -407,15 +407,15 @@ class TestHandleMqttMessage:
         coordinator._handle_mqtt_message(_make_msg(payload_new_1))
         coordinator._handle_mqtt_message(_make_msg(payload_new_2))
         coordinator._handle_mqtt_message(_make_msg(payload_end_1))
-        assert coordinator.camera_state.motion is True  # review-B encore actif
+        assert coordinator.camera_state.motion is True  # review-B still active
 
         coordinator._handle_mqtt_message(_make_msg(payload_end_2))
-        assert coordinator.camera_state.motion is False  # plus aucun review actif
+        assert coordinator.camera_state.motion is False  # no more active reviews
 
     async def test_review_id_vide_pas_ajoute_a_active_reviews(
         self, hass: HomeAssistant
     ) -> None:
-        """Un event new avec review_id vide ne doit pas polluer _active_reviews."""
+        """A new event with empty review_id must not pollute _active_reviews."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
 
         payload_new_sans_id = {
@@ -426,16 +426,16 @@ class TestHandleMqttMessage:
                 "objects": ["personne"],
                 "current_zones": [],
                 "score": 0.8,
-                "id": "",  # review_id vide
+                "id": "",  # empty review_id
                 "start_time": 1710000000.0,
                 "end_time": None,
             },
         }
         coordinator._handle_mqtt_message(_make_msg(payload_new_sans_id))
 
-        # _active_reviews doit rester vide — chaîne vide est falsy
+        # _active_reviews must remain empty — empty string is falsy
         assert coordinator._active_reviews == set()
-        # motion passe quand même à True (c'est un event new)
+        # motion still switches to True (it is a new event)
         assert coordinator.camera_state.motion is True
 
     async def test_payload_invalide_ne_crash_pas(self, hass: HomeAssistant) -> None:
@@ -469,7 +469,7 @@ class TestHandleMqttMessage:
 
 
 # ---------------------------------------------------------------------------
-# Tests de set_camera_enabled
+# Tests for set_camera_enabled
 # ---------------------------------------------------------------------------
 
 
@@ -503,7 +503,7 @@ class TestSetCameraEnabled:
 
 
 # ---------------------------------------------------------------------------
-# Tests de async_start / async_stop
+# Tests for async_start / async_stop
 # ---------------------------------------------------------------------------
 
 
@@ -521,10 +521,10 @@ class TestAsyncStartStop:
     async def test_async_stop_sans_souscription(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         assert coordinator._unsubscribe_mqtt is None
-        await coordinator.async_stop()  # ne doit pas lever d'exception
+        await coordinator.async_stop()  # must not raise an exception
 
     async def test_async_start_appelle_subscribe(self, hass: HomeAssistant) -> None:
-        """async_start souscrit via l'EventSourcePort injecté."""
+        """async_start subscribes via the injected EventSourcePort."""
         mock_unsubscribe = MagicMock()
         mock_source = AsyncMock()
         mock_source.async_subscribe = AsyncMock(return_value=mock_unsubscribe)
@@ -541,7 +541,7 @@ class TestAsyncStartStop:
 
 
 # ---------------------------------------------------------------------------
-# Tests de _async_update_data
+# Tests for _async_update_data
 # ---------------------------------------------------------------------------
 
 
@@ -561,13 +561,13 @@ class TestAsyncUpdateData:
 
 
 # ---------------------------------------------------------------------------
-# Tests de FilterChain construite depuis subentry.data
+# Tests for FilterChain built from subentry.data
 # ---------------------------------------------------------------------------
 
 
 class TestFilterChainDepuisSubentry:
     async def test_filtre_labels_bloque_mauvais_objet(self, hass: HomeAssistant) -> None:
-        """LabelFilter: un événement avec objet non autorisé est bloqué."""
+        """LabelFilter: an event with an unauthorized object is blocked."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = ["person"]
@@ -576,7 +576,7 @@ class TestFilterChainDepuisSubentry:
             hass, _make_entry(), subentry, event_source=_make_fake_event_source()
         )
 
-        # PAYLOAD_NEW a objects=["personne"] — ne correspond pas à "person"
+        # PAYLOAD_NEW has objects=["personne"] — does not match "person"
         assert coordinator._filter_chain.apply(
             __import__(
                 "custom_components.frigate_event_manager.domain.model",
@@ -595,7 +595,7 @@ class TestFilterChainDepuisSubentry:
         ) is False
 
     async def test_filtre_labels_accepte_bon_objet(self, hass: HomeAssistant) -> None:
-        """LabelFilter: un événement avec objet autorisé est accepté."""
+        """LabelFilter: an event with an authorized object is accepted."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = ["person"]
@@ -621,7 +621,7 @@ class TestFilterChainDepuisSubentry:
         ) is True
 
     async def test_filtres_vides_acceptent_tout(self, hass: HomeAssistant) -> None:
-        """Sans filtres configurés, tous les événements sont acceptés."""
+        """Without configured filters, all events are accepted."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_ZONES] = []
         subentry.data[CONF_LABELS] = []
@@ -648,13 +648,13 @@ class TestFilterChainDepuisSubentry:
 
 
 # ---------------------------------------------------------------------------
-# Tests du cooldown configurable
+# Tests for configurable cooldown
 # ---------------------------------------------------------------------------
 
 
 class TestCooldownConfigurable:
     async def test_cooldown_depuis_subentry(self, hass: HomeAssistant) -> None:
-        """Le Throttler utilise le cooldown configuré dans la subentry."""
+        """The Throttler uses the cooldown configured in the subentry."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_COOLDOWN] = 120
         coordinator = FrigateEventManagerCoordinator(
@@ -663,13 +663,13 @@ class TestCooldownConfigurable:
         assert coordinator._throttler._cooldown == 120
 
     async def test_cooldown_defaut_si_absent(self, hass: HomeAssistant) -> None:
-        """Sans CONF_COOLDOWN dans subentry → cooldown par défaut (60)."""
+        """Without CONF_COOLDOWN in subentry → default cooldown (60)."""
         coordinator = _make_coordinator(hass, cam_name="jardin")
         assert coordinator._throttler._cooldown == 60
 
 
 # ---------------------------------------------------------------------------
-# Tests du silent mode
+# Tests for silent mode
 # ---------------------------------------------------------------------------
 
 
@@ -677,7 +677,7 @@ class TestSilentMode:
     async def test_activate_silent_mode_bloque_notifications(
         self, hass: HomeAssistant
     ) -> None:
-        """En mode silencieux, les événements new ne déclenchent pas de notification."""
+        """In silent mode, new events do not trigger a notification."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_SILENT_DURATION] = 30
@@ -698,7 +698,7 @@ class TestSilentMode:
     async def test_activate_silent_mode_met_a_jour_silent_until(
         self, hass: HomeAssistant
     ) -> None:
-        """activate_silent_mode met _silent_until dans le futur."""
+        """activate_silent_mode sets _silent_until to a future timestamp."""
         import time
         coordinator = _make_coordinator(hass)
         before = time.time()
@@ -706,7 +706,7 @@ class TestSilentMode:
         assert coordinator._silent_until > before
 
     async def test_silent_duration_depuis_subentry(self, hass: HomeAssistant) -> None:
-        """_silent_duration correspond à la valeur de la subentry."""
+        """_silent_duration matches the value from the subentry."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_SILENT_DURATION] = 45
         coordinator = FrigateEventManagerCoordinator(
@@ -716,7 +716,7 @@ class TestSilentMode:
 
 
 # ---------------------------------------------------------------------------
-# Tests du debounce
+# Tests for debounce
 # ---------------------------------------------------------------------------
 
 
@@ -724,7 +724,7 @@ class TestDebounce:
     async def test_debounce_zero_envoie_immediatement(
         self, hass: HomeAssistant
     ) -> None:
-        """Avec debounce=0, la notification est envoyée immédiatement."""
+        """With debounce=0, the notification is sent immediately."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 0
@@ -743,7 +743,7 @@ class TestDebounce:
     async def test_debounce_positif_differe_notification(
         self, hass: HomeAssistant
     ) -> None:
-        """Avec debounce > 0, la notification n'est pas envoyée immédiatement."""
+        """With debounce > 0, the notification is not sent immediately."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 5
@@ -755,16 +755,16 @@ class TestDebounce:
             event_source=_make_fake_event_source(),
         )
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
-        # Pas de await block_till_done — la task est planifiée mais pas exécutée
+        # No await block_till_done — the task is scheduled but not executed
         notifier.async_notify.assert_not_called()
-        # Nettoyage
+        # Cleanup
         if coordinator._debounce_task:
             coordinator._debounce_task.cancel()
 
     async def test_debounce_end_annule_task_et_libere_throttler(
         self, hass: HomeAssistant
     ) -> None:
-        """Un événement end annule le debounce task en cours."""
+        """An end event cancels the running debounce task."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 5
@@ -781,12 +781,12 @@ class TestDebounce:
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_END))
         await hass.async_block_till_done()
 
-        # La task a été annulée → aucune notification envoyée
+        # Task was cancelled → no notification sent
         notifier.async_notify.assert_not_called()
         assert coordinator._debounce_task is None
 
     async def test_debounce_accumule_objects(self, hass: HomeAssistant) -> None:
-        """Avec debounce, _pending_objects accumule les objets des événements."""
+        """With debounce, _pending_objects accumulates objects from events."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 5
@@ -809,7 +809,7 @@ class TestDebounce:
     async def test_chemin_immediat_transmet_critical_true_a_async_notify(
         self, hass: HomeAssistant
     ) -> None:
-        """Avec debounce=0 et critical_template='true', critical=True est transmis à async_notify."""
+        """With debounce=0 and critical_template='true', critical=True is passed to async_notify."""
         from custom_components.frigate_event_manager.const import CONF_CRITICAL_TEMPLATE
 
         notifier = AsyncMock()
@@ -833,7 +833,7 @@ class TestDebounce:
 
 
 # ---------------------------------------------------------------------------
-# Tests de la notification sur type=update
+# Tests for notification on type=update
 # ---------------------------------------------------------------------------
 
 
@@ -841,7 +841,7 @@ class TestNotificationUpdate:
     async def test_type_update_notifie_si_conditions_reunies(
         self, hass: HomeAssistant
     ) -> None:
-        """Un événement update entraîne une notification si le throttle le permet."""
+        """An update event triggers a notification if the throttle allows it."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         coordinator = FrigateEventManagerCoordinator(
@@ -857,7 +857,7 @@ class TestNotificationUpdate:
         notifier.async_notify.assert_called_once()
 
     async def test_type_end_ne_notifie_pas(self, hass: HomeAssistant) -> None:
-        """Un événement end ne déclenche jamais de notification."""
+        """An end event never triggers a notification."""
         notifier = AsyncMock()
         coordinator = FrigateEventManagerCoordinator(
             hass,
@@ -872,7 +872,7 @@ class TestNotificationUpdate:
         notifier.async_notify.assert_not_called()
 
     async def test_camera_disabled_ne_notifie_pas(self, hass: HomeAssistant) -> None:
-        """Caméra désactivée → aucune notification même sur new."""
+        """Disabled camera → no notification even on new."""
         notifier = AsyncMock()
         coordinator = FrigateEventManagerCoordinator(
             hass,
@@ -889,7 +889,7 @@ class TestNotificationUpdate:
 
 
 # ---------------------------------------------------------------------------
-# Tests de _debounce_send — exécution complète de la coroutine
+# Tests for _debounce_send — full coroutine execution
 # ---------------------------------------------------------------------------
 
 
@@ -897,7 +897,7 @@ class TestDebounceSend:
     async def test_debounce_send_envoie_notification_groupee(
         self, hass: HomeAssistant
     ) -> None:
-        """_debounce_send() envoie une notification avec les objets accumulés."""
+        """_debounce_send() sends a notification with accumulated objects."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 1  # 1 seconde
@@ -909,7 +909,7 @@ class TestDebounceSend:
             event_source=_make_fake_event_source(),
         )
 
-        # Simuler l'accumulation d'objets
+        # Simulate object accumulation
         coordinator._pending_objects = {"personne", "chien"}
         coordinator._pending_event = _make_msg(PAYLOAD_NEW)
 
@@ -925,7 +925,7 @@ class TestDebounceSend:
             start_time=1710000000.0,
             end_time=None,
         )
-        coordinator._debounce_seconds = 0  # pas d'attente pour le test
+        coordinator._debounce_seconds = 0  # no wait for the test
 
         await coordinator._debounce_send()
 
@@ -936,7 +936,7 @@ class TestDebounceSend:
     async def test_debounce_send_reinitialise_pending(
         self, hass: HomeAssistant
     ) -> None:
-        """_debounce_send() vide _pending_objects et _pending_event après envoi."""
+        """_debounce_send() clears _pending_objects and _pending_event after sending."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
         coordinator = FrigateEventManagerCoordinator(
@@ -964,7 +964,7 @@ class TestDebounceSend:
     async def test_debounce_send_sans_pending_event_ne_notifie_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """_debounce_send() sans _pending_event ne notifie pas."""
+        """_debounce_send() without _pending_event does not notify."""
         notifier = AsyncMock()
         coordinator = FrigateEventManagerCoordinator(
             hass,
@@ -974,7 +974,7 @@ class TestDebounceSend:
             event_source=_make_fake_event_source(),
         )
         coordinator._debounce_seconds = 0
-        # _pending_event vaut None par défaut
+        # _pending_event is None by default
 
         await coordinator._debounce_send()
 
@@ -983,11 +983,11 @@ class TestDebounceSend:
     async def test_debounce_send_cancellation_ne_notifie_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """Si _debounce_send() est annulée, aucune notification n'est envoyée."""
+        """If _debounce_send() is cancelled, no notification is sent."""
         import asyncio
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
-        subentry.data[CONF_DEBOUNCE] = 10  # 10 secondes → sera annulée
+        subentry.data[CONF_DEBOUNCE] = 10  # 10 seconds → will be cancelled
         coordinator = FrigateEventManagerCoordinator(
             hass,
             _make_entry(),
@@ -1014,7 +1014,7 @@ class TestDebounceSend:
     async def test_async_stop_annule_debounce_task_en_cours(
         self, hass: HomeAssistant
     ) -> None:
-        """async_stop() annule le debounce_task si actif."""
+        """async_stop() cancels the debounce_task if active."""
         subentry = _make_subentry("jardin")
         subentry.data[CONF_DEBOUNCE] = 10
         notifier = AsyncMock()
@@ -1025,7 +1025,7 @@ class TestDebounceSend:
             notifier=notifier,
             event_source=_make_fake_event_source(),
         )
-        # Déclencher le debounce via un événement new
+        # Trigger debounce via a new event
         coordinator._handle_mqtt_message(_make_msg(PAYLOAD_NEW))
         assert coordinator._debounce_task is not None
 
@@ -1036,13 +1036,13 @@ class TestDebounceSend:
     async def test_debounce_send_transmet_critical_true_a_async_notify(
         self, hass: HomeAssistant
     ) -> None:
-        """_debounce_send() transmet critical=True à async_notify quand le template le dicte."""
+        """_debounce_send() passes critical=True to async_notify when the template dictates it."""
         from custom_components.frigate_event_manager.const import CONF_CRITICAL_TEMPLATE
         from custom_components.frigate_event_manager.domain.model import FrigateEvent
 
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
-        # Template qui retourne toujours True — chemin critical=True garanti
+        # Template that always returns True — critical=True path guaranteed
         subentry.data[CONF_CRITICAL_TEMPLATE] = "true"
         coordinator = FrigateEventManagerCoordinator(
             hass,
@@ -1073,7 +1073,7 @@ class TestDebounceSend:
 
 
 # ---------------------------------------------------------------------------
-# Tests du silent mode — cancel et async_stop
+# Tests for advanced silent mode — cancel and async_stop
 # ---------------------------------------------------------------------------
 
 
@@ -1081,7 +1081,7 @@ class TestSilentModeAvance:
     async def test_activate_silent_mode_stocke_cancel(
         self, hass: HomeAssistant
     ) -> None:
-        """activate_silent_mode stocke un callable d'annulation dans _cancel_silent."""
+        """activate_silent_mode stores a cancellation callable in _cancel_silent."""
         coordinator = _make_coordinator(hass)
         assert coordinator._cancel_silent is None
 
@@ -1092,34 +1092,34 @@ class TestSilentModeAvance:
     async def test_activate_silent_mode_double_appel_annule_premier(
         self, hass: HomeAssistant
     ) -> None:
-        """Un deuxième appel à activate_silent_mode annule le premier timer."""
+        """A second call to activate_silent_mode cancels the first timer."""
         coordinator = _make_coordinator(hass)
 
         coordinator.activate_silent_mode()
         premier_cancel = coordinator._cancel_silent
         assert premier_cancel is not None
 
-        # Espionner l'appel du premier cancel
+        # Spy on the first cancel call
         annule = MagicMock(wraps=premier_cancel)
         coordinator._cancel_silent = annule
 
         coordinator.activate_silent_mode()
 
-        # Le premier timer doit avoir été annulé
+        # The first timer must have been cancelled
         annule.assert_called_once()
-        # Un nouveau cancel doit être stocké
+        # A new cancel must be stored
         assert coordinator._cancel_silent is not None
         assert coordinator._cancel_silent is not annule
 
     async def test_async_stop_annule_cancel_silent(
         self, hass: HomeAssistant
     ) -> None:
-        """async_stop() appelle _cancel_silent et le met à None."""
+        """async_stop() calls _cancel_silent and sets it to None."""
         coordinator = _make_coordinator(hass)
         coordinator.activate_silent_mode()
         assert coordinator._cancel_silent is not None
 
-        # Espionner le callable d'annulation
+        # Spy on the cancellation callable
         mock_cancel = MagicMock()
         coordinator._cancel_silent = mock_cancel
 
@@ -1131,16 +1131,16 @@ class TestSilentModeAvance:
     async def test_async_stop_sans_cancel_silent_ne_crash_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """async_stop() sans silent mode actif ne lève aucune exception."""
+        """async_stop() without active silent mode raises no exception."""
         coordinator = _make_coordinator(hass)
         assert coordinator._cancel_silent is None
 
-        await coordinator.async_stop()  # ne doit pas lever d'exception
+        await coordinator.async_stop()  # must not raise an exception
 
     async def test_async_cancel_silent_annule_timer_et_remet_zero(
         self, hass: HomeAssistant
     ) -> None:
-        """async_cancel_silent annule le timer, remet _silent_until à 0.0 et sauvegarde."""
+        """async_cancel_silent cancels the timer, resets _silent_until to 0.0 and saves."""
         coordinator = _make_coordinator(hass)
         coordinator.activate_silent_mode()
         assert coordinator._cancel_silent is not None
@@ -1159,20 +1159,20 @@ class TestSilentModeAvance:
     async def test_async_cancel_silent_sans_timer_actif_ne_crash_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """async_cancel_silent sans silent mode actif ne lève aucune exception."""
+        """async_cancel_silent without active silent mode raises no exception."""
         coordinator = _make_coordinator(hass)
         assert coordinator._cancel_silent is None
 
         coordinator._store = MagicMock()
         coordinator._store.async_save = AsyncMock()
 
-        await coordinator.async_cancel_silent()  # ne doit pas lever d'exception
+        await coordinator.async_cancel_silent()  # must not raise an exception
         assert coordinator._silent_until == 0.0
 
     async def test_async_remove_store_appelle_store_async_remove(
         self, hass: HomeAssistant
     ) -> None:
-        """async_remove_store délègue à self._store.async_remove()."""
+        """async_remove_store delegates to self._store.async_remove()."""
         coordinator = _make_coordinator(hass)
         coordinator._store = MagicMock()
         coordinator._store.async_remove = AsyncMock()
@@ -1183,7 +1183,7 @@ class TestSilentModeAvance:
 
 
 # ---------------------------------------------------------------------------
-# Tests de la persistance du silent mode via Store
+# Tests for silent mode persistence via Store
 # ---------------------------------------------------------------------------
 
 
@@ -1191,7 +1191,7 @@ class TestSilentModePersistance:
     async def test_activate_silent_mode_sauvegarde_via_store(
         self, hass: HomeAssistant
     ) -> None:
-        """activate_silent_mode lance une tâche de sauvegarde Store."""
+        """activate_silent_mode schedules a Store save task."""
         coordinator = _make_coordinator(hass)
         coordinator._store = MagicMock()
         coordinator._store.async_save = AsyncMock()
@@ -1207,9 +1207,9 @@ class TestSilentModePersistance:
     async def test_async_start_restaure_silent_mode_actif(
         self, hass: HomeAssistant
     ) -> None:
-        """async_start restaure _silent_until si le Store contient une valeur future."""
+        """async_start restores _silent_until if the Store contains a future value."""
         import time
-        future = time.time() + 3600.0  # 1h dans le futur
+        future = time.time() + 3600.0  # 1h in the future
         mock_source = AsyncMock()
         mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
 
@@ -1227,9 +1227,9 @@ class TestSilentModePersistance:
     async def test_async_start_ignore_silent_mode_expire(
         self, hass: HomeAssistant
     ) -> None:
-        """async_start ignore un silent_until expiré (dans le passé)."""
+        """async_start ignores an expired silent_until (in the past)."""
         import time
-        past = time.time() - 3600.0  # 1h dans le passé
+        past = time.time() - 3600.0  # 1h in the past
         mock_source = AsyncMock()
         mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
 
@@ -1241,14 +1241,14 @@ class TestSilentModePersistance:
 
         await coordinator.async_start()
 
-        # Pas de restauration — la période est expirée
+        # No restore — the period has expired
         assert coordinator._silent_until == 0.0
         assert coordinator._cancel_silent is None
 
     async def test_async_start_store_vide_ne_crash_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """async_start avec Store vide ne lève aucune exception."""
+        """async_start with empty Store raises no exception."""
         mock_source = AsyncMock()
         mock_source.async_subscribe = AsyncMock(return_value=MagicMock())
 
@@ -1258,7 +1258,7 @@ class TestSilentModePersistance:
         coordinator._store = MagicMock()
         coordinator._store.async_load = AsyncMock(return_value=None)
 
-        await coordinator.async_start()  # ne doit pas lever d'exception
+        await coordinator.async_start()  # must not raise an exception
 
         assert coordinator._silent_until == 0.0
 
@@ -1269,7 +1269,7 @@ class TestSilentModePersistance:
 
 
 class TestIsCritical:
-    """Tests de la méthode _is_critical du coordinator."""
+    """Tests for the _is_critical method of the coordinator."""
 
     def _make_event(self, severity: str = "alert") -> FrigateEvent:
         return FrigateEvent(
@@ -1283,47 +1283,47 @@ class TestIsCritical:
         )
 
     def test_sans_template_retourne_false(self, hass: HomeAssistant) -> None:
-        """Pas de critical_template → _is_critical retourne toujours False."""
+        """No critical_template → _is_critical always returns False."""
         coordinator = _make_coordinator(hass)
         coordinator._critical_template = None
         assert coordinator._is_critical(self._make_event()) is False
 
     def test_template_vrai_retourne_true(self, hass: HomeAssistant) -> None:
-        """Template qui évalue à 'True' → _is_critical retourne True."""
+        """Template evaluating to 'True' → _is_critical returns True."""
         coordinator = _make_coordinator(hass)
         coordinator._critical_template = "{{ severity == 'alert' }}"
         assert coordinator._is_critical(self._make_event(severity="alert")) is True
 
     def test_template_faux_retourne_false(self, hass: HomeAssistant) -> None:
-        """Template qui évalue à 'False' → _is_critical retourne False."""
+        """Template evaluating to 'False' → _is_critical returns False."""
         coordinator = _make_coordinator(hass)
         coordinator._critical_template = "{{ severity == 'alert' }}"
         assert coordinator._is_critical(self._make_event(severity="detection")) is False
 
     def test_template_invalide_retourne_false(self, hass: HomeAssistant) -> None:
-        """Template Jinja2 invalide → _is_critical retourne False sans lever d'exception."""
+        """Invalid Jinja2 template → _is_critical returns False without raising an exception."""
         coordinator = _make_coordinator(hass)
         coordinator._critical_template = "{{ this_is_not_valid_jinja2(((( }}"
-        # Ne doit pas lever d'exception
+        # Must not raise an exception
         assert coordinator._is_critical(self._make_event()) is False
 
 
 # ---------------------------------------------------------------------------
-# Tests setters live (entités de réglage T-524)
+# Tests for live setters (setting entities T-524)
 # ---------------------------------------------------------------------------
 
 
 class TestSettersLive:
-    """Tests des setters live du coordinator — number / select / text."""
+    """Tests for live setters of the coordinator — number / select / text."""
 
     def test_silent_until_property_retourne_valeur(self, hass: HomeAssistant) -> None:
-        """La property silent_until expose _silent_until."""
+        """The silent_until property exposes _silent_until."""
         coordinator = _make_coordinator(hass)
         coordinator._silent_until = 12345.0
         assert coordinator.silent_until == 12345.0
 
     def test_set_cooldown_remplace_throttler(self, hass: HomeAssistant) -> None:
-        """set_cooldown crée un nouveau Throttler avec la valeur donnée."""
+        """set_cooldown creates a new Throttler with the given value."""
         from custom_components.frigate_event_manager.domain.throttle import Throttler
 
         coordinator = _make_coordinator(hass)
@@ -1333,13 +1333,13 @@ class TestSettersLive:
         assert isinstance(coordinator._throttler, Throttler)
 
     def test_set_debounce_met_a_jour_debounce_seconds(self, hass: HomeAssistant) -> None:
-        """set_debounce met à jour _debounce_seconds."""
+        """set_debounce updates _debounce_seconds."""
         coordinator = _make_coordinator(hass)
         coordinator.set_debounce(15)
         assert coordinator._debounce_seconds == 15
 
     def test_set_severity_met_a_jour_filter_chain(self, hass: HomeAssistant) -> None:
-        """set_severity met à jour _severities et reconstruit _filter_chain."""
+        """set_severity updates _severities and rebuilds _filter_chain."""
         from custom_components.frigate_event_manager.domain.filter import FilterChain
 
         coordinator = _make_coordinator(hass)
@@ -1350,7 +1350,7 @@ class TestSettersLive:
         assert isinstance(coordinator._filter_chain, FilterChain)
 
     def test_set_tap_action_delegue_au_notifier(self, hass: HomeAssistant) -> None:
-        """set_tap_action appelle set_tap_action sur le notifier si présent."""
+        """set_tap_action calls set_tap_action on the notifier if present."""
         coordinator = _make_coordinator(hass)
         mock_notifier = MagicMock()
         mock_notifier.set_tap_action = MagicMock()
@@ -1359,13 +1359,13 @@ class TestSettersLive:
         mock_notifier.set_tap_action.assert_called_once_with("snapshot")
 
     def test_set_tap_action_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
-        """set_tap_action sans notifier ne lève pas d'exception."""
+        """set_tap_action without a notifier raises no exception."""
         coordinator = _make_coordinator(hass)
         coordinator._notifier = None
-        coordinator.set_tap_action("preview")  # ne doit pas lever d'exception
+        coordinator.set_tap_action("preview")  # must not raise an exception
 
     def test_set_notif_title_delegue_au_notifier(self, hass: HomeAssistant) -> None:
-        """set_notif_title appelle set_title_template sur le notifier si présent."""
+        """set_notif_title calls set_title_template on the notifier if present."""
         coordinator = _make_coordinator(hass)
         mock_notifier = MagicMock()
         mock_notifier.set_title_template = MagicMock()
@@ -1374,13 +1374,13 @@ class TestSettersLive:
         mock_notifier.set_title_template.assert_called_once_with("Alerte {{ camera }}")
 
     def test_set_notif_title_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
-        """set_notif_title sans notifier ne lève pas d'exception."""
+        """set_notif_title without a notifier raises no exception."""
         coordinator = _make_coordinator(hass)
         coordinator._notifier = None
-        coordinator.set_notif_title("titre")  # ne doit pas lever d'exception
+        coordinator.set_notif_title("titre")  # must not raise an exception
 
     def test_set_notif_message_delegue_au_notifier(self, hass: HomeAssistant) -> None:
-        """set_notif_message appelle set_message_template sur le notifier si présent."""
+        """set_notif_message calls set_message_template on the notifier if present."""
         coordinator = _make_coordinator(hass)
         mock_notifier = MagicMock()
         mock_notifier.set_message_template = MagicMock()
@@ -1389,26 +1389,26 @@ class TestSettersLive:
         mock_notifier.set_message_template.assert_called_once_with("{{ objects | join(', ') }}")
 
     def test_set_notif_message_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
-        """set_notif_message sans notifier ne lève pas d'exception."""
+        """set_notif_message without a notifier raises no exception."""
         coordinator = _make_coordinator(hass)
         coordinator._notifier = None
-        coordinator.set_notif_message("msg")  # ne doit pas lever d'exception
+        coordinator.set_notif_message("msg")  # must not raise an exception
 
     def test_set_critical_template_met_a_jour_template(self, hass: HomeAssistant) -> None:
-        """set_critical_template met à jour _critical_template."""
+        """set_critical_template updates _critical_template."""
         coordinator = _make_coordinator(hass)
         coordinator.set_critical_template("{{ severity == 'alert' }}")
         assert coordinator._critical_template == "{{ severity == 'alert' }}"
 
     def test_set_critical_template_vide_passe_none(self, hass: HomeAssistant) -> None:
-        """set_critical_template avec chaîne vide normalise à None."""
+        """set_critical_template with empty string normalises to None."""
         coordinator = _make_coordinator(hass)
         coordinator._critical_template = "old"
         coordinator.set_critical_template("")
         assert coordinator._critical_template is None
 
     def test_on_silent_expired_remet_silent_until_a_zero(self, hass: HomeAssistant) -> None:
-        """_on_silent_expired remet _silent_until à 0.0 et _cancel_silent à None."""
+        """_on_silent_expired resets _silent_until to 0.0 and _cancel_silent to None."""
         coordinator = _make_coordinator(hass)
         coordinator._silent_until = 99999.0
         coordinator._cancel_silent = MagicMock()
@@ -1423,34 +1423,34 @@ class TestSettersLive:
 
 
 # ---------------------------------------------------------------------------
-# Tests boutons d'action notification (T-532)
+# Tests for notification action buttons (T-532)
 # ---------------------------------------------------------------------------
 
 
 class TestActionBtns:
-    """Tests des setters boutons d'action et du listener notification_action."""
+    """Tests for action button setters and the notification_action listener."""
 
-    def test_set_action_btn1_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn1_updates_value(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         coordinator.set_action_btn1("clip")
         assert coordinator._action_btn1 == "clip"
 
-    def test_set_action_btn2_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn2_updates_value(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         coordinator.set_action_btn2("snapshot")
         assert coordinator._action_btn2 == "snapshot"
 
-    def test_set_action_btn3_met_a_jour_valeur(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn3_updates_value(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         coordinator.set_action_btn3("dismiss")
         assert coordinator._action_btn3 == "dismiss"
 
-    def test_set_action_btn1_valeur_invalide_retourne_none(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn1_invalid_value_falls_back_to_none(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         coordinator.set_action_btn1("invalide")
         assert coordinator._action_btn1 == "none"
 
-    def test_set_action_btn1_delegue_au_notifier(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn1_delegates_to_notifier(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         mock_notifier = MagicMock()
         mock_notifier.set_action_buttons = MagicMock()
@@ -1458,20 +1458,20 @@ class TestActionBtns:
         coordinator.set_action_btn1("clip")
         mock_notifier.set_action_buttons.assert_called_once_with("clip", "none", "none")
 
-    def test_set_action_btn1_sans_notifier_ne_crash_pas(self, hass: HomeAssistant) -> None:
+    def test_set_action_btn1_without_notifier_does_not_crash(self, hass: HomeAssistant) -> None:
         coordinator = _make_coordinator(hass)
         coordinator._notifier = None
-        coordinator.set_action_btn1("clip")  # ne doit pas lever d'exception
+        coordinator.set_action_btn1("clip")  # must not raise an exception
 
-    def test_valeurs_initiales_none(self, hass: HomeAssistant) -> None:
-        """Les boutons d'action sont 'none' par défaut."""
+    def test_initial_values_none(self, hass: HomeAssistant) -> None:
+        """Action buttons default to 'none'."""
         coordinator = _make_coordinator(hass)
         assert coordinator._action_btn1 == "none"
         assert coordinator._action_btn2 == "none"
         assert coordinator._action_btn3 == "none"
 
     def test_handle_notification_action_silent_30min(self, hass: HomeAssistant) -> None:
-        """L'action fem_silent_30min_{cam} active le mode silencieux 30 min."""
+        """The fem_silent_30min_{cam} action activates silent mode for 30 min."""
         from types import SimpleNamespace
 
         coordinator = _make_coordinator(hass, cam_name="jardin")
@@ -1483,7 +1483,7 @@ class TestActionBtns:
         coordinator.activate_silent_mode.assert_called_once_with(duration_min=30)
 
     def test_handle_notification_action_silent_1h(self, hass: HomeAssistant) -> None:
-        """L'action fem_silent_1h_{cam} active le mode silencieux 1h."""
+        """The fem_silent_1h_{cam} action activates silent mode for 1h."""
         from types import SimpleNamespace
 
         coordinator = _make_coordinator(hass, cam_name="jardin")
@@ -1495,7 +1495,7 @@ class TestActionBtns:
         coordinator.activate_silent_mode.assert_called_once_with(duration_min=60)
 
     def test_handle_notification_action_autre_camera_ignoree(self, hass: HomeAssistant) -> None:
-        """L'action pour une autre caméra est ignorée."""
+        """An action for a different camera is ignored."""
         from types import SimpleNamespace
 
         coordinator = _make_coordinator(hass, cam_name="jardin")
@@ -1507,7 +1507,7 @@ class TestActionBtns:
         coordinator.activate_silent_mode.assert_not_called()
 
     def test_handle_notification_action_inconnue_ignoree(self, hass: HomeAssistant) -> None:
-        """Une action inconnue est ignorée sans exception."""
+        """An unknown action is silently ignored."""
         from types import SimpleNamespace
 
         coordinator = _make_coordinator(hass, cam_name="jardin")
@@ -1519,11 +1519,11 @@ class TestActionBtns:
         coordinator.activate_silent_mode.assert_not_called()
 
     def test_activate_silent_mode_avec_duration_min(self, hass: HomeAssistant) -> None:
-        """activate_silent_mode(duration_min=30) utilise 30 min au lieu de _silent_duration."""
+        """activate_silent_mode(duration_min=30) uses 30 min instead of _silent_duration."""
         import time
 
         coordinator = _make_coordinator(hass)
-        coordinator._silent_duration = 60  # valeur par défaut de l'entité
+        coordinator._silent_duration = 60  # entity default value
         coordinator._store = MagicMock()
         coordinator._store.async_save = AsyncMock()
         coordinator.async_set_updated_data = MagicMock()
@@ -1532,13 +1532,13 @@ class TestActionBtns:
         coordinator.activate_silent_mode(duration_min=30)
         after = time.time()
 
-        # Le _silent_until doit correspondre à ~30 min, pas 60
+        # _silent_until must correspond to ~30 min, not 60
         expected_min = before + 30 * 60
         expected_max = after + 30 * 60
         assert expected_min <= coordinator._silent_until <= expected_max
 
     async def test_async_stop_desabonne_notif_action(self, hass: HomeAssistant) -> None:
-        """async_stop appelle le callable de désabonnement du listener notification_action."""
+        """async_stop calls the unsubscribe callable for the notification_action listener."""
         coordinator = _make_coordinator(hass)
         mock_unsub = MagicMock()
         coordinator._unsubscribe_notif_action = mock_unsub

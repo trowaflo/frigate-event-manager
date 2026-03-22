@@ -1,4 +1,4 @@
-"""Tests des entités select boutons d'action notification (T-532)."""
+"""Tests for select entities — notification action buttons (T-532)."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _build_btn3(cam_name: str = "jardin", initial: str = DEFAULT_ACTION_BTN) -> 
 
 
 async def _call_added(entity: object, last_state: object) -> None:
-    """Appelle async_added_to_hass avec les bons patches."""
+    """Call async_added_to_hass with the correct patches."""
     with patch(_NOOP_COORD_ADDED, new_callable=AsyncMock):
         with patch(_NOOP_RESTORE, new_callable=AsyncMock):
             with patch.object(
@@ -77,7 +77,7 @@ async def _call_added(entity: object, last_state: object) -> None:
 
 
 class TestActionButton1Select:
-    """Tests de l'entité ActionButton1Select."""
+    """Tests for the ActionButton1Select entity."""
 
     def test_unique_id(self) -> None:
         entity = _build_btn1()
@@ -96,7 +96,7 @@ class TestActionButton1Select:
         assert entity._attr_current_option == "clip"
 
     def test_valeur_initiale_invalide_retourne_none(self) -> None:
-        """Une valeur initiale invalide est remplacée par 'none'."""
+        """An invalid initial value is replaced by 'none'."""
         entity = _build_btn1(initial="invalide")
         assert entity._attr_current_option == DEFAULT_ACTION_BTN
 
@@ -142,7 +142,7 @@ class TestActionButton1Select:
         state = MagicMock()
         state.state = "invalide"
         await _call_added(entity, state)
-        # L'état invalide n'est pas appliqué — la valeur initiale (none) est conservée
+        # The invalid state is not applied — the initial value (none) is preserved
         assert entity._attr_current_option == DEFAULT_ACTION_BTN
         entity.coordinator.set_action_btn1.assert_not_called()
 
@@ -159,7 +159,7 @@ class TestActionButton1Select:
 
 
 class TestActionButton2Select:
-    """Tests de l'entité ActionButton2Select."""
+    """Tests for the ActionButton2Select entity."""
 
     def test_unique_id(self) -> None:
         entity = _build_btn2()
@@ -182,7 +182,7 @@ class TestActionButton2Select:
 
 
 class TestActionButton3Select:
-    """Tests de l'entité ActionButton3Select."""
+    """Tests for the ActionButton3Select entity."""
 
     def test_unique_id(self) -> None:
         entity = _build_btn3()
@@ -205,7 +205,7 @@ class TestActionButton3Select:
 
 
 class TestActionBtnOptions:
-    """Vérifie que toutes les options sont supportées."""
+    """Verifies that all options are supported."""
 
     @pytest.mark.parametrize("option", ACTION_BTN_OPTIONS)
     def test_toutes_options_valides_acceptees_btn1(self, option: str) -> None:
@@ -226,13 +226,13 @@ class TestActionBtnOptions:
 
 
 class TestActionButtonSelectBaseNotImplemented:
-    """Vérifie que la classe de base lève NotImplementedError."""
+    """Verifies that the base class raises NotImplementedError."""
 
     def test_apply_to_coordinator_leve_not_implemented(self) -> None:
-        """_apply_to_coordinator doit lever NotImplementedError dans la classe de base."""
+        """_apply_to_coordinator must raise NotImplementedError in the base class."""
         coordinator = _make_coordinator()
         with patch(_NOOP, return_value=None):
-            # Instanciation directe de la classe de base abstraite
+            # Direct instantiation of the abstract base class
             entity = _ActionButtonSelectBase.__new__(_ActionButtonSelectBase)
             entity.coordinator = coordinator
             entity._btn_key = "test_key"
@@ -249,7 +249,7 @@ class TestActionButtonSelectBaseNotImplemented:
 
 
 async def test_async_setup_entry_nenregistre_aucune_entite() -> None:
-    """async_setup_entry ne crée aucune entité — boutons d'action dans le config flow."""
+    """async_setup_entry creates no entity — action buttons are in the config flow."""
     from custom_components.frigate_event_manager.select import async_setup_entry
 
     mock_add_entities = MagicMock()

@@ -1,4 +1,4 @@
-"""Tests des entités de réglage — number, select, text."""
+"""Tests for setting entities — number, select, text."""
 
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def _make_coordinator(cam_name: str = "jardin") -> MagicMock:
 
 
 async def _call_added(entity: object, last_state: object) -> None:
-    """Appelle async_added_to_hass avec les bons patches CoordinatorEntity + RestoreEntity."""
+    """Call async_added_to_hass with the correct CoordinatorEntity + RestoreEntity patches."""
     with patch(_NOOP_COORD_ADDED, new_callable=AsyncMock):
         with patch(_NOOP_RESTORE, new_callable=AsyncMock):
             with patch.object(
@@ -59,7 +59,7 @@ async def _call_added(entity: object, last_state: object) -> None:
 
 
 class TestSeverityListToUi:
-    """Tests de la fonction _severity_list_to_ui."""
+    """Tests for the _severity_list_to_ui function."""
 
     def test_alert_seul(self) -> None:
         assert _severity_list_to_ui(["alert"]) == "alert"
@@ -81,7 +81,7 @@ class TestSeverityListToUi:
 
 
 class TestCooldownNumber:
-    """Tests de l'entité CooldownNumber."""
+    """Tests for the CooldownNumber entity."""
 
     def _build(self, initial: int = DEFAULT_THROTTLE_COOLDOWN) -> CooldownNumber:
         coordinator = _make_coordinator()
@@ -115,13 +115,13 @@ class TestCooldownNumber:
         assert entity._attr_native_value == 90.0
 
     async def test_async_added_to_hass_sans_etat_precedent(self) -> None:
-        """Sans état précédent, la valeur initiale est conservée."""
+        """Without a previous state, the initial value is preserved."""
         entity = self._build(initial=60)
         await _call_added(entity, None)
         assert entity._attr_native_value == 60.0
 
     async def test_async_added_to_hass_restaure_valeur(self) -> None:
-        """Avec état précédent valide, la valeur est restaurée."""
+        """With a valid previous state, the value is restored."""
         entity = self._build(initial=60)
         mock_state = MagicMock()
         mock_state.state = "180"
@@ -136,7 +136,7 @@ class TestCooldownNumber:
 
 
 class TestDebounceNumber:
-    """Tests de l'entité DebounceNumber."""
+    """Tests for the DebounceNumber entity."""
 
     def _build(self, initial: int = DEFAULT_DEBOUNCE) -> DebounceNumber:
         coordinator = _make_coordinator()
@@ -160,7 +160,7 @@ class TestDebounceNumber:
         entity.coordinator.set_debounce.assert_called_once_with(5)
 
     async def test_async_added_to_hass_etat_invalide_ignore(self) -> None:
-        """État précédent non numérique → valeur initiale conservée."""
+        """Non-numeric previous state → initial value preserved."""
         entity = self._build(initial=10)
         mock_state = MagicMock()
         mock_state.state = "invalid"
@@ -174,7 +174,7 @@ class TestDebounceNumber:
 
 
 class TestSeverityFilterSelect:
-    """Tests de l'entité SeverityFilterSelect."""
+    """Tests for the SeverityFilterSelect entity."""
 
     def _build(self, initial: list[str] | None = None) -> SeverityFilterSelect:
         coordinator = _make_coordinator()
@@ -223,7 +223,7 @@ class TestSeverityFilterSelect:
         entity.coordinator.set_severity.assert_called_once_with(["detection"])
 
     async def test_async_added_to_hass_option_invalide_ignore(self) -> None:
-        """Option inconnue → valeur initiale conservée, pas d'appel set_severity."""
+        """Unknown option → initial value preserved, no set_severity call."""
         entity = self._build(initial=["alert"])
         mock_state = MagicMock()
         mock_state.state = "invalide_inconnu"
@@ -238,7 +238,7 @@ class TestSeverityFilterSelect:
 
 
 class TestTapActionSelect:
-    """Tests de l'entité TapActionSelect."""
+    """Tests for the TapActionSelect entity."""
 
     def _build(self, initial: str = DEFAULT_TAP_ACTION) -> TapActionSelect:
         coordinator = _make_coordinator()
@@ -281,7 +281,7 @@ class TestTapActionSelect:
 
 
 class TestNotifTitleText:
-    """Tests de l'entité NotifTitleText."""
+    """Tests for the NotifTitleText entity."""
 
     def _build(self, initial: str = "") -> NotifTitleText:
         coordinator = _make_coordinator()
@@ -337,7 +337,7 @@ class TestNotifTitleText:
 
 
 class TestNotifMessageText:
-    """Tests de l'entité NotifMessageText."""
+    """Tests for the NotifMessageText entity."""
 
     def _build(self, initial: str = "") -> NotifMessageText:
         coordinator = _make_coordinator()
@@ -377,7 +377,7 @@ class TestNotifMessageText:
 
 
 class TestCriticalTemplateText:
-    """Tests de l'entité CriticalTemplateText."""
+    """Tests for the CriticalTemplateText entity."""
 
     def _build(self, initial: str = "") -> CriticalTemplateText:
         coordinator = _make_coordinator()
