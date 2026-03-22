@@ -1,4 +1,4 @@
-"""Envoi de notifications HA pour Frigate Event Manager."""
+"""HA notification sender for Frigate Event Manager."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from .domain.ports import MediaSignerPort
 
 _LOGGER = logging.getLogger(__name__)
 
-# Config des boutons d'action : titre, icône SF Symbols, destructive (rouge)
+# Action button config: title, SF Symbols icon, destructive (red)
 _ACTION_BTN_CONFIG: dict[str, dict] = {
     "clip":        {"title": "Clip",          "icon": "sfsymbols:video"},
     "snapshot":    {"title": "Snapshot",      "icon": "sfsymbols:camera"},
@@ -38,7 +38,7 @@ _ACTION_BTN_CONFIG: dict[str, dict] = {
 
 
 class HANotifier:
-    """Envoie des notifications HA (persistent_notification ou notify.xxx)."""
+    """Send HA notifications (persistent_notification or notify.xxx)."""
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class HANotifier:
         critical_sound: str = DEFAULT_CRITICAL_SOUND,
         critical_volume: float = DEFAULT_CRITICAL_VOLUME,
     ) -> None:
-        """Initialise avec la cible, les templates optionnels et le signer media."""
+        """Initialize with the target, optional templates and media signer."""
         self._hass = hass
         self._target = notify_target
         self._title_tpl = title_tpl or DEFAULT_NOTIF_TITLE
@@ -62,29 +62,29 @@ class HANotifier:
         self._tap_action = tap_action
         self._critical_sound = critical_sound
         self._critical_volume = critical_volume
-        # Configurations des boutons d'action (none = pas de bouton)
+        # Action button configuration (none = no button)
         self._action_btns: list[str] = [DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN, DEFAULT_ACTION_BTN]
 
-    # --- Setters live (appelés par les entités text/select) ---
+    # --- Live setters (called by text/select entities) ---
 
     def set_title_template(self, tpl: str | None) -> None:
-        """Met à jour le template de titre à chaud."""
+        """Update the title template live."""
         self._title_tpl = tpl or DEFAULT_NOTIF_TITLE
 
     def set_message_template(self, tpl: str | None) -> None:
-        """Met à jour le template de message à chaud."""
+        """Update the message template live."""
         self._message_tpl = tpl or DEFAULT_NOTIF_MESSAGE
 
     def set_tap_action(self, tap_action: str) -> None:
-        """Met à jour l'action au tap à chaud."""
+        """Update the tap action live."""
         self._tap_action = tap_action
 
     def set_action_buttons(self, btn1: str, btn2: str, btn3: str) -> None:
-        """Met à jour les 3 boutons d'action notification à chaud."""
+        """Update the 3 notification action buttons live."""
         self._action_btns = [btn1, btn2, btn3]
 
     def _render(self, tpl_str: str, variables: dict) -> str:
-        """Rend un template Jinja2 HA avec les variables de l'événement."""
+        """Render a HA Jinja2 template with the event variables."""
         try:
             return str(
                 template_helper.Template(tpl_str, self._hass).async_render(
@@ -92,11 +92,11 @@ class HANotifier:
                 )
             )
         except Exception:  # noqa: BLE001
-            _LOGGER.warning("Erreur rendu template %r — utilisation brute", tpl_str)
+            _LOGGER.warning("template render error %r — using raw value", tpl_str)
             return tpl_str
 
     def _build_media_urls(self, event: FrigateEvent) -> dict[str, str]:
-        """Construit les URLs médias — presignées si signer disponible, directes sinon."""
+        """Build media URLs — presigned if signer available, direct otherwise."""
         preview_url = snapshot_url = clip_url = thumbnail_url = ""
 
         if not event.review_id:
@@ -133,9 +133,9 @@ class HANotifier:
     def _build_actions_from_btns(
         self, media_urls: dict[str, str], camera: str
     ) -> list[dict] | None:
-        """Construit la liste des actions Companion depuis la config _action_btns.
+        """Build the Companion actions list from the _action_btns config.
 
-        Retourne None si tous les boutons sont 'none' (comportement auto-génération).
+        Returns None if all buttons are 'none' (auto-generation behavior).
         """
         if all(v == DEFAULT_ACTION_BTN for v in self._action_btns):
             return None
@@ -172,7 +172,7 @@ class HANotifier:
         return actions
 
     async def async_notify(self, event: FrigateEvent, *, critical: bool = False) -> None:
-        """Envoie une notification pour un événement Frigate de type 'new' ou 'update'."""
+        """Send a notification for a Frigate event of type 'new' or 'update'."""
         escaped_objects = [html.escape(o) for o in event.objects]
         media_urls = self._build_media_urls(event)
 
@@ -194,7 +194,7 @@ class HANotifier:
         notification_id = f"frigate_{event.camera}_{event.review_id}"
 
         if self._target == PERSISTENT_NOTIFICATION:
-            # persistent_notification : liens markdown dans le message, pas de data enrichie
+            # persistent_notification: markdown links in message, no enriched data
             if any(media_urls.get(k) for k in ("clip_url", "snapshot_url", "preview_url")):
                 links = []
                 if media_urls.get("clip_url"):
@@ -215,10 +215,10 @@ class HANotifier:
                 },
             )
         else:
-            # HA Companion : données enrichies (image, tap, boutons, group)
+            # HA Companion: enriched data (image, tap, buttons, group)
             companion_data: dict[str, Any] = {"tag": notification_id}
 
-            # Group iOS — regroupe les notifications par caméra
+            # iOS group — groups notifications by camera
             companion_data["group"] = f"frigate-{html.escape(event.camera)}"
 
             if media_urls["snapshot_url"]:
@@ -233,21 +233,21 @@ class HANotifier:
                 companion_data["url"] = tap_url          # iOS
                 companion_data["clickAction"] = tap_url  # Android
 
-            # Notification critique (iOS critical alert + Android channel haute priorité)
+            # Critical notification (iOS critical alert + Android high-priority channel)
             if critical:
                 companion_data["push"] = {
                     "sound": {"name": self._critical_sound, "critical": 1, "volume": self._critical_volume}
                 }
                 companion_data["channel"] = "frigate_critical"
 
-            # Boutons d'action — utilise _action_btns si configurés, sinon auto-génère
+            # Action buttons — use _action_btns if configured, otherwise auto-generate
             configured_actions = self._build_actions_from_btns(media_urls, event.camera)
             if configured_actions is not None:
-                # Boutons configurés via entités select — liste peut être vide (boutons URI sans URL)
+                # Buttons configured via select entities — list may be empty (URI buttons without URL)
                 if configured_actions:
                     companion_data["actions"] = configured_actions
             else:
-                # Tous les boutons à "none" — affiche uniquement le bouton silence
+                # All buttons set to "none" — show only the silence button
                 companion_data["actions"] = [{
                     "action": f"fem_silent_30min_{event.camera}",
                     "title": "Silence 30 min",
@@ -264,7 +264,7 @@ class HANotifier:
                     {"title": title, "message": message, "data": companion_data},
                 )
             else:
-                _LOGGER.warning("notify_target invalide : %r", self._target)
+                _LOGGER.warning("invalid notify_target: %r", self._target)
                 return
 
-        _LOGGER.debug("Notification envoyée — caméra=%s message=%r", event.camera, message)
+        _LOGGER.debug("notification sent — camera=%s message=%r", event.camera, message)
