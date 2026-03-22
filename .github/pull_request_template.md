@@ -1,12 +1,30 @@
 # Pull Request
 
-## Summary
+## Type of change
 
-Brief description of what this PR does.
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactor / cleanup
+- [ ] Documentation
+- [ ] CI / tooling
 
-## Checklist
+## Description
 
-- [ ] `task test` passes (pytest + coverage >=80%)
-- [ ] `task lint` passes (ruff + markdownlint)
-- [ ] Commit messages follow conventional commits format
-- [ ] `docs/tasks.md` updated if applicable
+Brief description of what this PR does and why.
+
+## Related issue
+
+Closes #
+
+## Prerequisites
+
+- [ ] `task test` passes locally (pytest + coverage ≥80%)
+- [ ] `task lint` passes locally (ruff + markdownlint)
+- [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, …)
+- [ ] Review comments follow [Conventional Comments](https://conventionalcomments.org/)
+
+## Environment (for bug fixes)
+
+- Home Assistant version:
+- Integration version:
+- Frigate version:

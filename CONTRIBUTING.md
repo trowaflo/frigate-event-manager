@@ -1,6 +1,6 @@
 # Contributing
 
-## Setup local
+## Local setup
 
 ```bash
 python3 -m venv .venv
@@ -8,37 +8,45 @@ source .venv/bin/activate
 pip install pytest pytest-cov pytest-homeassistant-custom-component ruff
 ```
 
-## Lancer les tests et le lint
+When you are done:
+
+```bash
+deactivate
+```
+
+## Run tests and lint
 
 ```bash
 task test   # pytest + coverage >=80%
 task lint   # ruff + markdownlint
 ```
 
-Ou directement :
+Or directly:
 
 ```bash
 .venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q
-.venv/bin/ruff check custom_components/
+.venv/bin/ruff check .
 markdownlint-cli2 '**/*.md' '!.venv/**'
 ```
 
-## Format des commits
+## Commit format
 
-Ce projet suit les [commits conventionnels](https://www.conventionalcommits.org/) :
-
-```text
-type: titre court en minuscules
-```
-
-Types courants : `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`.
-
-Un commit par etape logique. Pas de corps de commit, pas de co-authored-by.
-
-## Soumettre une PR
+This project follows [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```text
-1. Forker le depot et creer une branche depuis main
-2. S'assurer que task test et task lint passent tous les deux
-3. Ouvrir une Pull Request avec le template fourni
+type: short lowercase title
 ```
+
+Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`.
+
+One commit per logical step. No commit body, no co-authored-by.
+
+## Submitting a PR
+
+```text
+1. Fork the repository and create a branch from main
+2. Make sure task test and task lint both pass
+3. Open a Pull Request using the provided template
+```
+
+Review comments follow [Conventional Comments](https://conventionalcomments.org/).
