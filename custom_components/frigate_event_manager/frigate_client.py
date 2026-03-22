@@ -1,4 +1,4 @@
-"""Client HTTP pour l'API Frigate REST."""
+"""HTTP client for the Frigate REST API."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from .domain.ports import FrigatePort
 
 
 class FrigateClient(FrigatePort):
-    """Client HTTP asyncio pour interroger l'API REST de Frigate."""
+    """Asyncio HTTP client for querying the Frigate REST API."""
 
     def __init__(
         self,
@@ -16,13 +16,13 @@ class FrigateClient(FrigatePort):
         username: str | None = None,
         password: str | None = None,
     ) -> None:
-        """Initialise le client avec l'URL et les credentials optionnels."""
+        """Initialize the client with the URL and optional credentials."""
         self._url = url.rstrip("/")
         self._username = username or None
         self._password = password or ""
 
     async def _get_auth_headers(self, session: aiohttp.ClientSession) -> dict[str, str]:
-        """Authentifie la session Frigate et retourne les headers JWT si credentials fournis."""
+        """Authenticate the Frigate session and return JWT headers if credentials provided."""
         headers: dict[str, str] = {}
         if self._username:
             async with session.post(
@@ -36,9 +36,9 @@ class FrigateClient(FrigatePort):
         return headers
 
     async def _fetch_frigate_config(self) -> dict:
-        """Récupère le JSON complet depuis GET {url}/api/config avec auth.
+        """Fetch the full JSON from GET {url}/api/config with auth.
 
-        Lève aiohttp.ClientError si la connexion est impossible.
+        Raises aiohttp.ClientError if the connection fails.
         """
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -51,19 +51,19 @@ class FrigateClient(FrigatePort):
                 return data if isinstance(data, dict) else {}
 
     async def get_cameras(self) -> list[str]:
-        """Retourne la liste des noms de caméras depuis GET {url}/api/config.
+        """Return the list of camera names from GET {url}/api/config.
 
-        Retourne [] si aucune caméra n'est trouvée.
-        Lève aiohttp.ClientError si la connexion est impossible.
+        Returns [] if no cameras are found.
+        Raises aiohttp.ClientError if the connection fails.
         """
         data = await self._fetch_frigate_config()
         return list(data.get("cameras", {}).keys())
 
     async def get_camera_config(self, camera: str) -> dict:
-        """Retourne les zones et labels configurés pour une caméra depuis GET {url}/api/config.
+        """Return the zones and labels configured for a camera from GET {url}/api/config.
 
-        Retourne {"zones": [], "labels": []} si la caméra est absente.
-        Lève aiohttp.ClientError si la connexion est impossible.
+        Returns {"zones": [], "labels": []} if the camera is absent.
+        Raises aiohttp.ClientError if the connection fails.
         """
         data = await self._fetch_frigate_config()
         cam_data = data.get("cameras", {}).get(camera)
@@ -74,10 +74,10 @@ class FrigateClient(FrigatePort):
         return {"zones": zones, "labels": labels}
 
     async def get_media(self, path: str) -> tuple[bytes, str]:
-        """Récupère un média Frigate (image, clip, preview) avec auth.
+        """Fetch a Frigate media file (image, clip, preview) with auth.
 
-        Retourne (contenu_brut, content_type).
-        Lève aiohttp.ClientError si la connexion échoue.
+        Returns (raw_content, content_type).
+        Raises aiohttp.ClientError if the connection fails.
         """
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:

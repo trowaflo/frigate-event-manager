@@ -1,4 +1,4 @@
-"""Adaptateur MQTT HA — implémente EventSourcePort via homeassistant.components.mqtt."""
+"""HA MQTT adapter — implements EventSourcePort via homeassistant.components.mqtt."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from homeassistant.core import HomeAssistant
 
 
 class HaMqttAdapter:
-    """Adaptateur sortant — souscrit au broker MQTT natif Home Assistant."""
+    """Outgoing adapter — subscribes to the native Home Assistant MQTT broker."""
 
     def __init__(self, hass: HomeAssistant) -> None:
-        """Initialise l'adaptateur avec l'instance HA."""
+        """Initialize the adapter with the HA instance."""
         self._hass = hass
 
     async def async_subscribe(
@@ -21,5 +21,5 @@ class HaMqttAdapter:
         topic: str,
         callback: Callable[[Any], None],
     ) -> Callable[[], None]:
-        """Souscrit au topic MQTT. Retourne la fonction de désabonnement."""
+        """Subscribe to the MQTT topic. Returns the unsubscribe function."""
         return await mqtt.async_subscribe(self._hass, topic, callback)

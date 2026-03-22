@@ -1,4 +1,4 @@
-"""Proxy HTTP HA pour les médias Frigate — protégé par presigned URL HMAC."""
+"""HA HTTP proxy for Frigate media — protected by HMAC presigned URL."""
 
 from __future__ import annotations
 
@@ -13,18 +13,18 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class FrigateMediaProxyView(HomeAssistantView):
-    """View HA qui valide une presigned URL HMAC et proxifie vers Frigate.
+    """HA view that validates an HMAC presigned URL and proxies to Frigate.
 
-    Enregistrée une seule fois dans hass.http. Le signer et le client Frigate
-    sont lus depuis hass.data à chaque requête pour rester à jour après un reload.
+    Registered once in hass.http. The signer and Frigate client are
+    read from hass.data on each request to stay current after a reload.
     """
 
     url = "/api/frigate_em/media/{path:.*}"
     name = "api:frigate_em:media"
-    requires_auth = False  # l'auth est assurée par la signature HMAC
+    requires_auth = False  # auth is handled by the HMAC signature
 
     async def get(self, request: web.Request, path: str) -> web.Response:
-        """Valide la presigned URL et retourne le média Frigate."""
+        """Validate the presigned URL and return the Frigate media."""
         hass = request.app["hass"]
         signer = hass.data.get(SIGNER_DOMAIN_KEY)
         client = hass.data.get(PROXY_CLIENT_KEY)
@@ -37,13 +37,13 @@ class FrigateMediaProxyView(HomeAssistantView):
         full_path = f"/{path}"
 
         if not signer.verify(full_path, exp_str, sig):
-            _LOGGER.warning("presigned URL invalide ou expirée — path=%s", full_path)
+            _LOGGER.warning("invalid or expired presigned URL — path=%s", full_path)
             return web.Response(status=401, text="unauthorized")
 
         try:
             content, content_type = await client.get_media(full_path)
         except Exception:
-            _LOGGER.exception("erreur proxy Frigate — path=%s", full_path)
+            _LOGGER.exception("Frigate proxy error — path=%s", full_path)
             return web.Response(status=502, text="bad gateway")
 
         return web.Response(body=content, content_type=content_type)
