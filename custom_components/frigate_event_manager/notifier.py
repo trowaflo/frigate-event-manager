@@ -184,6 +184,7 @@ class HANotifier:
             "zones": [html.escape(z) for z in event.zones],
             "severity": html.escape(event.severity),
             "score": event.score,
+            "start_time": event.start_time,
             "review_id": html.escape(event.review_id),
             **media_urls,
         }
