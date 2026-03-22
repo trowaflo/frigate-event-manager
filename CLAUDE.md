@@ -39,9 +39,9 @@ Si la solution est complexe pour rien : trouver plus simple. Si la solution est 
 
 Avant de declarer une tache terminee :
 
-- `go build ./...` (compile)
-- `go test ./... -count=1` (tests passent)
-- Diff comportement entre avant/apres si pertinent
+- `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q` (tests passent)
+- `.venv/bin/ruff check custom_components/` (lint)
+- `markdownlint-cli2 '**/*.md' '!.venv/**'` (si markdown modifié)
 - Montrer le resultat concret (log, output, diff)
 
 Ne jamais declarer "termine" sans preuve que ca fonctionne. Se challenger : est-ce qu'on aurait pu faire plus optimal, sans over-engineering ?
@@ -59,14 +59,25 @@ Apres **toute** correction de l'utilisateur :
 - Iterer sur ces regles jusqu'a ce que le taux d'erreur baisse
 - Relire les fichiers memory au demarrage de chaque session
 
+**Format des regles en memoire :**
+
+```text
+[NL]   → langage naturel  : preferences, contexte, style, definitions de roles
+[RULE] → pseudo-code      : guards, invariants, interdictions techniques
+```
+
+Lors de chaque learn cycle, convertir en `[RULE]` toute regle qui est une interdiction explicite (`NEVER`, `FORBIDDEN`), un invariant technique (`ALWAYS`, `REQUIRE`), ou un guard avec consequence mesurable (`IF violation → consequence`).
+
+Conserver `[NL]` pour les preferences de communication et les regles de style.
+
 ### Suivi inter-sessions
 
-Le contexte est perdu entre les sessions et entre les subagents. Utiliser `docs/tasks.md` comme memoire persistante partagee :
+Le contexte est perdu entre les sessions et entre les subagents. Utiliser `.claude/tasks.md` comme memoire persistante partagee :
 
-- Avant de commencer : lire `docs/tasks.md` pour reprendre ou on en etait
+- Avant de commencer : lire `.claude/tasks.md` pour reprendre ou on en etait
 - Pendant : marquer les items termines, ajouter les items decouverts
 - A la fin : mettre a jour avec l'etat actuel et les prochaines etapes
-- Les subagents doivent lire `docs/tasks.md` avant d'agir si le contexte est necessaire
+- Les subagents doivent lire `.claude/tasks.md` avant d'agir si le contexte est necessaire
 
 ### Subagents
 
@@ -78,88 +89,165 @@ Utiliser les subagents generalement pour garder le contexte principal propre :
 
 ### Agents specialises (`.claude/agents/`)
 
-6 agents avec scopes stricts pour les taches multi-composants :
+Agents avec scopes stricts pour les taches multi-composants :
 
 | Agent | Role |
 | --- | --- |
 | `orchestrator` | Chef d'equipe — decompose, assigne, cree les PRs |
-| `go-architect` | Code Go metier, architecture hexagonale |
 | `python-architect` | Integration HA HACS, entites, coordinators, config flows |
-| `reviewer` | Review qualite + securite + sync doc (Go et Python) |
+| `reviewer` | Review qualite + securite + sync doc |
 | `quality-guard` | Tests et coverage ≥80% |
 | `code-simplifier` | Refactoring DRY (apres reviewer + quality-guard) |
 | `frontend-designer` | Maquettes HTML interactives `maquette/` |
-| `sre-cloud` | Dockerfile, CI/CD, Taskfile |
+| `sre-cloud` | CI/CD, Taskfile |
 
-**Pipeline obligatoire** (toute feature) : implement (go-architect ou python-architect) → review + tests (parallele) → simplify → PR.
+**Pipeline obligatoire** (toute feature) :
+
+```text
+[RULE] feature_pipeline:
+    ORDER:  implement → review + quality-guard (PARALLEL) → simplify → commit → PR
+    NEVER:  simplify avant quality-guard
+    NEVER:  declarer DONE sans commit
+    tasks.md: T-XXXb (review)   Depends T-XXX,  Blocks T-XXXc + T-XXXd
+              T-XXXd (tests)    Depends T-XXXb, Blocks T-XXXc
+              T-XXXc (simplify) Depends T-XXXb + T-XXXd
+    VIOLATION → issues manquees, commits groupes illisibles
+```
+
+```text
+[RULE] bulk_micro_fixes:
+    IF:  reviewer identifie un fix <= 5 lignes (MINOR / INFO)
+    THEN: noter dans T-XXXb notes sous "PENDING_FIXUP"
+          orchestrateur route vers code-simplifier (T-XXXc), pas python-architect
+          code-simplifier applique tous les PENDING_FIXUP en un seul passage
+    NEVER: spawner python-architect pour un fix MINOR du reviewer
+    NEVER: creer un nouveau cycle pipeline pour corriger 1 ligne
+    WHY:   chaque cycle pipeline = ~20-30 appels API → cout x N pour rien
+    APPLIES_TO: reviewer (emetteur), orchestrateur (routeur)
+    NOT_APPLIES: quality-guard (scope tests uniquement, corrige dans son propre cycle)
+    VIOLATION → cycles inutiles detectes (ex: T-521 fixup sur 1 ligne strings.json)
+```
 
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
-- **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
+- **Blackboard** : `.claude/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
 - **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`
 
 **Skills != Agents** : skills = recettes invocables (`/skill`), agents = identites autonomes spawnables avec scope propre.
 
 ## Pieges connus
 
+```text
+[RULE] mock_hass:
+    ALWAYS: MagicMock()                   # sans spec=
+    NEVER:  MagicMock(spec=HomeAssistant)
+    VIOLATION → AttributeError sur hass.config / hass.components
+
+[RULE] markdownlint:
+    ALWAYS: markdownlint-cli2 '**/*.md' '!.venv/**'
+    NEVER:  npx markdownlint-cli2 / omettre '!.venv/**'
+
+[RULE] plan_vs_execute:
+    IF: demande contient "planifier" / "ajouter a la liste" / "noter"
+    THEN: modifier ONLY .claude/tasks.md
+    NEVER: modifier les fichiers concernes par la demande
+    VIOLATION → edition non sollicitee
+
+[RULE] tasks_md_identifiers:
+    ALWAYS: entourer les identifiants Python de backticks dans les Notes tasks.md
+    EXAMPLES: `_cancel_silent`, `__init__.py`, `async_step_user`
+    NEVER:  underscores en texte brut dans les Notes YAML
+    VIOLATION → MD037 markdownlint
+
+[RULE] translations_en_required:
+    ALWAYS: creer translations/en.json en meme temps que fr.json
+    NEVER:  fr.json sans en.json
+    VIOLATION → config flow invisible dans l'UI HA
+
+[RULE] config_flow_list_fields:
+    ALWAYS: str + _parse_csv() pour les champs liste dans le config flow
+    NEVER:  vol.Coerce(list) sur une string UI
+    VIOLATION → chaque caractere devient un element de liste
+
+[RULE] agents_no_bash:
+    INVARIANT: agents specialises ne peuvent pas executer pytest/ruff (permission default)
+    ALWAYS: orchestrateur principal verifie tests + lint apres chaque livraison d'agent
+    BEFORE: tout commit
+
+[RULE] ha_icon_png:
+    ALWAYS: icon.png dans custom_components/{domain}/ en mode RGB 256x256
+    NEVER:  RGBA (transparence) — non affiche dans certaines versions HA
+    DEPLOY: task deploy copie custom_components/ entier, images/ n'est PAS deploye
+```
+
 - **`skill-creator` → `run_loop.py`** : ~300 appels API (5 iter × 20 requetes × 3 repetitions). Estimer et confirmer le cout avant de lancer. Requiert `ANTHROPIC_API_KEY` separe de Claude Code.
 - **Skills != Agents** : creer un skill qui duplique un agent existant est une erreur — spawner l'agent directement.
 
 ## Project
 
-Home Assistant addon en Go. Ecoute les events Frigate via MQTT, filtre, et dispatch vers N handlers (notifications HA, MQTT Discovery, debug). Container Docker `scratch` avec un seul binaire.
+Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT natif HA, filtre, throttle, et envoie des notifications HA Companion. Publiee via HACS custom repository.
+
+## Commits
+
+```text
+[RULE] commit_format:
+    ALWAYS: git commit -m "type: titre court"
+    NEVER:  identifiant de tache (T-XXX), corps de commit, Co-Authored-By
+
+[RULE] commit_granularity:
+    ALWAYS: un commit par etape logique (implementation, tests, simplification)
+    NEVER:  grouper toutes les etapes d'un pipeline en un seul commit de fin
+    VIOLATION → git log illisible, bisect impossible
+
+[RULE] no_auto_push:
+    NEVER:  git push sans demande explicite de l'utilisateur
+    ALWAYS: s'arreter apres le commit
+```
 
 ## Commands
 
 ```bash
-task test                  # tests + coverage ≥80%
-task build                 # docker build
-task dev                   # run local (creds macOS Keychain via task dev:init)
-task dev:replay            # republier dernier event Frigate sur MQTT
+task test   # pytest + coverage ≥80%
+task lint   # ruff + markdownlint
 ```
 
 ```bash
-go test ./internal/core/registry/ -v -count=1  # un seul package
-go build ./...                                  # compile check
-golangci-lint run ./...                         # lint
+.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-report=term-missing -q
+.venv/bin/pytest tests/test_coordinator.py -v   # un seul module
+.venv/bin/ruff check custom_components/
+markdownlint-cli2 '**/*.md' '!.venv/**'
 ```
 
 ## Architecture
 
-Hexagonal : `domain` → `core` (ports/interfaces) → `adapters` (systemes externes).
+Python asyncio, integration native HA (DataUpdateCoordinator + CoordinatorEntity).
 
 Diagrammes complets : `docs/architecture.md` (Mermaid, lisible sur GitHub).
-Maquettes interactives : `maquette/architecture.html` (ouvrir dans un navigateur).
 
 ```text
-MQTT Broker → Subscriber → MessageHandler → Processor → FilterChain → Multi Handler
-                                                          ├→ Registry.Handler → Registry → MQTT Discovery Publisher
-                                                          ├→ Debug Handler
-                                                          └→ Throttler → HA Notifier → Home Assistant
+MQTT Broker → FrigateEventManagerCoordinator → FilterChain → Throttler → HANotifier
+                        ↓                                                      ↓
+                  CameraRegistry                                    HA Companion notification
+                  EventStore
+                        ↓
+              Entités HA (sensor × 3, switch × 1, binary_sensor × 1 par caméra)
 ```
 
-### Concepts cles
+### Composants cles
 
-- **Ports** (`core/ports/`) : `EventProcessor` (entree), `EventHandler` (sortie), `MediaSigner`. Tout passe par ces interfaces.
-- **Multi Handler** : dispatch independant — un handler qui echoue ne bloque pas les autres.
-- **Throttler** : decorateur anti-spam wrappant un `EventHandler` (cooldown/debounce/ttl).
-- **Registry** : cameras decouvertes en memoire + persistence `/data/state.json`. Notifie les `Listener` (MQTT Discovery Publisher).
-- **Subscriber** : `Connect()` non-bloquant + `Wait()` bloquant. Route les messages `/set` vers `CommandHandler`.
-- **Presigned URLs** : HMAC-SHA256, rotation de 3 cles. Le Signer genere, le Server valide avant proxy vers Frigate.
+- **`coordinator.py`** : souscrit MQTT, parse payload Frigate → `FrigateEvent`, maintient `CameraState` par caméra
+- **`filter.py`** : `ZoneFilter`, `LabelFilter`, `TimeFilter`, `FilterChain` — liste vide = tout accepter
+- **`registry.py`** : persistence état caméras dans `hass.config.path("frigate_em_state.json")`
+- **`event_store.py`** : ring buffer 200 events, stats 24h
+- **`throttle.py`** : anti-spam cooldown par caméra, clock injectable
+- **`notifier.py`** : notifications HA Companion via `hass.services.async_call`
 
 ## Conventions
 
-- Code, commentaires, logs en **francais** (il est prévu de tout traduire en anglais pour la publication du repo)
-- Persistence dans `/data/` uniquement
-- Config : `/data/options.json` + env overrides (`SUPERVISOR_TOKEN`, `MQTT_PASSWORD`, `FRIGATE_PASSWORD`)
+- Code, commentaires, logs en **francais** (prevu anglais pour publication)
 - Filtres : liste vide = tout accepter
 - Nouvelles cameras activees par defaut (plug & play)
-- Tests : `testify/assert` + `testify/require`
+- Tests : pytest + `AsyncMock` — `MagicMock()` sans `spec=HomeAssistant`
 - Ecriture fichiers : atomique (tmp + rename)
-
-## MQTT Discovery
-
-Entites HA par camera : `sensor.fem_{cam}_last_alert`, `_last_object`, `_event_count`, `_severity`, `switch.fem_{cam}_notifications`.
-
-- Config : `homeassistant/sensor/fem_{cam}_*/config` (retain)
-- State : `fem/fem/{cam}/*` (retain)
-- Commande switch : `fem/fem/{cam}/notifications/set` (ON/OFF)
+- Persistence : `hass.config.path(...)` (pas `/data/`)
+- `unique_id` entites : `fem_{cam_name}_{key}`
+- `html.escape()` sur tous les champs dynamiques dans `notifier.py`

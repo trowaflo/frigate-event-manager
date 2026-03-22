@@ -7,16 +7,27 @@ argument-hint: "[nom] [description]"
 
 # Ajouter un Filtre
 
-Un filtre impl `filter.Filter` (methode `IsSatisfied`). Chaine AND : tous doivent passer.
+Un filtre implemente le protocole `Filter` de `custom_components/frigate_event_manager/filter.py` — methode `apply(self, event: FrigateEvent) -> bool`. Chaine AND via `FilterChain` : tous les filtres doivent accepter pour que l'evenement soit traite.
 
 ## Etapes
 
-1. **Creer** `internal/core/filter/$0.go`. Modele : `severity.go`. Regle : liste vide = tout passe.
-2. **Tester** `internal/core/filter/$0_test.go` — vide, match, no-match.
-3. **Brancher** dans `cmd/addon/main.go` : ajouter dans `NewFilterChain(...)`.
-4. **Config** : champ dans `config.go` + option dans `config.yaml`.
-5. **Verifier** : `go test ./internal/core/filter/ -v` && `go test ./... -count=1`
+1. **Creer** la classe dans `custom_components/frigate_event_manager/domain/filter.py` (etendre le fichier existant). Modeles : `ZoneFilter` (multi-valeurs + ordre), `LabelFilter` (ensemble), `TimeFilter` (clock injectable). Regle absolue : **liste vide = tout passe**.
+2. **Tester** dans `tests/test_filter.py` — cas vide, match, no-match, edge case (valeur 0.0, None, liste vide).
+3. **Brancher** dans le coordinator (`coordinator.py`) : ajouter le filtre dans la `FilterChain(...)` construite a partir de la config.
+4. **Config** si necessaire : champ dans `config_flow.py` + constante dans `const.py`. Champs liste : `str` UI → `_parse_csv()` → `list` dans `async_create_entry`.
+5. **Verifier** : `.venv/bin/pytest tests/test_filter.py -v`
 
-## Champs filtrables (EventState)
+## Champs filtrables — FrigateEvent (verifie contre coordinator.py)
 
-`Camera`, `Severity`, `Data.Objects[]`, `Data.Zones[]`, `Data.SubLabels[]`, `Data.Audio[]`
+| Champ | Type | Description |
+| --- | --- | --- |
+| `type` | `str` | `"new"` \| `"update"` \| `"end"` |
+| `camera` | `str` | Nom de la camera |
+| `severity` | `str` | `"alert"` \| `"detection"` |
+| `objects` | `list[str]` | Objets detectes (ex: `["person", "car"]`) |
+| `zones` | `list[str]` | Zones actives (ex: `["jardin", "entree"]`) |
+| `score` | `float` | Score de confiance (0.0–1.0) |
+| `start_time` | `float` | Timestamp Unix debut |
+| `end_time` | `float \| None` | Timestamp Unix fin (None si en cours) |
+| `review_id` | `str` | ID Frigate de la review |
+| `thumb_path` | `str` | Chemin miniature (peut etre vide) |

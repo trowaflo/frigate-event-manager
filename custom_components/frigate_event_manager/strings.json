@@ -1,20 +1,226 @@
 {
   "config": {
     "step": {
-      "manual": {
-        "title": "Configurer Frigate Event Manager (manuel)",
-        "description": "L'addon n'a pas pu être détecté automatiquement. Saisissez son adresse.",
+      "user": {
+        "title": "Frigate connection",
+        "description": "Enter your Frigate server details. Fields are pre-filled if the Frigate integration is installed.",
         "data": {
-          "url": "URL du addon (ex: http://192.168.1.10)",
-          "port": "Port du addon"
+          "url": "Frigate URL",
+          "username": "Username (optional)",
+          "password": "Password (optional)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter au addon. Vérifiez l'URL et le port."
+      "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+      "invalid_auth": "Invalid credentials. Check your username and password."
     },
     "abort": {
-      "already_configured": "Frigate Event Manager est déjà configuré."
+      "already_configured": "Frigate Event Manager is already configured.",
+      "reconfigure_successful": "Configuration updated successfully."
+    }
+  },
+  "config_subentries": {
+    "camera": {
+      "entry_type": "Camera",
+      "initiate_flow": {
+        "user": "Add camera"
+      },
+      "step": {
+        "user": {
+          "title": "Add a camera",
+          "description": "Select a camera from your Frigate instance.",
+          "data": {
+            "camera": "Camera"
+          }
+        },
+        "configure": {
+          "title": "Notification service",
+          "data": {
+            "notify_target": "Notification service"
+          }
+        },
+        "configure_filters": {
+          "title": "Detection filters",
+          "description": "{warning}",
+          "data": {
+            "zones": "Required zones (empty = all)",
+            "labels": "Detected objects (empty = all)",
+            "disabled_hours": "Blocked hours (empty = none)",
+            "severity": "Event types"
+          }
+        },
+        "configure_behavior": {
+          "title": "Behavior",
+          "data": {
+            "cooldown": "Anti-spam cooldown",
+            "debounce": "Debounce window",
+            "tap_action": "Tap action",
+            "action_btn1": "Action button 1",
+            "action_btn2": "Action button 2",
+            "action_btn3": "Action button 3"
+          },
+          "data_description": {
+            "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
+            "debounce": "Accumulation window (seconds) before sending a grouped notification.",
+            "tap_action": "Media opened when tapping the notification.",
+            "action_btn1": "Action for the first button in the notification.",
+            "action_btn2": "Action for the second button in the notification.",
+            "action_btn3": "Action for the third button in the notification."
+          }
+        },
+        "configure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Notification title",
+            "notification_message": "Notification message",
+            "critical_template": "Critical condition",
+            "critical_template_custom": "Custom critical template",
+            "critical_sound": "Critical alert sound",
+            "critical_volume": "Critical alert volume"
+          },
+          "data_description": {
+            "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS only. Sound name for critical alerts (e.g. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS only. Volume for critical alerts (0.0 = silent, 1.0 = max)."
+          }
+        },
+        "reconfigure": {
+          "title": "Notification service",
+          "data": {
+            "notify_target": "Notification service"
+          }
+        },
+        "reconfigure_filters": {
+          "title": "Detection filters",
+          "description": "{warning}",
+          "data": {
+            "zones": "Required zones (empty = all)",
+            "labels": "Detected objects (empty = all)",
+            "disabled_hours": "Blocked hours (empty = none)",
+            "severity": "Event types"
+          }
+        },
+        "reconfigure_behavior": {
+          "title": "Behavior",
+          "data": {
+            "cooldown": "Anti-spam cooldown",
+            "debounce": "Debounce window",
+            "tap_action": "Tap action",
+            "action_btn1": "Action button 1",
+            "action_btn2": "Action button 2",
+            "action_btn3": "Action button 3"
+          },
+          "data_description": {
+            "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
+            "debounce": "Accumulation window (seconds) before sending a grouped notification.",
+            "tap_action": "Media opened when tapping the notification.",
+            "action_btn1": "Action for the first button in the notification.",
+            "action_btn2": "Action for the second button in the notification.",
+            "action_btn3": "Action for the third button in the notification."
+          }
+        },
+        "reconfigure_notifications": {
+          "title": "Notifications",
+          "data": {
+            "notification_title": "Notification title",
+            "notification_message": "Notification message",
+            "critical_template": "Critical condition",
+            "critical_template_custom": "Custom critical template",
+            "critical_sound": "Critical alert sound",
+            "critical_volume": "Critical alert volume"
+          },
+          "data_description": {
+            "notification_title": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "notification_message": "Jinja2 template. Available variables: camera, severity, objects (list), zones (list), start_time.",
+            "critical_template": "Condition for sending a critical notification (overrides DND). Use 'Custom template...' to write your own Jinja2 boolean expression.",
+            "critical_template_custom": "Custom Jinja2 template evaluated as boolean. Variables: camera, severity, objects, zones, start_time.",
+            "critical_sound": "iOS only. Sound name for critical alerts (e.g. default, US-EN-Alexa-Motion-Detected.wav).",
+            "critical_volume": "iOS only. Volume for critical alerts (0.0 = silent, 1.0 = max)."
+          }
+        }
+      },
+      "error": {
+        "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+        "invalid_auth": "Invalid credentials. Check your username and password."
+      },
+      "abort": {
+        "no_cameras_available": "All cameras are already configured.",
+        "reconfigure_successful": "Camera updated successfully."
+      }
+    }
+  },
+  "selector": {
+    "tap_action": {
+      "options": {
+        "clip": "Clip",
+        "snapshot": "Snapshot",
+        "preview": "Preview"
+      }
+    },
+    "severity": {
+      "options": {
+        "alert": "Alert (object in zone)",
+        "detection": "Detection"
+      }
+    },
+    "critical_template": {
+      "options": {
+        "false": "Never critical",
+        "true": "Always critical",
+        "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Night only (10pm–8am)",
+        "custom": "Custom template..."
+      }
+    }
+  },
+  "reconfigure": {
+    "step": {
+      "reconfigure": {
+        "title": "Edit Frigate connection",
+        "data": {
+          "url": "Frigate URL",
+          "username": "Username (optional)",
+          "password": "Password (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Frigate. Check the URL.",
+      "invalid_auth": "Invalid credentials. Check your username and password."
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration updated successfully."
+    }
+  },
+  "entity": {
+    "switch": {
+      "notifications": {
+        "name": "Notifications"
+      }
+    },
+    "binary_sensor": {
+      "motion": {
+        "name": "Motion"
+      },
+      "silent_state": {
+        "name": "Silent active"
+      }
+    },
+    "button": {
+      "silent_button": {
+        "name": "Silent mode"
+      },
+      "cancel_silent_button": {
+        "name": "Cancel silent mode"
+      }
+    },
+    "sensor": {
+      "silent_until": {
+        "name": "Notifications resume"
+      }
     }
   }
 }

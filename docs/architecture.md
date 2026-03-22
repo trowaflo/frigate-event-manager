@@ -1,249 +1,178 @@
 # Architecture — Frigate Event Manager
 
-## Vue d'ensemble
+Home Assistant integration (HACS) written in Python asyncio.
+Listens to Frigate events via the native HA MQTT broker, filters, throttles and dispatches to HA notifications and entities.
+
+## Overview
 
 ```mermaid
 graph TB
-    subgraph External["Systemes externes"]
-        BROKER[("MQTT Broker<br/>Mosquitto")]
+    subgraph External["External systems"]
+        BROKER[("MQTT Broker")]
         FRIGATE["Frigate NVR"]
-        HA["Home Assistant"]
-        BROWSER["Navigateur"]
+        HA_NOTIFY["HA Companion App"]
     end
 
-    subgraph Addon["Frigate Event Manager"]
-        subgraph Adapters["Adapters (monde exterieur)"]
-            MQTT_SUB["MQTT Subscriber"]
-            MQTT_DISCO["MQTT Discovery<br/>Publisher"]
-            CONFIG["Config<br/>/data/options.json"]
-            FRIGATE_CLIENT["Frigate Client<br/>HTTP + JWT"]
-            API_SERVER["API Server<br/>:5555"]
-            SIGNER["Signer<br/>HMAC-SHA256"]
-            HA_NOTIFIER["HA Notifier"]
-            DEBUG["Debug Handler"]
-            SUPERVISOR["Supervisor Client"]
+    subgraph Integration["custom_components/frigate_event_manager"]
+        subgraph Domain["domain/ — pure logic, zero HA dependency"]
+            MODEL["model.py\nFrigateEvent, CameraState\n_parse_event()"]
+            FILTER_D["filter.py\nZoneFilter, LabelFilter\nTimeFilter, FilterChain"]
+            THROTTLE_D["throttle.py\nThrottler (injectable clock)"]
+            PORTS["ports.py\nNotifierPort\nEventSourcePort\nFrigatePort"]
         end
 
-        subgraph Core["Core (logique metier)"]
-            PORTS{{"Ports<br/>EventProcessor<br/>EventHandler<br/>MediaSigner"}}
-            PROCESSOR["Processor"]
-            FILTER["FilterChain<br/>SeverityFilter"]
-            MULTI["Multi Handler"]
-            THROTTLE["Throttler<br/>cooldown/debounce"]
-            REGISTRY["Registry<br/>cameras + persistence"]
-        end
+        COORD["coordinator.py\nFrigateEventManagerCoordinator\n(DataUpdateCoordinator — push MQTT)"]
+        HAMQTT["ha_mqtt.py\nHaMqttAdapter\n(EventSourcePort)"]
+        NOTIFIER["notifier.py\nHANotifier\n(NotifierPort)"]
+        CLIENT["frigate_client.py\nFrigateClient\n(FrigatePort)"]
 
-        subgraph Domain["Domain"]
-            PAYLOAD["FrigatePayload<br/>EventState<br/>EventData"]
+        subgraph Entities["HA Entities (per camera, via subentry)"]
+            SWITCH["switch.py\n1 switch — notifications on/off"]
+            BINSENSOR["binary_sensor.py\n2 binary_sensor — motion + active silence"]
+            BUTTON["button.py\n2 buttons — silent mode + cancel"]
+            SENSOR["sensor.py\n1 sensor — silence end timestamp"]
         end
-
-        PERSISTENCE[("/data/state.json")]
     end
 
-    BROKER -->|frigate/reviews| MQTT_SUB
-    MQTT_SUB -->|bytes -> JSON| PROCESSOR
-    PROCESSOR -->|filtre| FILTER
-    PROCESSOR -->|dispatch| MULTI
-    MULTI -->|"1"| REGISTRY
-    MULTI -->|"2"| DEBUG
-    MULTI -->|"3"| THROTTLE
-    THROTTLE --> HA_NOTIFIER
-    REGISTRY -->|listener| MQTT_DISCO
-    REGISTRY -->|persist| PERSISTENCE
-    MQTT_DISCO -->|publish| BROKER
-    HA_NOTIFIER -->|POST /api/services| HA
-    API_SERVER -->|proxy| FRIGATE_CLIENT
-    FRIGATE_CLIENT -->|HTTP| FRIGATE
-    API_SERVER -->|presign| SIGNER
-    BROWSER -->|presigned URL| API_SERVER
-    SUPERVISOR -->|ingress URL| HA
-    CONFIG -->|load| PROCESSOR
+    BROKER -->|"frigate/reviews (MQTT)"| HAMQTT
+    HAMQTT -->|"EventSourcePort"| COORD
+    COORD -->|FrigateEvent| FILTER_D
+    FILTER_D -->|accepted| THROTTLE_D
+    THROTTLE_D -->|cooldown OK| NOTIFIER
+    NOTIFIER -->|"notify.<target>"| HA_NOTIFY
+    COORD -->|async_set_updated_data| Entities
+    SWITCH -->|"set_camera_enabled()"| COORD
+    CLIENT -->|"FrigatePort"| FRIGATE
 
     style External fill:#1a0a0a,stroke:#f85149
-    style Core fill:#0a1a2a,stroke:#58a6ff
-    style Adapters fill:#0a1a0a,stroke:#3fb950
-    style Domain fill:#1a1a0a,stroke:#d29922
+    style Integration fill:#0a1a2a,stroke:#58a6ff
+    style Domain fill:#0a0a1a,stroke:#a371f7
+    style Entities fill:#0a1a2a,stroke:#3fb950
 ```
 
-## Flux de donnees
+## Hexagonal architecture
+
+The project follows the Ports & Adapters pattern. The domain layer (`domain/`) has zero HA dependency and can be tested without mocking any HA internals.
+
+| Layer | Files | Dependencies |
+| --- | --- | --- |
+| **Domain** (core) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib only |
+| **Application** | `coordinator.py` | domain + ports |
+| **Outbound adapters** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
+| **Inbound adapters** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py`, `select.py` | HA |
+
+| Port | Direction | Implementation |
+| --- | --- | --- |
+| `NotifierPort` | Outbound | `notifier.HANotifier` |
+| `EventSourcePort` | Inbound | `ha_mqtt.HaMqttAdapter` |
+| `FrigatePort` | Outbound | `frigate_client.FrigateClient` |
+
+## Event data flow
 
 ```mermaid
 sequenceDiagram
     participant B as MQTT Broker
-    participant S as Subscriber
-    participant MH as MessageHandler
-    participant P as Processor
+    participant A as HaMqttAdapter
+    participant C as Coordinator
     participant F as FilterChain
-    participant M as Multi Handler
-    participant R as Registry
-    participant D as MQTT Discovery
     participant T as Throttler
-    participant N as HA Notifier
-    participant HA as Home Assistant
+    participant N as HANotifier
+    participant E as HA Entities
 
-    B->>S: message frigate/reviews
-    S->>MH: bytes bruts
-    MH->>P: domain.FrigatePayload
-    P->>F: IsSatisfied(after)?
-    F-->>P: true/false
+    B->>A: MQTT message (Frigate JSON payload)
+    A->>C: _handle_mqtt_message(message)
+    C->>C: _parse_event() → FrigateEvent
+    Note over C: type, camera validated\nother cameras → ignored
 
-    alt Filtre passe
-        P->>M: HandleEvent(payload)
-        par Handler 1
-            M->>R: RecordEvent(camera, severity, objects)
-            R->>D: OnCameraAdded / OnCameraUpdated
-            D->>B: publish homeassistant/sensor/.../config
-            D->>B: publish fem/fem/.../state
-        and Handler 2
-            M->>M: Debug log + media URLs
-        and Handler 3
-            M->>T: HandleEvent(payload)
-            alt Pas throttle
-                T->>N: HandleEvent(payload)
-                N->>HA: POST /api/services/notify/*
-            else Throttle
-                T-->>T: drop silently
-            end
+    C->>F: apply(event)
+    F-->>C: True / False
+
+    alt Filter passes
+        C->>T: should_notify(camera)
+        T-->>C: True / False
+
+        alt Cooldown expired
+            C->>N: async_notify(event)
+            N-->>B: hass.services.async_call("notify", target, ...)
+            C->>T: record(camera)
+        else Cooldown active
+            C-->>C: drop silently
         end
+
+        C->>E: async_set_updated_data(state.as_dict())
     end
 ```
 
-## Structure des packages
+## Config flow (5 steps)
 
 ```mermaid
 graph LR
-    subgraph domain["domain"]
-        FP["FrigatePayload"]
-        ES["EventState"]
-        ED["EventData"]
-    end
+    U["user\nFrigate URL\nnotify target"] --> C["configure\ncamera (dropdown)\nMQTT topic"]
+    C --> F["configure_filters\nzones, labels\ndisabled hours\nseverity"]
+    F --> B["configure_behavior\ncooldown, debounce\nsilent duration\ntap action\naction buttons"]
+    B --> N["configure_notifications\ntitle template\nmessage template\ncritical template\nsound + volume"]
 
-    subgraph ports["core/ports"]
-        EP["EventProcessor"]
-        EH["EventHandler"]
-        MS["MediaSigner"]
-    end
-
-    subgraph core["core/"]
-        PROC["processor.Processor<br/>impl EventProcessor"]
-        FILT["filter.FilterChain<br/>+ SeverityFilter"]
-        MULTI_H["handler.Multi<br/>impl EventHandler"]
-        THROT["throttle.Throttler<br/>impl EventHandler"]
-        REG["registry.Registry"]
-        REG_H["registry.Handler<br/>impl EventHandler"]
-        LIS{{"registry.Listener"}}
-    end
-
-    subgraph adapters["adapter/"]
-        MQTT_S["mqtt.Subscriber"]
-        MQTT_MH["mqtt.MessageHandler"]
-        MQTT_CMD{{"mqtt.CommandHandler"}}
-        DISCO_PUB["mqttdiscovery.Publisher<br/>impl Listener"]
-        DISCO_SW["mqttdiscovery.SwitchCmdHandler<br/>impl CommandHandler"]
-        DISCO_AD["mqttdiscovery.AutopahoAdapter"]
-        FRIG["frigate.Client"]
-        API_SRV["api.Server"]
-        API_SIG["api.Signer<br/>impl MediaSigner"]
-        HA_NOT["homeassistant.Notifier<br/>impl EventHandler"]
-        DBG["debughandler.Handler<br/>impl EventHandler"]
-        CFG["config.Config"]
-        SUP["supervisor.FetchIngressInfo"]
-    end
-
-    MQTT_MH -->|utilise| EP
-    PROC -->|utilise| FILT
-    PROC -->|utilise| EH
-    MULTI_H -->|impl| EH
-    THROT -->|wraps| EH
-    REG_H -->|impl| EH
-    HA_NOT -->|impl| EH
-    DBG -->|impl| EH
-    API_SIG -->|impl| MS
-    DISCO_PUB -->|impl| LIS
-    DISCO_SW -->|impl| MQTT_CMD
-    REG -->|notifie| LIS
-    REG_H -->|alimente| REG
-
-    style domain fill:#1a1a0a,stroke:#d29922
-    style ports fill:#1a0a2a,stroke:#bc8cff
-    style core fill:#0a1a2a,stroke:#58a6ff
-    style adapters fill:#0a1a0a,stroke:#3fb950
+    style U fill:#0a1a2a,stroke:#58a6ff
+    style C fill:#0a1a2a,stroke:#58a6ff
+    style F fill:#0a1a2a,stroke:#58a6ff
+    style B fill:#0a1a2a,stroke:#58a6ff
+    style N fill:#0a1a2a,stroke:#58a6ff
 ```
 
-## MQTT Discovery — Entites creees par camera
+Reconfiguration mirrors steps `configure` → `configure_filters` → `configure_behavior` → `configure_notifications`.
+
+## HA entities per camera
 
 ```mermaid
 graph LR
-    subgraph camera["Pour chaque camera decouverte"]
-        A["sensor.fem_{cam}_last_alert<br/>device_class: timestamp"]
-        B["sensor.fem_{cam}_last_object<br/>icon: mdi:eye"]
-        C["sensor.fem_{cam}_event_count<br/>state_class: measurement"]
-        D["sensor.fem_{cam}_severity<br/>icon: mdi:shield-alert"]
-        E["switch.fem_{cam}_notifications<br/>icon: mdi:bell"]
+    subgraph camera["For each camera (config subentry)"]
+        D["switch — Notifications on/off\nunique_id: fem_{cam}_switch"]
+        E["binary_sensor — Motion\nunique_id: fem_{cam}_motion"]
+        E2["binary_sensor — Active silence\nunique_id: fem_{cam}_silent_state"]
+        F["button — Activate silent mode\nunique_id: fem_{cam}_silent"]
+        F2["button — Cancel silence\nunique_id: fem_{cam}_cancel_silent"]
+        G["sensor — Silence end (timestamp)\nunique_id: fem_{cam}_silent_until"]
     end
-
-    subgraph topics["Topics MQTT"]
-        TC["homeassistant/sensor/fem_{cam}_*/config<br/>(retain, JSON config)"]
-        TS["fem/fem/{cam}/*<br/>(retain, valeur)"]
-        CMD["fem/fem/{cam}/notifications/set<br/>(commande ON/OFF)"]
-    end
-
-    camera --> TC
-    camera --> TS
-    CMD -->|SwitchCommandHandler| E
 
     style camera fill:#0a1a2a,stroke:#58a6ff
-    style topics fill:#0a1a0a,stroke:#3fb950
 ```
 
-## Sequence de demarrage
+All entities inherit from `CoordinatorEntity` (`has_entity_name=True`).
+State is read from `coordinator.data` (dict from `CameraState.as_dict()`).
+
+## Startup sequence
 
 ```mermaid
 graph TD
-    S1["1. Config.Load(/data/options.json)"]
-    S2["2. Registry.Load(/data/state.json)<br/>restaure cameras + prefs"]
-    S3["3. Supervisor.FetchIngressInfo()<br/>resout URL ingress"]
-    S4["4. Frigate Client + Signer + API Server<br/>(si configure)"]
-    S5["5. Multi Handler<br/>+ registry + debug + throttle(notifier)"]
-    S6["6. FilterChain -> Processor -> MessageHandler"]
-    S7["7. MQTT Subscriber + SwitchCommandHandler"]
-    S8["8. subscriber.Connect(ctx)<br/>connexion broker"]
-    S9["9. MQTT Discovery Publisher<br/>PublishAll(cameras connues)"]
-    S10["10. subscriber.Wait(ctx)<br/>BLOQUANT"]
-    S11["11. Cleanup (signer.Stop)"]
+    S1["1. async_setup_entry(hass, entry)"]
+    S2["2. For each camera subentry\ninstantiate HANotifier + Coordinator"]
+    S3["3. coordinator.async_start()\n→ HaMqttAdapter.async_subscribe(topic, callback)"]
+    S4["4. async_forward_entry_setups(entry, PLATFORMS)\nswitch / binary_sensor / button / sensor / select"]
+    S5["5. Entities created from entry.runtime_data\n(coordinators indexed by subentry_id)"]
+    S6["6. HA asyncio loop\n_handle_mqtt_message() on each Frigate event"]
 
-    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6
 
-    style S8 fill:#1a0a0a,stroke:#f85149
-    style S10 fill:#1a0a0a,stroke:#f85149
-    style S9 fill:#0a1a0a,stroke:#3fb950
+    style S3 fill:#0a1a0a,stroke:#3fb950
+    style S6 fill:#0a1a2a,stroke:#58a6ff
 ```
 
-## Persistence
+## Filters reference
 
-| Fichier | Contenu | Quand |
+Each camera subentry defines optional filters. Empty list = accept all.
+
+| Filter | Parameter | Behaviour |
 | --- | --- | --- |
-| `/data/options.json` | Configuration utilisateur (MQTT, Frigate, filtres...) | Lu au boot, genere par HA |
-| `/data/state.json` | Cameras decouvertes, prefs on/off, derniers events | Lu au boot, ecrit a chaque event |
+| `ZoneFilter` | `zone_multi: list[str]`, `zone_order_enforced: bool` | All required zones present (ordered subsequence if `zone_order_enforced=True`) |
+| `LabelFilter` | `labels: list[str]` | At least one event object in the list |
+| `TimeFilter` | `disabled_hours: list[int]` | Blocks if current local hour is in `disabled_hours` |
+| `SeverityFilter` | `severity: str` | `"alert"` only, `"detection"` only, or both |
+| `FilterChain` | `filters: list[Filter]` | `all()` with short-circuit on first rejection |
 
-```json
-// Exemple /data/state.json
-{
-  "cameras": {
-    "jardin_nord": {
-      "enabled": true,
-      "first_seen": "2025-01-01T10:00:00Z",
-      "last_event_time": "2025-01-01T14:32:00Z",
-      "last_severity": "alert",
-      "last_objects": ["person"]
-    },
-    "garage": {
-      "enabled": false,
-      "first_seen": "2025-01-01T11:00:00Z",
-      "last_event_time": "2025-01-01T12:00:00Z",
-      "last_severity": "detection",
-      "last_objects": ["car"]
-    }
-  }
-}
-```
+Zones and labels are populated from the Frigate API (`GET /api/config`); CSV free-text is used as fallback if Frigate is unreachable during setup.
+
+## Notification templates
+
+Title, message and critical condition are [Jinja2 templates](https://www.home-assistant.io/docs/configuration/templating/).
+
+→ Full variable reference and examples: [`docs/notifications.md`](notifications.md)

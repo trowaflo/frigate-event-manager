@@ -1,12 +1,14 @@
 {
   "domain": "frigate_event_manager",
   "name": "Frigate Event Manager",
-  "version": "0.0.1",
+  "version": "0.9.0",
   "codeowners": ["@trowaflo"],
   "config_flow": true,
-  "dependencies": ["http"],
+  "dependencies": ["http", "mqtt"],
   "documentation": "https://github.com/trowaflo/frigate-event-manager",
-  "iot_class": "local_polling",
+  "integration_type": "hub",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/trowaflo/frigate-event-manager/issues",
+  "quality_scale": "custom",
   "requirements": []
 }

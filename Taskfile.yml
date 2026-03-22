@@ -1,35 +1,26 @@
+# https://taskfile.dev
 version: "3"
 
 tasks:
   test:
-    desc: Lance tous les tests
+    desc: "Lance les tests Python avec couverture >=80%"
     cmds:
-      - go test -v -race -coverprofile=coverage.out -coverpkg=./internal/... ./...
-      - go tool cover -func=coverage.out
-      - golangci-lint run ./...
-  test:html:
-    desc: Ouvre le rapport de coverage dans le navigateur
-    deps: [test]
-    cmds:
-      - go tool cover -html=coverage.out
+      - pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v
 
-  dev:
-    desc: Lance l'addon en local
+  test:html:
+    desc: "Ouvre le rapport de couverture dans le navigateur"
     cmds:
-      - cmd: |
-          export CONFIG_PATH=dev/config.json
-          {{if eq OS "darwin"}}
-          export MQTT_USERNAME=$(security find-generic-password -a frigate-event-manager -s mqtt-username -w)
-          export MQTT_PASSWORD=$(security find-generic-password -a frigate-event-manager -s mqtt-password -w)
-          export FRIGATE_USER=$(security find-generic-password -a frigate-event-manager -s frigate-user -w)
-          export FRIGATE_PASSWORD=$(security find-generic-password -a frigate-event-manager -s frigate-password -w)
-          {{else}}
-          set -a && . dev/.env && set +a
-          {{end}}
-          exec go run ./cmd/addon
+      - pytest --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q
+      - open htmlcov/index.html
+
+  lint:
+    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2)"
+    cmds:
+      - ruff check .
+      - markdownlint-cli2 '**/*.md'
 
   dev:init:
-    desc: Stocke les credentials MQTT + Frigate
+    desc: "Stocke les credentials MQTT + Frigate (Keychain macOS ou dev/.env)"
     cmds:
       - cmd: |
           {{if eq OS "darwin"}}
@@ -42,7 +33,7 @@ tasks:
           security add-generic-password -a frigate-event-manager -s frigate-user -w "$FUSER" -U
           printf "FRIGATE_PASSWORD: " && read -s FPASSWORD && echo
           security add-generic-password -a frigate-event-manager -s frigate-password -w "$FPASSWORD" -U
-          echo "Credentials stockes dans le Keychain macOS"
+          echo "Credentials stockés dans le Keychain macOS"
           {{else}}
           echo "--- Stockage des credentials dans dev/.env ---"
           mkdir -p dev
@@ -53,12 +44,12 @@ tasks:
           printf "MQTT_USERNAME='%s'\nMQTT_PASSWORD='%s'\nFRIGATE_USER='%s'\nFRIGATE_PASSWORD='%s'\n" \
             "$USERNAME" "$PASSWORD" "$FUSER" "$FPASSWORD" > dev/.env
           chmod 600 dev/.env
-          echo "Credentials stockes dans dev/.env (chmod 600)"
+          echo "Credentials stockés dans dev/.env (chmod 600)"
           {{end}}
     silent: true
 
   dev:clean:
-    desc: Supprime les credentials stockes
+    desc: "Supprime les credentials stockés (Keychain ou dev/.env)"
     cmds:
       - cmd: |
           {{if eq OS "darwin"}}
@@ -66,15 +57,15 @@ tasks:
           security delete-generic-password -a frigate-event-manager -s mqtt-password 2>/dev/null || true
           security delete-generic-password -a frigate-event-manager -s frigate-user 2>/dev/null || true
           security delete-generic-password -a frigate-event-manager -s frigate-password 2>/dev/null || true
-          echo "Credentials supprimes du Keychain"
+          echo "Credentials supprimés du Keychain"
           {{else}}
           rm -f dev/.env
-          echo "dev/.env supprime"
+          echo "dev/.env supprimé"
           {{end}}
     silent: true
 
   dev:replay:
-    desc: Recupere le dernier review Frigate et le publie en MQTT pour tester
+    desc: "Récupère le dernier review Frigate réel et le republie en MQTT"
     cmds:
       - cmd: |
           {{if eq OS "darwin"}}
@@ -92,23 +83,24 @@ tasks:
             -H 'Content-Type: application/json' \
             -d "{\"user\": \"$FRIGATE_USER\", \"password\": \"$FRIGATE_PASSWORD\"}"
 
-          echo "Recuperation du dernier review..."
+          echo ""
+          echo "Récupération du dernier review..."
           REVIEW=$(curl -s -b "$COOKIE_JAR" 'https://frigate.trowa-family.ovh/api/review?limit=1')
           rm -f "$COOKIE_JAR"
 
-          echo "Review recupere:"
+          echo "Review récupéré :"
           echo "$REVIEW" | python3 -m json.tool 2>/dev/null || echo "$REVIEW"
 
           PAYLOAD=$(echo "$REVIEW" | python3 -c "
           import json, sys
           reviews = json.load(sys.stdin)
           if not reviews:
-              print('Aucun review trouve', file=sys.stderr)
+              print('Aucun review trouvé', file=sys.stderr)
               sys.exit(1)
           r = reviews[0]
+          data = r.get('data', {})
           payload = {
               'type': 'new',
-              'before': {},
               'after': {
                   'id': r['id'],
                   'camera': r['camera'],
@@ -116,7 +108,15 @@ tasks:
                   'end_time': r.get('end_time'),
                   'severity': r['severity'],
                   'thumb_path': r.get('thumb_path', ''),
-                  'data': r.get('data', {})
+                  'objects': data.get('objects', []),
+                  'current_zones': data.get('zones', []),
+                  'score': data.get('top_score', 0.0),
+                  'data': {
+                      'detections': data.get('detections', []),
+                      'objects': data.get('objects', []),
+                      'zones': data.get('zones', []),
+                      'top_score': data.get('top_score', 0.0),
+                  },
               }
           }
           print(json.dumps(payload))
@@ -132,25 +132,48 @@ tasks:
             -t "frigate/reviews" -s
 
           echo ""
-          echo "Review republie ! L'addon devrait le traiter."
+          echo "Review republié — le coordinator devrait logger la réception."
     silent: true
 
-  lint:go:
-    desc: Vérifie la qualité du code Go (golangci-lint)
+  deploy:init:
+    desc: "Stocke l'hôte SSH Home Assistant (Keychain macOS ou dev/.env)"
     cmds:
-      - golangci-lint run ./...
+      - cmd: |
+          {{if eq OS "darwin"}}
+          printf "HA_HOST (ex: homeassistant.local ou IP): " && read HA_HOST
+          security add-generic-password -a frigate-event-manager -s ha-host -w "$HA_HOST" -U
+          echo "HA_HOST stocké dans le Keychain macOS"
+          {{else}}
+          printf "HA_HOST (ex: homeassistant.local ou IP): " && read HA_HOST
+          mkdir -p dev
+          grep -v '^HA_HOST=' dev/.env 2>/dev/null > dev/.env.tmp || true
+          echo "HA_HOST='$HA_HOST'" >> dev/.env.tmp
+          mv dev/.env.tmp dev/.env
+          chmod 600 dev/.env
+          echo "HA_HOST stocké dans dev/.env"
+          {{end}}
+    silent: true
 
-  lint:md:
-    desc: Vérifie le style des fichiers Markdown (markdownlint-cli2)
+  deploy:
+    desc: "Déploie l'intégration sur Home Assistant via SSH (nécessite deploy:init)"
     cmds:
-      - markdownlint-cli2 '**/*.md'
+      - cmd: |
+          {{if eq OS "darwin"}}
+          HA_HOST=$(security find-generic-password -a frigate-event-manager -s ha-host -w 2>/dev/null)
+          {{else}}
+          set -a && . dev/.env && set +a
+          {{end}}
 
-  build:
-    desc: Build l'image Docker en local
-    cmds:
-      - docker build -t frigate-event-manager:dev .
+          if [ -z "$HA_HOST" ]; then
+            echo "HA_HOST non configuré — lance d'abord: task deploy:init"
+            exit 1
+          fi
 
-  build:multi:
-    desc: Build multi-arch (necessite docker buildx)
-    cmds:
-      - docker buildx build --platform linux/amd64,linux/arm64 -t frigate-event-manager:dev .
+          echo "Copie vers $HA_HOST..."
+          tar -czf - -C ./custom_components frigate_event_manager \
+            | ssh root@"$HA_HOST" "rm -rf /config/custom_components/frigate_event_manager && tar -xzf - -C /config/custom_components/"
+
+          echo "Redémarrage HA Core..."
+          ssh root@"$HA_HOST" "ha core restart"
+          echo "Déploiement terminé."
+    silent: true

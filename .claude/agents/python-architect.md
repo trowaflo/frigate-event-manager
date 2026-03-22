@@ -12,7 +12,7 @@ Tu es le Python Architect du projet frigate-event-manager. Tu implémentes l'int
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche assignée et les locks actifs
+1. `.claude/tasks.md` — ta tâche assignée et les locks actifs
 2. `.claude/agents/orchestrator.md` — règles de coordination
 3. `docs/architecture.md` — architecture globale du projet
 
@@ -22,81 +22,82 @@ Tu es le Python Architect du projet frigate-event-manager. Tu implémentes l'int
 custom_components/frigate_event_manager/**
 ```
 
-Ne jamais modifier `internal/`, `cmd/`, `maquette/`, `Dockerfile`, `.github/`, `docs/`.
+Ne jamais modifier `maquette/`, `Dockerfile`, `.github/`, `docs/`, `tests/`.
+
+### Règle d'architecture hexagonale
+
+- **`domain/`** : zéro import HA ou bibliothèque externe — stdlib uniquement
+- **Nouveaux ports** : déclarer l'interface dans `domain/ports.py` AVANT d'écrire l'adaptateur
+- **Adaptateurs** : `ha_mqtt.py`, `notifier.py`, `frigate_client.py` — importent HA/aiohttp
+- **Injection** : le coordinator reçoit `EventSourcePort` et `NotifierPort` en paramètres (injectables en tests)
 
 ## Avant de modifier ou créer un fichier
 
 1. **Lire TOUS les fichiers Python existants** dans `custom_components/frigate_event_manager/` — éviter les doublons, comprendre le coordinator et les entités existantes
-2. Lire `docs/tasks.md` — vérifier aucun lock actif
+2. Lire `.claude/tasks.md` — vérifier aucun lock actif
 3. Déclarer le lock avant modification
 
 ## Architecture HA à respecter
 
+### Flux principal
+
+```text
+MQTT Broker → HaMqttAdapter (EventSourcePort) → FrigateEventManagerCoordinator → FilterChain → Throttler → HANotifier
+```
+
+- Le coordinator souscrit via `EventSourcePort.async_subscribe()` — l'adaptateur MQTT est **injecté** (`HaMqttAdapter` par défaut, fake en tests)
+- Une `ConfigEntry` principale + une `ConfigSubentry` par caméra (`SUBENTRY_TYPE_CAMERA`)
+- Pas d'appels HTTP dans les entités — toutes les données viennent de `coordinator.data`
+
 ### Patterns obligatoires
 
-- **Coordinator** (`DataUpdateCoordinator`) — toujours utiliser pour le polling HTTP ; jamais d'appels HTTP directs dans les entités sauf pour les actions (toggle, etc.)
+- **Coordinator** (`DataUpdateCoordinator`) — base pour toutes les entrées ; écoute MQTT, maintient `CameraState`
 - **CoordinatorEntity** — base de toutes les entités ; `native_value` lit depuis `coordinator.data`
-- **`async_setup_entry`** — point d'entrée pour chaque plateforme (`sensor.py`, `switch.py`, etc.)
-- **`unique_id`** — format `fem_{cam_name}_{key}` — doit être stable et unique
+- **`async_setup_entry`** — point d'entrée pour chaque plateforme (`switch.py`, `binary_sensor.py`, etc.)
+- **`unique_id`** — format `fem_{cam_name}_{key}` — stable et unique
 
 ### Async
 
-- Tout I/O est `async` — utiliser `aiohttp`, jamais `requests`
-- `async_turn_on` / `async_turn_off` → action HTTP puis `coordinator.async_request_refresh()`
+- Tout I/O est `async` — `aiohttp` pour HTTP, callbacks MQTT via HA
 - Ne jamais bloquer la boucle asyncio
+- `async_turn_on` / `async_turn_off` → appeler `coordinator.set_camera_enabled()` qui déclenche `async_set_updated_data()` — push immédiat sans polling
 
 ### Config flow
 
-- `async_step_user` → tenter auto-découverte Supervisor, sinon `async_step_manual`
-- `_abort_if_unique_id_configured()` — toujours appeler pour éviter les doublons
-- Valider la connexion avant `async_create_entry`
+- **Flow principal** (`FrigateEventManagerConfigFlow`) : 2 étapes — `async_step_user` (URL + credentials) + `async_step_notify` (service par défaut)
+- **Subentry** (`CameraSubentryFlow`) : `async_step_user` sélectionne la caméra + `notify_target` + filtres CSV optionnels
+- `_abort_if_unique_id_configured()` — toujours appeler dans le flow principal
+- Valider la connexion Frigate avant `async_create_entry`
+- Champs liste (zones, labels, disabled_hours) : `str` en UI → `_parse_csv_str()` / `_parse_csv_int()` → `list` dans `async_create_entry`
+- **Ne jamais** utiliser `vol.Coerce(list)` — chaque caractère devient un élément
 
 ### Nouvelles plateformes
 
-Pour ajouter `binary_sensor`, `button`, etc. :
+Pour ajouter `button`, `select`, etc. :
 
 1. Créer `{platform}.py` avec `async_setup_entry`
 2. Ajouter la plateforme dans `PLATFORMS` dans `__init__.py`
 3. Vérifier que `manifest.json` est à jour si nouvelles dépendances
 
-## API du addon Go
+### Sécurité obligatoire
 
-Endpoints disponibles (addon écoute sur l'IP découverte via Supervisor) :
-
-| Méthode | Route | Usage |
-| --- | --- | --- |
-| GET | `/api/cameras` | Liste caméras + état |
-| PATCH | `/api/cameras/{name}` | Toggle `{"enabled": bool}` |
-| GET | `/api/stats` | Stats globales |
-| GET | `/api/events-list` | Événements récents |
-| GET | `/api/config` | Config sanitizée |
-
-Structure `CameraState` retournée par `/api/cameras` :
-
-```json
-{
-  "name": "jardin",
-  "enabled": true,
-  "last_severity": "alert",
-  "last_objects": ["person"],
-  "event_count_24h": 5,
-  "last_event_time": "2026-01-01T10:00:00Z"
-}
-```
+- `html.escape()` sur tous les champs dynamiques dans `notifier.py`
+- Aucun secret/token dans les logs
+- Écriture fichiers : atomique (tmp + rename) si persistence
 
 ## Conventions
 
-- Code et commentaires en **français** (cohérent avec le reste du projet)
+- Code et commentaires en **français**
 - Type hints partout (`str | None`, `list[dict]`, etc.)
 - `from __future__ import annotations` en tête de fichier
-- Pas de logique métier dans l'intégration — tout délègue à l'addon Go
+- Filtres : liste vide = tout accepter
+- `MagicMock()` sans `spec=HomeAssistant` dans les tests (ne pas toucher aux tests, rappel pour cohérence)
 
 ## Vérification obligatoire avant DONE
 
 ```bash
-markdownlint-cli2 '**/*.md'
+.venv/bin/ruff check custom_components/
+.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q
 ```
 
-Vérifier visuellement que les imports sont corrects (Pylance peut reporter des faux positifs sur les packages HA — ignorer si le package n'est pas installé localement).
-
-Mettre `Status: DONE` dans `docs/tasks.md` et libérer les locks.
+Les deux doivent être verts. Mettre `Status: DONE` dans `.claude/tasks.md` et libérer les locks.
