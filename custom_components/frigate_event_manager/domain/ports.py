@@ -1,4 +1,4 @@
-"""Ports du domaine — interfaces abstraites, zéro dépendance HA."""
+"""Domain ports — abstract interfaces, zero HA dependency."""
 
 from __future__ import annotations
 
@@ -9,40 +9,40 @@ from .model import FrigateEvent
 
 
 class NotifierPort(Protocol):
-    """Port sortant — contrat que tout adaptateur de notification doit respecter."""
+    """Outgoing port — contract that any notification adapter must fulfill."""
 
     async def async_notify(self, event: FrigateEvent) -> None:
-        """Envoie une notification pour un événement Frigate."""
+        """Send a notification for a Frigate event."""
         ...
 
 
 class EventSourcePort(Protocol):
-    """Port entrant — source d'événements MQTT à écouter."""
+    """Incoming port — MQTT event source to listen to."""
 
     async def async_subscribe(
         self,
         topic: str,
         callback: Callable[[Any], None],
     ) -> Callable[[], None]:
-        """Souscrit au topic. Retourne la fonction de désabonnement."""
+        """Subscribe to the topic. Returns the unsubscribe function."""
         ...
 
 
 class FrigatePort(Protocol):
-    """Port sortant — accès à l'API REST Frigate."""
+    """Outgoing port — access to the Frigate REST API."""
 
     async def get_cameras(self) -> list[str]:
-        """Retourne la liste des noms de caméras."""
+        """Return the list of camera names."""
         ...
 
 
 class MediaSignerPort(Protocol):
-    """Port — signature et vérification de presigned URLs médias."""
+    """Port — signing and verification of presigned media URLs."""
 
     def sign_url(self, path: str) -> str:
-        """Signe un path et retourne l'URL complète avec ?exp=...&sig=..."""
+        """Sign a path and return the full URL with ?exp=...&sig=..."""
         ...
 
     def verify(self, path: str, exp_str: str, sig: str) -> bool:
-        """Vérifie qu'une presigned URL est valide et non expirée."""
+        """Verify that a presigned URL is valid and not expired."""
         ...

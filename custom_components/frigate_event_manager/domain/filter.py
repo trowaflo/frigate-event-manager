@@ -1,10 +1,10 @@
-"""Filtres d'événements Frigate — logique de filtrage domaine pur.
+"""Frigate event filters — pure domain filtering logic.
 
-Chaque filtre implémente le protocole `Filter` (méthode `apply`).
-Convention : liste vide = tout accepter (aucun filtrage).
+Each filter implements the `Filter` protocol (method `apply`).
+Convention: empty list = accept all (no filtering).
 
-Chaîne de filtres : FilterChain applique chaque filtre en séquence.
-Un seul refus suffit pour bloquer l'événement.
+Filter chain: FilterChain applies each filter in sequence.
+A single rejection is enough to block the event.
 """
 
 from __future__ import annotations
@@ -18,23 +18,23 @@ from .model import FrigateEvent
 
 @runtime_checkable
 class Filter(Protocol):
-    """Protocole commun à tous les filtres d'événements."""
+    """Common protocol for all event filters."""
 
     def apply(self, event: FrigateEvent) -> bool:
-        """Retourne True si l'événement est accepté, False s'il est bloqué."""
+        """Return True if the event is accepted, False if blocked."""
         ...
 
 
 class ZoneFilter:
-    """Filtre par zones actives dans l'événement.
+    """Filter by active zones in the event.
 
-    Deux modes de fonctionnement :
-    - Sans ordre (zone_order_enforced=False) : toutes les zones de `zone_multi`
-      doivent être présentes dans l'événement, mais dans n'importe quel ordre.
-    - Avec ordre (zone_order_enforced=True) : les zones de `zone_multi` doivent
-      apparaître comme sous-séquence ordonnée dans la liste des zones de l'événement.
+    Two operating modes:
+    - Without order (zone_order_enforced=False): all zones in `zone_multi`
+      must be present in the event, in any order.
+    - With order (zone_order_enforced=True): zones in `zone_multi` must
+      appear as an ordered subsequence in the event's zone list.
 
-    Convention : si `zone_multi` est vide, tous les événements sont acceptés.
+    Convention: if `zone_multi` is empty, all events are accepted.
     """
 
     def __init__(
@@ -46,7 +46,7 @@ class ZoneFilter:
         self.zone_order_enforced = zone_order_enforced
 
     def apply(self, event: FrigateEvent) -> bool:
-        """Retourne True si l'événement passe le filtre de zones."""
+        """Return True if the event passes the zone filter."""
         if not self.zone_multi:
             return True
 
@@ -58,23 +58,23 @@ class ZoneFilter:
 
 
 def _est_sous_sequence(requises: list[str], disponibles: list[str]) -> bool:
-    """Vérifie que `requises` est une sous-séquence ordonnée de `disponibles`."""
+    """Check that `requises` is an ordered subsequence of `disponibles`."""
     it = iter(disponibles)
     return all(zone in it for zone in requises)
 
 
 class LabelFilter:
-    """Filtre par labels (objets détectés) dans l'événement.
+    """Filter by labels (detected objects) in the event.
 
-    Au moins un objet de l'événement doit correspondre à un label configuré.
-    Convention : si `labels` est vide, tous les événements sont acceptés.
+    At least one object in the event must match a configured label.
+    Convention: if `labels` is empty, all events are accepted.
     """
 
     def __init__(self, labels: list[str]) -> None:
         self.labels = labels
 
     def apply(self, event: FrigateEvent) -> bool:
-        """Retourne True si au moins un objet de l'événement est dans les labels."""
+        """Return True if at least one event object is in the labels list."""
         if not self.labels:
             return True
 
@@ -83,9 +83,9 @@ class LabelFilter:
 
 
 class TimeFilter:
-    """Filtre par plage horaire — bloque les événements aux heures désactivées.
+    """Filter by time range — blocks events during disabled hours.
 
-    Convention : si `disabled_hours` est vide, tous les événements sont acceptés.
+    Convention: if `disabled_hours` is empty, all events are accepted.
     """
 
     def __init__(
@@ -99,7 +99,7 @@ class TimeFilter:
         )
 
     def apply(self, event: FrigateEvent) -> bool:  # noqa: ARG002
-        """Retourne True si l'heure courante n'est pas une heure désactivée."""
+        """Return True if the current hour is not a disabled hour."""
         if not self.disabled_hours:
             return True
 
@@ -108,31 +108,31 @@ class TimeFilter:
 
 
 class SeverityFilter:
-    """Filtre par severity Frigate — liste vide = tout accepter.
+    """Filter by Frigate severity — empty list = accept all.
 
-    Convention : si `severities` est vide, tous les événements sont acceptés.
+    Convention: if `severities` is empty, all events are accepted.
     """
 
     def __init__(self, severities: list[str]) -> None:
         self.severities = severities
 
     def apply(self, event: FrigateEvent) -> bool:
-        """Retourne True si la severity de l'événement est dans la liste autorisée."""
+        """Return True if the event severity is in the allowed list."""
         if not self.severities:
             return True
         return event.severity in self.severities
 
 
 class FilterChain:
-    """Chaîne de filtres appliqués en séquence à chaque événement.
+    """Chain of filters applied in sequence to each event.
 
-    Tous les filtres doivent accepter l'événement pour qu'il soit traité.
-    Court-circuit : s'arrête au premier refus.
+    All filters must accept the event for it to be processed.
+    Short-circuit: stops at the first rejection.
     """
 
     def __init__(self, filters: list[Filter]) -> None:
         self.filters = filters
 
     def apply(self, event: FrigateEvent) -> bool:
-        """Retourne True si tous les filtres acceptent l'événement."""
+        """Return True if all filters accept the event."""
         return all(f.apply(event) for f in self.filters)

@@ -1,4 +1,4 @@
-"""Signer HMAC-SHA256 pour presigned URLs médias — aucune dépendance HA."""
+"""HMAC-SHA256 signer for presigned media URLs — no HA dependency."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from collections.abc import Callable
 
 
 class MediaSigner:
-    """Génère et valide des presigned URLs HMAC-SHA256.
+    """Generate and validate HMAC-SHA256 presigned URLs.
 
-    Payload signé : "{path}\\n{exp}" — identique à l'implémentation Go.
-    La clé secrète est générée aléatoirement au démarrage et reste en mémoire.
+    Signed payload: "{path}\\n{exp}" — identical to the Go implementation.
+    The secret key is generated randomly at startup and kept in memory.
     """
 
     def __init__(
@@ -23,14 +23,14 @@ class MediaSigner:
         *,
         _now: Callable[[], float] | None = None,
     ) -> None:
-        """Initialise avec l'URL de base du proxy et le TTL en secondes."""
+        """Initialize with the proxy base URL and TTL in seconds."""
         self._base_url = base_url.rstrip("/")
         self._ttl = ttl
         self._key = os.urandom(32)
         self._now: Callable[[], float] = _now or time.time
 
     def sign_url(self, path: str) -> str:
-        """Retourne une URL presignée complète pour le path Frigate donné.
+        """Return a presigned full URL for the given Frigate path.
 
         Ex: sign_url("/api/events/abc/snapshot.jpg")
         → "https://ha.local/api/frigate_em/media/api/events/abc/snapshot.jpg?exp=...&sig=..."
@@ -40,7 +40,7 @@ class MediaSigner:
         return f"{self._base_url}{path}?exp={exp}&sig={sig}"
 
     def verify(self, path: str, exp_str: str, sig: str) -> bool:
-        """Vérifie la signature et l'expiration d'une URL presignée."""
+        """Verify the signature and expiration of a presigned URL."""
         try:
             exp = int(exp_str)
         except (ValueError, TypeError):

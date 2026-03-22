@@ -1,4 +1,4 @@
-"""Modèles de domaine Frigate — aucune dépendance HA ou bibliothèque externe."""
+"""Frigate domain models — no HA or external library dependency."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 @dataclass
 class FrigateEvent:
-    """Représentation d'un événement Frigate parsé depuis le payload MQTT."""
+    """Representation of a Frigate event parsed from the MQTT payload."""
 
     type: str           # "new" | "update" | "end"
     camera: str
@@ -26,17 +26,17 @@ class FrigateEvent:
 
 @dataclass
 class CameraState:
-    """État courant d'une caméra, mis à jour à chaque événement Frigate."""
+    """Current state of a camera, updated on each Frigate event."""
 
     name: str
     last_severity: str | None = None
     last_objects: list[str] = field(default_factory=list)
     last_event_time: float | None = None
-    motion: bool = False    # True sur type=new, False sur type=end
-    enabled: bool = True    # contrôle notifications (switch HA)
+    motion: bool = False    # True on type=new, False on type=end
+    enabled: bool = True    # controls notifications (HA switch)
 
     def as_dict(self) -> dict[str, Any]:
-        """Sérialise l'état en dict pour coordinator.data."""
+        """Serialize the state to a dict for coordinator.data."""
         return {
             "name": self.name,
             "last_severity": self.last_severity,
@@ -48,12 +48,12 @@ class CameraState:
 
 
 def _first_not_none(*values: list | None) -> list:
-    """Retourne le premier élément non-None parmi les candidats, ou []."""
+    """Return the first non-None element among the candidates, or []."""
     return next((v for v in values if v is not None), [])
 
 
 def _to_float(value: Any, *, default: float | None) -> float | None:
-    """Convertit une valeur en float de manière sécurisée."""
+    """Safely convert a value to float."""
     if value is None:
         return default
     try:
@@ -63,7 +63,7 @@ def _to_float(value: Any, *, default: float | None) -> float | None:
 
 
 def _parse_event(payload: str) -> FrigateEvent | None:
-    """Parse un payload MQTT Frigate JSON → FrigateEvent, None si invalide."""
+    """Parse a Frigate MQTT JSON payload into a FrigateEvent, None if invalid."""
     try:
         raw: dict[str, Any] = json.loads(payload)
     except (json.JSONDecodeError, TypeError):
@@ -81,7 +81,7 @@ def _parse_event(payload: str) -> FrigateEvent | None:
     if not camera:
         return None
 
-    # Frigate stocke objects/zones/score dans after.data pour les reviews MQTT
+    # Frigate stores objects/zones/score in after.data for MQTT reviews
     data: dict[str, Any] = after.get("data") or {}
 
     return FrigateEvent(

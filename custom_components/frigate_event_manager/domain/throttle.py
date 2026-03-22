@@ -1,9 +1,9 @@
-"""Anti-spam par caméra — Throttler à cooldown configurable.
+"""Per-camera anti-spam — Throttler with configurable cooldown.
 
-Sépare la décision (should_notify) de l'enregistrement (record)
-pour permettre une utilisation sans effet de bord involontaire.
+Separates the decision (should_notify) from the recording (record)
+to allow usage without unintended side effects.
 
-Utilisation typique :
+Typical usage:
     if throttler.should_notify(camera):
         await notifier.notify(...)
         throttler.record(camera)
@@ -16,7 +16,7 @@ from collections.abc import Callable
 
 
 class Throttler:
-    """Contrôle l'anti-spam par caméra via un cooldown configurable."""
+    """Controls per-camera anti-spam via a configurable cooldown."""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class Throttler:
         self._last_notified: dict[str, float] = {}
 
     def should_notify(self, camera: str, now: float | None = None) -> bool:
-        """Indique si une notification peut être envoyée pour cette caméra."""
+        """Indicate whether a notification can be sent for this camera."""
         instant = now if now is not None else self._clock()
         derniere = self._last_notified.get(camera)
 
@@ -38,10 +38,10 @@ class Throttler:
         return (instant - derniere) >= self._cooldown
 
     def record(self, camera: str, now: float | None = None) -> None:
-        """Enregistre le timestamp de la dernière notification pour une caméra."""
+        """Record the timestamp of the last notification for a camera."""
         instant = now if now is not None else self._clock()
         self._last_notified[camera] = instant
 
     def release(self, camera: str) -> None:
-        """Supprime le cooldown d'une caméra (event terminé)."""
+        """Remove the cooldown for a camera (event ended)."""
         self._last_notified.pop(camera, None)
