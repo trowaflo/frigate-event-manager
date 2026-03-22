@@ -16,7 +16,6 @@ from custom_components.frigate_event_manager.const import (
     CONF_DISABLED_HOURS,
     CONF_LABELS,
     CONF_NOTIFY_TARGET,
-    CONF_SILENT_DURATION,
     CONF_ZONES,
     DEFAULT_MQTT_TOPIC,
 )
@@ -680,7 +679,6 @@ class TestSilentMode:
         """In silent mode, new events do not trigger a notification."""
         notifier = AsyncMock()
         subentry = _make_subentry("jardin")
-        subentry.data[CONF_SILENT_DURATION] = 30
         coordinator = FrigateEventManagerCoordinator(
             hass,
             _make_entry(),
@@ -704,16 +702,6 @@ class TestSilentMode:
         before = time.time()
         coordinator.activate_silent_mode()
         assert coordinator._silent_until > before
-
-    async def test_silent_duration_depuis_subentry(self, hass: HomeAssistant) -> None:
-        """_silent_duration matches the value from the subentry."""
-        subentry = _make_subentry("jardin")
-        subentry.data[CONF_SILENT_DURATION] = 45
-        coordinator = FrigateEventManagerCoordinator(
-            hass, _make_entry(), subentry, event_source=_make_fake_event_source()
-        )
-        assert coordinator._silent_duration == 45
-
 
 # ---------------------------------------------------------------------------
 # Tests for debounce
@@ -1519,11 +1507,10 @@ class TestActionBtns:
         coordinator.activate_silent_mode.assert_not_called()
 
     def test_activate_silent_mode_avec_duration_min(self, hass: HomeAssistant) -> None:
-        """activate_silent_mode(duration_min=30) uses 30 min instead of _silent_duration."""
+        """activate_silent_mode(duration_min=30) uses 30 min, not the 30 min default."""
         import time
 
         coordinator = _make_coordinator(hass)
-        coordinator._silent_duration = 60  # entity default value
         coordinator._store = MagicMock()
         coordinator._store.async_save = AsyncMock()
         coordinator.async_set_updated_data = MagicMock()

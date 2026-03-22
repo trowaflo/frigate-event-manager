@@ -76,6 +76,12 @@ async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> boo
         return True
 
     if entry.version == 5:
+        # v5 -> v6: remove silent_duration from subentry data (now hardcoded to 30 min)
+        for subentry in entry.subentries.values():
+            new_data = {k: v for k, v in subentry.data.items() if k != "silent_duration"}
+            hass.config_entries.async_update_subentry(entry, subentry, data=new_data)
+        hass.config_entries.async_update_entry(entry, version=6, minor_version=1)
+        _LOGGER.info("migration v5 -> v6 complete")
         return True
 
     # Unknown (higher) version — block loading to avoid incompatible data

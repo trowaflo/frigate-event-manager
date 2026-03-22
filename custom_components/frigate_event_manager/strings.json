@@ -55,7 +55,6 @@
           "data": {
             "cooldown": "Anti-spam cooldown",
             "debounce": "Debounce window",
-            "silent_duration": "Silent duration",
             "tap_action": "Tap action",
             "action_btn1": "Action button 1",
             "action_btn2": "Action button 2",
@@ -64,7 +63,6 @@
           "data_description": {
             "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
             "debounce": "Accumulation window (seconds) before sending a grouped notification.",
-            "silent_duration": "Duration (minutes) of silent mode when activated.",
             "tap_action": "Media opened when tapping the notification.",
             "action_btn1": "Action for the first button in the notification.",
             "action_btn2": "Action for the second button in the notification.",
@@ -111,7 +109,6 @@
           "data": {
             "cooldown": "Anti-spam cooldown",
             "debounce": "Debounce window",
-            "silent_duration": "Silent duration",
             "tap_action": "Tap action",
             "action_btn1": "Action button 1",
             "action_btn2": "Action button 2",
@@ -120,7 +117,6 @@
           "data_description": {
             "cooldown": "Minimum time (seconds) between two notifications for the same camera.",
             "debounce": "Accumulation window (seconds) before sending a grouped notification.",
-            "silent_duration": "Duration (minutes) of silent mode when activated.",
             "tap_action": "Media opened when tapping the notification.",
             "action_btn1": "Action for the first button in the notification.",
             "action_btn2": "Action for the second button in the notification.",

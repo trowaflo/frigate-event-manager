@@ -35,7 +35,6 @@ from .const import (
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
     CONF_SEVERITY,
-    CONF_SILENT_DURATION,
     CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
@@ -45,7 +44,6 @@ from .const import (
     DEFAULT_CRITICAL_VOLUME,
     DEFAULT_DEBOUNCE,
     DEFAULT_SEVERITY,
-    DEFAULT_SILENT_DURATION,
     DEFAULT_TAP_ACTION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
@@ -205,18 +203,6 @@ def _build_behavior_schema(configure_data: dict[str, Any]) -> vol.Schema:
             )
         ),
         vol.Optional(
-            CONF_SILENT_DURATION,
-            default=configure_data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION),
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=1,
-                max=480,
-                step=1,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="min",
-            )
-        ),
-        vol.Optional(
             CONF_TAP_ACTION,
             default=configure_data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
         ): selector.SelectSelector(
@@ -358,7 +344,7 @@ def _critical_template_to_preset(tpl: str | None) -> str:
 class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow — 1 step: Frigate connection."""
 
-    VERSION = 5
+    VERSION = 6
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
@@ -609,12 +595,11 @@ class CameraSubentryFlow(ConfigSubentryFlow):
     async def async_step_configure_behavior(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
-        """Step 4 — behavior (cooldown, debounce, silent_duration, tap_action)."""
+        """Step 4 — behavior (cooldown, debounce, tap_action, action buttons)."""
         if user_input is not None:
             self._configure_data.update({
                 CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
                 CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)),
-                CONF_SILENT_DURATION: int(user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)),
                 CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 CONF_ACTION_BTN1: user_input.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
                 CONF_ACTION_BTN2: user_input.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),
@@ -742,7 +727,6 @@ class CameraSubentryFlow(ConfigSubentryFlow):
             self._configure_data.update({
                 CONF_COOLDOWN: int(user_input.get(CONF_COOLDOWN, DEFAULT_THROTTLE_COOLDOWN)),
                 CONF_DEBOUNCE: int(user_input.get(CONF_DEBOUNCE, DEFAULT_DEBOUNCE)),
-                CONF_SILENT_DURATION: int(user_input.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)),
                 CONF_TAP_ACTION: user_input.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 CONF_ACTION_BTN1: user_input.get(CONF_ACTION_BTN1, DEFAULT_ACTION_BTN),
                 CONF_ACTION_BTN2: user_input.get(CONF_ACTION_BTN2, DEFAULT_ACTION_BTN),

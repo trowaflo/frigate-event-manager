@@ -20,14 +20,12 @@ from custom_components.frigate_event_manager.const import (
     CONF_NOTIFY_TARGET,
     CONF_PASSWORD,
     CONF_SEVERITY,
-    CONF_SILENT_DURATION,
     CONF_TAP_ACTION,
     CONF_URL,
     CONF_USERNAME,
     CONF_ZONES,
     DEFAULT_DEBOUNCE,
     DEFAULT_SEVERITY,
-    DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     PERSISTENT_NOTIFICATION,
@@ -247,7 +245,6 @@ async def _complete_subentry_flow(
     severity: list[str] | None = None,
     cooldown: int = DEFAULT_THROTTLE_COOLDOWN,
     debounce: int = DEFAULT_DEBOUNCE,
-    silent_duration: int = DEFAULT_SILENT_DURATION,
     tap_action: str = "clip",
     notif_title: str = "",
     notif_message: str = "",
@@ -279,7 +276,6 @@ async def _complete_subentry_flow(
         user_input={
             CONF_COOLDOWN: cooldown,
             CONF_DEBOUNCE: debounce,
-            CONF_SILENT_DURATION: silent_duration,
             CONF_TAP_ACTION: tap_action,
         },
     )
@@ -399,7 +395,6 @@ async def test_subentry_cree_camera_fallback_zones_vides(hass: HomeAssistant) ->
             user_input={
                 CONF_COOLDOWN: DEFAULT_THROTTLE_COOLDOWN,
                 CONF_DEBOUNCE: DEFAULT_DEBOUNCE,
-                CONF_SILENT_DURATION: DEFAULT_SILENT_DURATION,
                 CONF_TAP_ACTION: "clip",
             },
         )
@@ -447,54 +442,6 @@ async def test_subentry_cree_camera_sans_filtres(hass: HomeAssistant) -> None:
     assert r_final["data"][CONF_ZONES] == []
     assert r_final["data"][CONF_LABELS] == []
     assert r_final["data"][CONF_DISABLED_HOURS] == []
-
-
-async def test_subentry_cree_camera_avec_silent_duration(hass: HomeAssistant) -> None:
-    """Adding a camera with silent_duration → correct data."""
-    entry_id = await _create_entry(hass)
-
-    with (
-        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
-        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
-        patch(PATCH_SETUP, return_value=True),
-    ):
-        r = await hass.config_entries.subentries.async_init(
-            (entry_id, SUBENTRY_TYPE_CAMERA),
-            context={"source": config_entries.SOURCE_USER},
-        )
-        r2 = await hass.config_entries.subentries.async_configure(
-            r["flow_id"],
-            user_input={CONF_CAMERA: "jardin"},
-        )
-        r_final = await _complete_subentry_flow(hass, r2["flow_id"], silent_duration=60)
-
-    assert r_final["type"] == FlowResultType.CREATE_ENTRY
-    assert r_final["data"][CONF_SILENT_DURATION] == 60
-
-
-async def test_subentry_silent_duration_valeur_defaut(hass: HomeAssistant) -> None:
-    """Without silent_duration in the input → default value applied."""
-    entry_id = await _create_entry(hass)
-
-    with (
-        patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
-        patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
-        patch(PATCH_GET_CAM_CONFIG, new_callable=AsyncMock, return_value=CAM_CONFIG_DEFAULT),
-        patch(PATCH_SETUP, return_value=True),
-    ):
-        r = await hass.config_entries.subentries.async_init(
-            (entry_id, SUBENTRY_TYPE_CAMERA),
-            context={"source": config_entries.SOURCE_USER},
-        )
-        r2 = await hass.config_entries.subentries.async_configure(
-            r["flow_id"],
-            user_input={CONF_CAMERA: "garage"},
-        )
-        r_final = await _complete_subentry_flow(hass, r2["flow_id"])
-
-    assert r_final["type"] == FlowResultType.CREATE_ENTRY
-    assert r_final["data"][CONF_SILENT_DURATION] == DEFAULT_SILENT_DURATION
 
 
 async def test_subentry_cameras_deja_configurees_exclues(hass: HomeAssistant) -> None:
@@ -851,7 +798,6 @@ async def _complete_reconfigure_flow(
     severity: list[str] | None = None,
     cooldown: int = DEFAULT_THROTTLE_COOLDOWN,
     debounce: int = DEFAULT_DEBOUNCE,
-    silent_duration: int = DEFAULT_SILENT_DURATION,
     tap_action: str = "clip",
     notif_title: str = "",
     notif_message: str = "",
@@ -883,7 +829,6 @@ async def _complete_reconfigure_flow(
         user_input={
             CONF_COOLDOWN: cooldown,
             CONF_DEBOUNCE: debounce,
-            CONF_SILENT_DURATION: silent_duration,
             CONF_TAP_ACTION: tap_action,
         },
     )
@@ -972,7 +917,6 @@ async def test_subentry_reconfigure_met_a_jour_donnees(hass: HomeAssistant) -> N
             zones=["jardin", "rue"],
             labels=["person"],
             disabled_hours=["0", "1"],
-            silent_duration=20,
         )
 
     assert r_final["type"] == FlowResultType.ABORT
@@ -1018,7 +962,6 @@ async def test_subentry_reconfigure_met_a_jour_avec_zones_vides(hass: HomeAssist
             user_input={
                 CONF_COOLDOWN: DEFAULT_THROTTLE_COOLDOWN,
                 CONF_DEBOUNCE: DEFAULT_DEBOUNCE,
-                CONF_SILENT_DURATION: 30,
                 CONF_TAP_ACTION: "clip",
             },
         )
@@ -1223,7 +1166,6 @@ async def test_subentry_critical_template_custom(hass: HomeAssistant) -> None:
             user_input={
                 CONF_COOLDOWN: DEFAULT_THROTTLE_COOLDOWN,
                 CONF_DEBOUNCE: DEFAULT_DEBOUNCE,
-                CONF_SILENT_DURATION: DEFAULT_SILENT_DURATION,
                 CONF_TAP_ACTION: "clip",
             },
         )
@@ -1260,7 +1202,7 @@ async def test_subentry_reconfigure_sans_champs_entites(hass: HomeAssistant) -> 
             },
         )
         r_final = await _complete_reconfigure_flow(
-            hass, r3["flow_id"], silent_duration=30
+            hass, r3["flow_id"]
         )
 
     assert r_final["type"] == FlowResultType.ABORT
@@ -1303,7 +1245,6 @@ async def test_subentry_reconfigure_critical_template_custom(hass: HomeAssistant
             user_input={
                 CONF_COOLDOWN: DEFAULT_THROTTLE_COOLDOWN,
                 CONF_DEBOUNCE: DEFAULT_DEBOUNCE,
-                CONF_SILENT_DURATION: DEFAULT_SILENT_DURATION,
                 CONF_TAP_ACTION: "clip",
             },
         )

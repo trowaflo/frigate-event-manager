@@ -142,19 +142,24 @@ class TestAsyncMigrateEntry:
         assert call_kwargs.get("version") == 5
         assert call_kwargs.get("minor_version") == 1
 
-    async def test_migration_v5_retourne_true_sans_modification(
+    async def test_migration_v5_vers_v6_supprime_silent_duration(
         self, hass: HomeAssistant
     ) -> None:
-        """A v5 entry returns True without calling async_update_entry."""
+        """v5 → v6 migration removes silent_duration from subentry data and bumps to v6."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=5)
 
-        with patch.object(hass.config_entries, "async_update_entry") as mock_update:
+        with (
+            patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+            patch.object(hass.config_entries, "async_update_subentry"),
+        ):
             result = await async_migrate_entry(hass, entry)
 
         assert result is True
-        mock_update.assert_not_called()
+        mock_update_entry.assert_called_once()
+        call_kwargs = mock_update_entry.call_args
+        assert call_kwargs.kwargs.get("version") == 6
 
 
 # ---------------------------------------------------------------------------

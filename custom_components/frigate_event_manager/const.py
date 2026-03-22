@@ -36,10 +36,6 @@ CONF_COOLDOWN = "cooldown"
 CONF_DEBOUNCE = "debounce"
 DEFAULT_DEBOUNCE = 0
 
-# Silent mode
-CONF_SILENT_DURATION = "silent_duration"
-DEFAULT_SILENT_DURATION = 30
-
 # Notification templates
 CONF_NOTIF_TITLE = "notification_title"
 CONF_NOTIF_MESSAGE = "notification_message"

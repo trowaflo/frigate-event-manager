@@ -27,13 +27,11 @@ from .const import (
     CONF_DISABLED_HOURS,
     CONF_LABELS,
     CONF_SEVERITY,
-    CONF_SILENT_DURATION,
     CONF_ZONES,
     DEFAULT_ACTION_BTN,
     DEFAULT_DEBOUNCE,
     DEFAULT_MQTT_TOPIC,
     DEFAULT_SEVERITY,
-    DEFAULT_SILENT_DURATION,
     DEFAULT_THROTTLE_COOLDOWN,
     DOMAIN,
     EVENT_MOBILE_APP_NOTIFICATION_ACTION,
@@ -97,7 +95,6 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._critical_template: str | None = subentry.data.get(CONF_CRITICAL_TEMPLATE) or None
 
         # Silent mode
-        self._silent_duration: int = subentry.data.get(CONF_SILENT_DURATION, DEFAULT_SILENT_DURATION)
         self._silent_until: float = 0.0
         self._cancel_silent: Any = None
         # Persist silent mode via HA Store — survives restarts
@@ -246,7 +243,7 @@ class FrigateEventManagerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Activate silent mode for the configured duration (or duration_min if provided)."""
         if self._cancel_silent is not None:
             self._cancel_silent()
-        effective_duration = duration_min if duration_min is not None else self._silent_duration
+        effective_duration = duration_min if duration_min is not None else 30
         self._silent_until = time.time() + effective_duration * 60
 
         self._cancel_silent = async_call_later(
