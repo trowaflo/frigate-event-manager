@@ -221,44 +221,6 @@
       "silent_until": {
         "name": "Reprise des notifications"
       }
-    },
-    "select": {
-      "action_btn1": {
-        "name": "Bouton d'action 1",
-        "state": {
-          "none": "Aucun",
-          "clip": "Clip",
-          "snapshot": "Photo",
-          "preview": "Prévisualisation",
-          "silent_30min": "Silence 30 min",
-          "silent_1h": "Silence 1h",
-          "dismiss": "Ignorer"
-        }
-      },
-      "action_btn2": {
-        "name": "Bouton d'action 2",
-        "state": {
-          "none": "Aucun",
-          "clip": "Clip",
-          "snapshot": "Photo",
-          "preview": "Prévisualisation",
-          "silent_30min": "Silence 30 min",
-          "silent_1h": "Silence 1h",
-          "dismiss": "Ignorer"
-        }
-      },
-      "action_btn3": {
-        "name": "Bouton d'action 3",
-        "state": {
-          "none": "Aucun",
-          "clip": "Clip",
-          "snapshot": "Photo",
-          "preview": "Prévisualisation",
-          "silent_30min": "Silence 30 min",
-          "silent_1h": "Silence 1h",
-          "dismiss": "Ignorer"
-        }
-      }
     }
   }
 }

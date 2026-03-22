@@ -39,7 +39,7 @@ from .notifier import HANotifier
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "binary_sensor", "button", "sensor", "select"]
+PLATFORMS = ["switch", "binary_sensor", "button", "sensor"]
 
 type FEMConfigEntry = ConfigEntry[dict[str, FrigateEventManagerCoordinator]]
 
