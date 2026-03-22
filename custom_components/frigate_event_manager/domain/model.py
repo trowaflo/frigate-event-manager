@@ -47,6 +47,11 @@ class CameraState:
         }
 
 
+def _first_not_none(*values: list | None) -> list:
+    """Retourne le premier élément non-None parmi les candidats, ou []."""
+    return next((v for v in values if v is not None), [])
+
+
 def _to_float(value: Any, *, default: float | None) -> float | None:
     """Convertit une valeur en float de manière sécurisée."""
     if value is None:
@@ -83,9 +88,9 @@ def _parse_event(payload: str) -> FrigateEvent | None:
         type=event_type,
         camera=str(camera),
         severity=str(after.get("severity") or raw.get("severity") or "detection"),
-        objects=list(after.get("objects") or data.get("objects") or raw.get("objects") or []),
-        zones=list(after.get("current_zones") or data.get("zones") or raw.get("zones") or []),
-        detections=list(data.get("detections") or []),
+        objects=list(_first_not_none(after.get("objects"), data.get("objects"), raw.get("objects"))),
+        zones=list(_first_not_none(after.get("current_zones"), data.get("zones"), raw.get("zones"))),
+        detections=list(_first_not_none(data.get("detections"))),
         score=_to_float(
             after.get("score") if after.get("score") is not None
             else data.get("top_score") if data.get("top_score") is not None

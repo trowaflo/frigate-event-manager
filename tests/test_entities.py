@@ -186,7 +186,7 @@ class TestSilentStateSensor:
 
     def _build(self, cam_name: str = "jardin", silent_until: float = 0.0) -> SilentStateSensor:
         coordinator = _make_coordinator(cam_name)
-        coordinator._silent_until = silent_until
+        coordinator.silent_until = silent_until
         with patch(_NOOP, return_value=None):
             sensor = SilentStateSensor(coordinator, _SUBENTRY_ID)
         sensor.coordinator = coordinator
@@ -242,7 +242,7 @@ class TestSilentStateSensor:
         assert sensor.is_on is False
 
         # Simuler la mise à jour par le coordinator (comme async_set_updated_data ferait)
-        sensor.coordinator._silent_until = time.time() + 3600.0
+        sensor.coordinator.silent_until = time.time() + 3600.0
         assert sensor.is_on is True
 
 
@@ -256,7 +256,7 @@ class TestSilentUntilSensor:
 
     def _build(self, cam_name: str = "jardin", silent_until: float = 0.0) -> SilentUntilSensor:
         coordinator = _make_coordinator(cam_name)
-        coordinator._silent_until = silent_until
+        coordinator.silent_until = silent_until
         with patch(_NOOP, return_value=None):
             sensor = SilentUntilSensor(coordinator, _SUBENTRY_ID)
         sensor.coordinator = coordinator

@@ -99,4 +99,4 @@ class SilentStateSensor(
     @property
     def is_on(self) -> bool:
         """Retourne True si le mode silencieux est actif."""
-        return time.time() < self.coordinator._silent_until
+        return time.time() < self.coordinator.silent_until
