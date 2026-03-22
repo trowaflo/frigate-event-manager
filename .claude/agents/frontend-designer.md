@@ -12,7 +12,7 @@ Tu es le Frontend Designer du projet frigate-event-manager. Tu travailles exclus
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche assignée
+1. `.claude/tasks.md` — ta tâche assignée
 2. `.claude/agents/orchestrator.md` — règles de coordination (locks, FIFO, HITL)
 3. Fichiers existants dans `maquette/` — référence visuelle
 
@@ -58,7 +58,7 @@ Les maquettes reflètent l'état exposé par le coordinator MQTT-natif :
 
 ## HITL obligatoire
 
-Avant toute modification visible en production : preview humaine requise. Indiquer dans `docs/tasks.md` :
+Avant toute modification visible en production : preview humaine requise. Indiquer dans `.claude/tasks.md` :
 
 ```text
 Status: REVIEW_NEEDED

@@ -12,7 +12,7 @@ Tu es le SRE / Cloud Specialist du projet frigate-event-manager. Tu gères l'inf
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche assignée et les locks actifs
+1. `.claude/tasks.md` — ta tâche assignée et les locks actifs
 2. `.claude/agents/orchestrator.md` — règles de coordination (locks, FIFO, HITL)
 
 ## Ton scope strict
@@ -22,11 +22,11 @@ Tu es le SRE / Cloud Specialist du projet frigate-event-manager. Tu gères l'inf
 Taskfile.yml
 ```
 
-Ne jamais modifier `custom_components/`, `tests/`, `docs/` (sauf lock dans `docs/tasks.md`), `maquette/`.
+Ne jamais modifier `custom_components/`, `tests/`, `docs/` (sauf lock dans `.claude/tasks.md`), `maquette/`.
 
 ## Avant de modifier
 
-1. Vérifier aucun lock sur tes fichiers dans `docs/tasks.md`
+1. Vérifier aucun lock sur tes fichiers dans `.claude/tasks.md`
 2. Déclarer `[LOCK_REQUEST by T-XXX: .github/workflows/validation.yml | requested: <timestamp>]`
 3. Règle FIFO — si conflit → `WAITING_FOR_LOCK`
 

@@ -12,7 +12,7 @@ Tu es l'Orchestrator du projet frigate-event-manager. Tu es le seul agent autori
 
 ## Ton scope
 
-- **Écriture** : `docs/tasks.md` uniquement
+- **Écriture** : `.claude/tasks.md` uniquement
 - **Lecture** : tout le projet
 - **Actions git** : `git`, `gh` (PR, merge)
 
@@ -50,9 +50,9 @@ Les agents `.claude/agents/` sont des identités invocables via le tool `Agent` 
 ## Séquence d'orchestration
 
 1. **CCOF** si la demande est vague — reformule et valide avec l'humain avant de continuer
-2. **Lire** `docs/tasks.md` pour voir l'état actuel
+2. **Lire** `.claude/tasks.md` pour voir l'état actuel
 3. **Décomposer** en tâches atomiques (T-XXX) avec : owner, scope, dépendances, blocks
-4. **Écrire** les tâches dans `docs/tasks.md` section Blackboard Actif
+4. **Écrire** les tâches dans `.claude/tasks.md` section Blackboard Actif
 5. **Spawner** les agents en parallèle quand leurs scopes sont indépendants
 6. **Surveiller** les locks : TTL 10 minutes — FORCE_UNLOCK si dépassé
 7. **Arbitrer** conflits de lock (règle FIFO : premier timestamp gagne)
@@ -83,7 +83,7 @@ T-XXX+3 | [Feature] — simplification   → code-simplifier  (dépend T-XXX+1, 
 
 Pour les tâches frontend ou sre-cloud, remplacer python-architect par l'agent concerné. Le reviewer et quality-guard s'appliquent toujours.
 
-## Format Blackboard (docs/tasks.md)
+## Format Blackboard (.claude/tasks.md)
 
 ```text
 ### T-XXX | [Titre]

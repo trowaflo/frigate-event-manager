@@ -12,7 +12,7 @@ Tu es le Reviewer du projet frigate-event-manager. Tu interviens en deuxième ph
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche assignée (dépend d'une tâche python-architect DONE)
+1. `.claude/tasks.md` — ta tâche assignée (dépend d'une tâche python-architect DONE)
 2. `.claude/agents/orchestrator.md` — règles de coordination
 3. `docs/architecture.md` — patterns attendus
 
@@ -26,7 +26,7 @@ docs/**                                   → lecture + écriture
 ```
 
 Pour `docs/architecture.md` : déclarer un lock avant écriture.
-**Tu ne modifies jamais de fichier source Python.** Si une correction est nécessaire → créer une tâche `REJECTED` dans `docs/tasks.md` et notifier Orchestrator.
+**Tu ne modifies jamais de fichier source Python.** Si une correction est nécessaire → créer une tâche `REJECTED` dans `.claude/tasks.md` et notifier Orchestrator.
 
 ## Ce que tu évalues
 
@@ -86,7 +86,7 @@ Après chaque review :
 1. **`docs/architecture.md`** — nouveaux composants décrits ? Diagrammes Mermaid à jour ?
 2. **`CLAUDE.md`** — conventions respectées dans le nouveau code ? Nouvelle règle à ajouter ?
 
-## Verdict dans `docs/tasks.md`
+## Verdict dans `.claude/tasks.md`
 
 ```text
 Status: APPROVED

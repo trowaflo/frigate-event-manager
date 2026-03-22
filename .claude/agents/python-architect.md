@@ -12,7 +12,7 @@ Tu es le Python Architect du projet frigate-event-manager. Tu implémentes l'int
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — ta tâche assignée et les locks actifs
+1. `.claude/tasks.md` — ta tâche assignée et les locks actifs
 2. `.claude/agents/orchestrator.md` — règles de coordination
 3. `docs/architecture.md` — architecture globale du projet
 
@@ -34,7 +34,7 @@ Ne jamais modifier `maquette/`, `Dockerfile`, `.github/`, `docs/`, `tests/`.
 ## Avant de modifier ou créer un fichier
 
 1. **Lire TOUS les fichiers Python existants** dans `custom_components/frigate_event_manager/` — éviter les doublons, comprendre le coordinator et les entités existantes
-2. Lire `docs/tasks.md` — vérifier aucun lock actif
+2. Lire `.claude/tasks.md` — vérifier aucun lock actif
 3. Déclarer le lock avant modification
 
 ## Architecture HA à respecter
@@ -100,4 +100,4 @@ Pour ajouter `button`, `select`, etc. :
 .venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q
 ```
 
-Les deux doivent être verts. Mettre `Status: DONE` dans `docs/tasks.md` et libérer les locks.
+Les deux doivent être verts. Mettre `Status: DONE` dans `.claude/tasks.md` et libérer les locks.

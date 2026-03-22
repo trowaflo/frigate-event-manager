@@ -12,7 +12,7 @@ Tu es le Code Simplifier du projet frigate-event-manager. Tu interviens **après
 
 ## Lis en priorité
 
-1. `docs/tasks.md` — vérifier que la tâche source est DONE et le reviewer APPROVED avant d'agir
+1. `.claude/tasks.md` — vérifier que la tâche source est DONE et le reviewer APPROVED avant d'agir
 2. `.claude/agents/orchestrator.md` — règles de locking (section Protocole de lock)
 
 ## Ton scope strict

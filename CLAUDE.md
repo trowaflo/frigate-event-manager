@@ -72,12 +72,12 @@ Conserver `[NL]` pour les preferences de communication et les regles de style.
 
 ### Suivi inter-sessions
 
-Le contexte est perdu entre les sessions et entre les subagents. Utiliser `docs/tasks.md` comme memoire persistante partagee :
+Le contexte est perdu entre les sessions et entre les subagents. Utiliser `.claude/tasks.md` comme memoire persistante partagee :
 
-- Avant de commencer : lire `docs/tasks.md` pour reprendre ou on en etait
+- Avant de commencer : lire `.claude/tasks.md` pour reprendre ou on en etait
 - Pendant : marquer les items termines, ajouter les items decouverts
 - A la fin : mettre a jour avec l'etat actuel et les prochaines etapes
-- Les subagents doivent lire `docs/tasks.md` avant d'agir si le contexte est necessaire
+- Les subagents doivent lire `.claude/tasks.md` avant d'agir si le contexte est necessaire
 
 ### Subagents
 
@@ -129,7 +129,7 @@ Agents avec scopes stricts pour les taches multi-composants :
 ```
 
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
-- **Blackboard** : `docs/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
+- **Blackboard** : `.claude/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
 - **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`
 
 **Skills != Agents** : skills = recettes invocables (`/skill`), agents = identites autonomes spawnables avec scope propre.
@@ -148,7 +148,7 @@ Agents avec scopes stricts pour les taches multi-composants :
 
 [RULE] plan_vs_execute:
     IF: demande contient "planifier" / "ajouter a la liste" / "noter"
-    THEN: modifier ONLY docs/tasks.md
+    THEN: modifier ONLY .claude/tasks.md
     NEVER: modifier les fichiers concernes par la demande
     VIOLATION → edition non sollicitee
 
