@@ -1113,17 +1113,16 @@
 - Blocks: —
 - Notes: |
     Prérequis HACS (à valider avant soumission) :
-    - Repo public avec description
-    - Au moins une GitHub Release (Release Please s'en charge)
-    - `manifest.json` valide (domain, version, codeowners, iot_class, config_flow)
-    - Aucun secret dans l'historique (T-534)
+    Repo public avec description, GitHub Release (Release Please),
+    `manifest.json` valide (domain, version, codeowners, iot_class, config_flow),
+    aucun secret dans l'historique (T-534).
     Étapes :
     1. Créer `hacs.json` à la racine
     2. Vérifier conformité via HACS Action (workflow `hacs/action@main`)
     3. Passer le repo en public (terraform-github : `visibility = "public"`)
     4. Créer une première release via Release Please (merger la PR release v0.9.0)
     5. Ajouter le repo comme custom repository HACS pour valider en local
-    6. Soumission HACS default (optionnel) : PR sur https://github.com/hacs/default
+    6. Soumission HACS default (optionnel) : PR sur <https://github.com/hacs/default>
 
 ### T-540 | Audit conformité HA (findings Haiku)
 
