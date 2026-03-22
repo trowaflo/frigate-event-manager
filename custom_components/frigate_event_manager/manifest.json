@@ -1,7 +1,7 @@
 {
   "domain": "frigate_event_manager",
   "name": "Frigate Event Manager",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "codeowners": ["@trowaflo"],
   "config_flow": true,
   "dependencies": ["http", "mqtt"],
