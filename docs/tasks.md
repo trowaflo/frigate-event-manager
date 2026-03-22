@@ -732,18 +732,6 @@
     Option 3 générée pour prévisualisation uniquement : `images/logo_option3_preview.png`.
     Choix validé par l'utilisateur : Option 1 (caméra + éclair, fond bleu HA #18BCF2).
 
-<!--
-### T-XXX | [Titre]
-
-- Status: TODO
-- Owner: —
-- Scope: —
-- Locks: —
-- Depends: —
-- Blocks: —
-- Notes: —
--->
-
 ---
 
 ## UX v2 — Refonte entités + config flow
@@ -995,7 +983,7 @@
 
 ### T-534 | Audit secrets historique git
 
-- Status: TODO
+- Status: DONE
 - Owner: sre-cloud
 - Priority: P0
 - Scope: historique git complet
@@ -1003,47 +991,42 @@
 - Depends: —
 - Blocks: T-535, T-536, T-537, T-538, T-539
 - Notes: |
-    Objectif : garantir qu'aucune clé API, mot de passe, URL interne ou token
-    n'existe dans l'historique git avant de rendre le repo public.
-    Outils : `git-secrets` ou `trufflehog` pour scan, puis `git filter-repo`
-    (remplacement moderne de BFG Repo-Cleaner) pour réécrire l'historique si nécessaire.
-    Étapes :
-    1. Scanner l'historique : `trufflehog git file://. --since-commit HEAD~100`
-    2. Si secrets trouvés : `git filter-repo --path <fichier> --invert-paths`
-    3. Vérifier que les remotes sont à jour après réécriture
+    Audit trufflehog effectué le 2026-03-22 — 0 secrets trouvés dans l'historique git.
+    Commande : `trufflehog git file://. --since-commit HEAD~100`
+    Aucune réécriture d'historique nécessaire.
 
 ### T-535 | Gitleaks — vérifier déploiement sur le repo
 
-- Status: TODO
+- Status: DONE
 - Owner: sre-cloud
 - Priority: P0
-- Scope: `../terraform-github/` + `.gitleaks.toml` local si besoin
+- Scope: `../terraform-github/terraform/variables/trowaflo.tfvars`
 - Locks: —
 - Depends: T-534
 - Blocks: —
 - Notes: |
-    IaC : l'asset `.github/workflows/gitleaks.yml` existe déjà dans terraform-github/assets/.
-    Il est déployé automatiquement sur les repos avec `deploy_default_assets = true`.
-    Action : vérifier que `frigate-event-manager` a bien `deploy_default_assets = true`
-    dans les variables Terraform. Si des faux positifs → ajouter `.gitleaks.toml` local.
+    `deploy_default_assets = true` ajouté pour `frigate-event-manager` dans `trowaflo.tfvars`.
+    Branche `feat/security-analysis` dans terraform-github — commit 9468ffe.
 
 ### T-536 | Sanitize fichiers de configuration
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P1
-- Scope: racine du projet, `.env`, configs sensibles
+- Scope: racine du projet, `.gitignore`
 - Locks: —
 - Depends: T-534
 - Blocks: —
 - Notes: |
-    Vérifier qu'aucun `.env` ou fichier de config avec valeurs réelles n'est tracké.
-    Créer `.env.example` avec valeurs fictives si nécessaire.
-    Vérifier `.gitignore` couvre bien `.env`, `*.key`, `*.pem`.
+    `.gitignore` enrichi : `.env`, `*.key`, `*.pem`, `*.p12`, `*.pfx` ajoutés.
+    Aucun fichier sensible tracké dans git (vérifié via `git ls-files`).
+    Pas de `.env.example` nécessaire — pas de variables d'environnement runtime
+    (tout passe par le config flow HA).
+    Commit bb1a323 sur `feat/python-migration`.
 
 ### T-537 | GitHub Advanced Security + Dependabot
 
-- Status: TODO
+- Status: DONE
 - Owner: sre-cloud (IaC via terraform-github)
 - Priority: P1
 - Scope: `../terraform-github/terraform/repository.tf`
@@ -1051,15 +1034,14 @@
 - Depends: T-534
 - Blocks: —
 - Notes: |
-    IaC : `vulnerability_alerts = true` déjà présent → Dependabot alerts actif.
-    À ajouter dans `github_repository` : bloc `security_and_analysis` pour secret scanning.
-    Bloc hcl : `security_and_analysis { secret_scanning { status = "enabled" }
-    secret_scanning_push_protection { status = "enabled" } }`
-    NB : disponible uniquement si `visibility = "public"` (gratuit) ou GitHub Advanced Security payant.
+    Bloc `security_and_analysis` ajouté dans `github_repository` (dynamic, actif si `visibility = "public"`).
+    `secret_scanning` + `secret_scanning_push_protection` activés.
+    `vulnerability_alerts = true` déjà présent — Dependabot alerts actif.
+    Branche `feat/security-analysis` dans terraform-github — commit 9468ffe.
 
 ### T-538 | Branch protection rules
 
-- Status: IN_PROGRESS
+- Status: DONE
 - Owner: sre-cloud (IaC via terraform-github)
 - Priority: P1
 - Scope: `../terraform-github/terraform/repository.tf`
@@ -1067,40 +1049,31 @@
 - Depends: —
 - Blocks: —
 - Notes: |
-    IaC : `github_branch_protection` actif pour les repos publics. Déjà couvert :
-    linear history, no force push, no delete, conversation resolution.
-    DONE (session 2026-03-22) — `required_status_checks` configurés via variable par repo.
-      `contexts = ["python / test-python", "python / lint-python", "markdown / lint-markdown"]`
-      Reusable workflows dans `trowaflo/github-actions` (`ha-integration.yml`, `lint-markdown.yml`).
-      Branche `feat/fix-status-checks-names` dans terraform-github — en attente de merge.
-    TODO — Ajouter dans le bloc existant : `required_pull_request_reviews {
-      required_approving_review_count = 1 }`
+    `required_pull_request_reviews { required_approving_review_count = 1, dismiss_stale_reviews = true }`
+    ajouté dans `github_branch_protection`. 1 approbation requise — l'owner peut bypasser,
+    les contributions externes sont bloquées sans review.
     SKIP — Signed commits (`require_signed_commits`) : contraignant en solo, désactivé.
+    Branche `feat/security-analysis` dans terraform-github — commit 9468ffe.
 
 ### T-539 | Documentation essentielle
 
-- Status: TODO
-- Owner: python-architect + humain
+- Status: DONE
+- Owner: python-architect
 - Priority: P1
-- Scope: `README.md`, `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/`
+- Scope: `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`
 - Locks: —
 - Depends: —
 - Blocks: —
 - Notes: |
-    1. LICENSE — MIT recommandé (permissif, standard HACS). Créer `LICENSE` à la racine.
-       GitHub propose un template lors de la création ou via UI Add file.
-    2. README.md — à revoir pour publication publique :
-       - Titre + description 1-2 phrases
-       - Badges (build, license, release)
-       - Prérequis (HA, HACS, Frigate)
-       - Guide d'installation quickstart
-       - Exemples d'utilisation basiques
-    3. CONTRIBUTING.md — fork, setup local (.venv), tests (task test), commits conventionnels
-    4. CODE_OF_CONDUCT.md — Contributor Covenant (template standard, 10 lignes)
-    5. `.github/ISSUE_TEMPLATE/bug_report.md` — template rapport de bug
-    6. `.github/ISSUE_TEMPLATE/feature_request.md` — template demande de feature
-    7. `.github/pull_request_template.md` — checklist PR
-    8. CODEOWNERS — si tu veux garder la main sur les reviews (`* @trowaflo`)
+    README.md : non modifié — sera refait pour publication.
+    Créés sur `feat/python-migration` — commit d2d529d :
+    1. `LICENSE` — MIT 2026, auteur `trowaflo`
+    2. `CONTRIBUTING.md` — setup local (.venv), `task test`/`task lint`, commits conventionnels
+    3. `CODE_OF_CONDUCT.md` — Contributor Covenant adapté
+    4. `.github/ISSUE_TEMPLATE/bug_report.md` — template rapport de bug
+    5. `.github/ISSUE_TEMPLATE/feature_request.md` — template demande de feature
+    6. `.github/pull_request_template.md` — checklist PR
+    markdownlint 0 erreur.
 
 ### T-541 | Publication HACS
 
@@ -1126,7 +1099,7 @@
 
 ### T-540 | Audit conformité HA (findings Haiku)
 
-- Status: TODO
+- Status: DONE
 - Owner: python-architect
 - Priority: P2
 - Scope: `manifest.json`, `select.py`, `diagnostics.py` (nouveau optionnel)
@@ -1137,8 +1110,30 @@
     Findings de l'audit HA docs (2026-03-21) :
     DONE — `_attr_name` → `_attr_translation_key` sur `FrigateMotionSensor` et
       `FrigateNotificationSwitch` (commit 43dcb7c).
-    TODO — `manifest.json` : ajouter `quality_scale: "custom"` (valeur honnête
-      pour intégration non soumise au processus de review officiel HA).
+    DONE — `manifest.json` : `quality_scale: "custom"` ajouté en session précédente.
     SKIP — `diagnostics.py` / `repairs.py` : nice-to-have, pas bloquant pour HACS.
     SKIP — `SeverityFilterSelect._attr_translation_key` : dead code depuis T-533,
       pas instancié, pas bloquant.
+
+### T-542 | Refonte `frigate_client.py` — session HA partagée
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P1
+- Scope: `frigate_client.py`, `__init__.py`, `tests/test_frigate_client.py`
+- Locks: —
+- Depends: —
+- Blocks: —
+- Notes: |
+    Objectif : utiliser `async_get_clientsession(hass)` (session HTTP partagée HA)
+    au lieu de créer une nouvelle `aiohttp.ClientSession` par requête.
+    Changements attendus :
+    1. `FrigateClient.__init__` : ajouter paramètre `hass: HomeAssistant`
+    2. `_fetch_frigate_config` + `get_media` : utiliser `async_get_clientsession(hass)`
+       au lieu de `aiohttp.ClientSession(timeout=...)`. Le timeout reste injectable
+       via `aiohttp.ClientTimeout`.
+    3. `__init__.py` : passer `hass` lors de l'instanciation de `FrigateClient`
+    4. `tests/test_frigate_client.py` : adapter le mock — patcher
+       `homeassistant.helpers.aiohttp_client.async_get_clientsession` au lieu de
+       `aiohttp.ClientSession`.
+    Pipeline : T-542 → review + tests (parallèle) → simplification → commit.
