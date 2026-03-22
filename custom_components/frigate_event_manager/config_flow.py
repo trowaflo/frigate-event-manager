@@ -265,11 +265,11 @@ def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
         vol.Optional(
             CONF_NOTIF_TITLE,
             default=configure_data.get(CONF_NOTIF_TITLE) or "",
-        ): selector.TemplateSelector(),
+        ): selector.TextSelector(selector.TextSelectorConfig(multiline=False)),
         vol.Optional(
             CONF_NOTIF_MESSAGE,
             default=configure_data.get(CONF_NOTIF_MESSAGE) or "",
-        ): selector.TemplateSelector(),
+        ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
         vol.Optional(
             CONF_CRITICAL_TEMPLATE,
             default=preset_default,
@@ -282,7 +282,7 @@ def _build_notifications_schema(configure_data: dict[str, Any]) -> vol.Schema:
         vol.Optional(
             "critical_template_custom",
             default=custom_default,
-        ): selector.TemplateSelector(),
+        ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
         vol.Optional(
             CONF_CRITICAL_SOUND,
             default=configure_data.get(CONF_CRITICAL_SOUND, DEFAULT_CRITICAL_SOUND),
