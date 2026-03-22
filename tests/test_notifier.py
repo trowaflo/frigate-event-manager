@@ -1,4 +1,4 @@
-"""Tests du HANotifier — notifications pour les événements Frigate."""
+"""Tests for HANotifier — notifications for Frigate events."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _make_event(**kwargs) -> FrigateEvent:
 
 
 def _register_mock_services(hass: HomeAssistant) -> list[ServiceCall]:
-    """Enregistre des handlers mock pour tous les services de notification."""
+    """Register mock handlers for all notification services."""
     calls: list[ServiceCall] = []
 
     async def _handler(call: ServiceCall) -> None:
@@ -36,12 +36,12 @@ def _register_mock_services(hass: HomeAssistant) -> list[ServiceCall]:
 
 
 # ---------------------------------------------------------------------------
-# Tests de base — routing des services
+# Basic tests — service routing
 # ---------------------------------------------------------------------------
 
 
 async def test_persistent_notification_appelle_bon_service(hass: HomeAssistant) -> None:
-    """persistent_notification → appelle persistent_notification.create."""
+    """persistent_notification → calls persistent_notification.create."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event())
@@ -52,7 +52,7 @@ async def test_persistent_notification_appelle_bon_service(hass: HomeAssistant) 
 
 
 async def test_notify_service_appelle_notify_xxx(hass: HomeAssistant) -> None:
-    """notify.mobile_app_iphone → appelle notify.mobile_app_iphone."""
+    """notify.mobile_app_iphone → calls notify.mobile_app_iphone."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event())
@@ -63,7 +63,7 @@ async def test_notify_service_appelle_notify_xxx(hass: HomeAssistant) -> None:
 
 
 async def test_target_invalide_ne_crashe_pas(hass: HomeAssistant) -> None:
-    """Un notify_target sans '.' ne crashe pas et n'appelle aucun service."""
+    """A notify_target without '.' does not crash and calls no service."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "invalid_target")
     await notifier.async_notify(_make_event())
@@ -71,12 +71,12 @@ async def test_target_invalide_ne_crashe_pas(hass: HomeAssistant) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests templates par défaut
+# Default template tests
 # ---------------------------------------------------------------------------
 
 
 async def test_message_contient_camera_et_objets(hass: HomeAssistant) -> None:
-    """Le titre inclut la caméra, le message inclut les objets."""
+    """The title includes the camera name, the message includes the objects."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event(camera="garage", objects=["car"]))
@@ -87,7 +87,7 @@ async def test_message_contient_camera_et_objets(hass: HomeAssistant) -> None:
 
 
 async def test_objects_vide_affiche_inconnu(hass: HomeAssistant) -> None:
-    """Liste d'objets vide → affiche 'objet inconnu' dans le message."""
+    """Empty object list → displays 'objet inconnu' in the message."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event(objects=[]))
@@ -96,7 +96,7 @@ async def test_objects_vide_affiche_inconnu(hass: HomeAssistant) -> None:
 
 
 async def test_html_escape_sur_camera(hass: HomeAssistant) -> None:
-    """Les champs dynamiques sont échappés (protection injection XSS)."""
+    """Dynamic fields are escaped (XSS injection protection)."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event(camera="<script>alert(1)</script>"))
@@ -107,7 +107,7 @@ async def test_html_escape_sur_camera(hass: HomeAssistant) -> None:
 
 
 async def test_persistent_notification_id_inclut_camera_et_review(hass: HomeAssistant) -> None:
-    """notification_id inclut la caméra et le review_id."""
+    """notification_id includes the camera name and review_id."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event(camera="jardin", review_id="xyz789"))
@@ -118,12 +118,12 @@ async def test_persistent_notification_id_inclut_camera_et_review(hass: HomeAssi
 
 
 # ---------------------------------------------------------------------------
-# Tests templates custom
+# Custom template tests
 # ---------------------------------------------------------------------------
 
 
 async def test_template_titre_custom(hass: HomeAssistant) -> None:
-    """Un titre template custom est rendu avec les variables de l'événement."""
+    """A custom title template is rendered with event variables."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -136,7 +136,7 @@ async def test_template_titre_custom(hass: HomeAssistant) -> None:
 
 
 async def test_template_message_custom_avec_liste(hass: HomeAssistant) -> None:
-    """Le message custom peut utiliser le filtre join sur la liste objects."""
+    """The custom message can use the join filter on the objects list."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -151,7 +151,7 @@ async def test_template_message_custom_avec_liste(hass: HomeAssistant) -> None:
 
 
 async def test_template_score_disponible(hass: HomeAssistant) -> None:
-    """La variable score est accessible dans le template."""
+    """The score variable is accessible in the template."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -164,7 +164,7 @@ async def test_template_score_disponible(hass: HomeAssistant) -> None:
 
 
 async def test_template_invalide_fallback_brut(hass: HomeAssistant) -> None:
-    """Un template invalide ne crashe pas — retourne le template brut."""
+    """An invalid template does not crash — returns the raw template."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -176,7 +176,7 @@ async def test_template_invalide_fallback_brut(hass: HomeAssistant) -> None:
 
 
 async def test_template_vide_utilise_defaut(hass: HomeAssistant) -> None:
-    """Templates None → comportement par défaut (titre et message standard)."""
+    """Templates None → default behavior (standard title and message)."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION, title_tpl=None, message_tpl=None)
     await notifier.async_notify(_make_event(camera="cour", objects=["dog"]))
@@ -187,12 +187,12 @@ async def test_template_vide_utilise_defaut(hass: HomeAssistant) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests feature 3 — group companion_data
+# Feature 3 tests — group companion_data
 # ---------------------------------------------------------------------------
 
 
 async def test_companion_data_contient_group(hass: HomeAssistant) -> None:
-    """companion_data contient 'group' avec le nom de la caméra."""
+    """companion_data contains 'group' with the camera name."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event(camera="jardin"))
@@ -203,7 +203,7 @@ async def test_companion_data_contient_group(hass: HomeAssistant) -> None:
 
 
 async def test_companion_data_group_escape_camera(hass: HomeAssistant) -> None:
-    """Le nom de caméra dans 'group' est HTML-escaped."""
+    """The camera name in 'group' is HTML-escaped."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event(camera="<cam>"))
@@ -214,12 +214,12 @@ async def test_companion_data_group_escape_camera(hass: HomeAssistant) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests feature 7 — fix persistent_notification
+# Feature 7 tests — fix persistent_notification
 # ---------------------------------------------------------------------------
 
 
 async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) -> None:
-    """persistent_notification n'ajoute pas image/url/clickAction/actions."""
+    """persistent_notification does not add image/url/clickAction/actions."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -229,7 +229,7 @@ async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) 
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
 
-    # persistent_notification.create reçoit seulement title/message/notification_id
+    # persistent_notification.create only receives title/message/notification_id
     data = calls[0].data
     assert "image" not in data
     assert "url" not in data
@@ -238,7 +238,7 @@ async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) 
 
 
 async def test_persistent_notification_liens_markdown_dans_message(hass: HomeAssistant) -> None:
-    """persistent_notification ajoute des liens markdown dans le message si URLs disponibles."""
+    """With signer, persistent_notification inserts markdown links in the message if URLs available."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -253,10 +253,10 @@ async def test_persistent_notification_liens_markdown_dans_message(hass: HomeAss
 
 
 async def test_persistent_notification_sans_urls_pas_de_liens(hass: HomeAssistant) -> None:
-    """persistent_notification sans URLs disponibles → pas de section liens."""
+    """persistent_notification without available URLs → no links section."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
-    event = _make_event(review_id="")  # pas de review_id → pas d'URLs
+    event = _make_event(review_id="")  # no review_id → no URLs
     await notifier.async_notify(event)
 
     message = calls[0].data["message"]
@@ -265,7 +265,7 @@ async def test_persistent_notification_sans_urls_pas_de_liens(hass: HomeAssistan
 
 
 async def test_companion_pas_persistent_notification_contient_tag(hass: HomeAssistant) -> None:
-    """Pour un target Companion, companion_data contient tag."""
+    """For a Companion target, companion_data contains tag."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event(camera="entree", review_id="abc"))
@@ -277,12 +277,12 @@ async def test_companion_pas_persistent_notification_contient_tag(hass: HomeAssi
 
 
 # ---------------------------------------------------------------------------
-# Tests feature companion — image, tap URL, actions
+# Companion feature tests — image, tap URL, actions
 # ---------------------------------------------------------------------------
 
 
 async def test_companion_image_si_snapshot_url_disponible(hass: HomeAssistant) -> None:
-    """companion_data contient 'image' quand snapshot_url est disponible."""
+    """companion_data contains 'image' when snapshot_url is available."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -298,7 +298,7 @@ async def test_companion_image_si_snapshot_url_disponible(hass: HomeAssistant) -
 
 
 async def test_companion_url_ios_et_clickaction_android(hass: HomeAssistant) -> None:
-    """companion_data contient 'url' (iOS) et 'clickAction' (Android) si tap_url disponible."""
+    """companion_data contains 'url' (iOS) and 'clickAction' (Android) if tap_url available."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -314,7 +314,7 @@ async def test_companion_url_ios_et_clickaction_android(hass: HomeAssistant) -> 
 
 
 async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
-    """Sans boutons configurés, affiche uniquement le bouton silence."""
+    """Without configured buttons, only the silence button is displayed."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(
         hass,
@@ -333,10 +333,10 @@ async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
 
 
 async def test_companion_pas_de_actions_sans_urls(hass: HomeAssistant) -> None:
-    """Sans URLs médias et sans boutons configurés, affiche le bouton silence."""
+    """Without media URLs and without configured buttons, the silence button is displayed."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
-    event = _make_event(review_id="")  # pas de review_id → pas d'URLs
+    event = _make_event(review_id="")  # no review_id → no URLs
     await notifier.async_notify(event)
 
     data = calls[0].data["data"]
@@ -346,7 +346,7 @@ async def test_companion_pas_de_actions_sans_urls(hass: HomeAssistant) -> None:
 
 
 async def test_companion_tap_action_snapshot(hass: HomeAssistant) -> None:
-    """Avec tap_action='snapshot', 'url' pointe vers snapshot_url."""
+    """With tap_action='snapshot', 'url' points to snapshot_url."""
     from custom_components.frigate_event_manager.const import TAP_ACTION_SNAPSHOT
     calls = _register_mock_services(hass)
     notifier = HANotifier(
@@ -363,7 +363,7 @@ async def test_companion_tap_action_snapshot(hass: HomeAssistant) -> None:
 
 
 async def test_companion_tap_action_preview(hass: HomeAssistant) -> None:
-    """Avec tap_action='preview', 'url' pointe vers preview_url."""
+    """With tap_action='preview', 'url' points to preview_url."""
     from custom_components.frigate_event_manager.const import TAP_ACTION_PREVIEW
     calls = _register_mock_services(hass)
     notifier = HANotifier(
@@ -380,12 +380,12 @@ async def test_companion_tap_action_preview(hass: HomeAssistant) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests feature signer — presigned URLs
+# Signer feature tests — presigned URLs
 # ---------------------------------------------------------------------------
 
 
 async def test_build_media_urls_avec_signer(hass: HomeAssistant) -> None:
-    """Avec un signer, les URLs sont presignées."""
+    """With a signer, URLs are presigned."""
     from unittest.mock import MagicMock
 
     calls = _register_mock_services(hass)
@@ -402,14 +402,14 @@ async def test_build_media_urls_avec_signer(hass: HomeAssistant) -> None:
     await notifier.async_notify(event)
 
     data = calls[0].data["data"]
-    # Le signer a été appelé → les URLs contiennent "signed"
+    # The signer was called → URLs contain "signed"
     assert signer.sign_url.called
     if "image" in data:
         assert "signed" in data["image"]
 
 
 async def test_build_media_urls_sans_review_id_retourne_vide(hass: HomeAssistant) -> None:
-    """Sans review_id, toutes les URLs médias sont vides."""
+    """Without review_id, all media URLs are empty."""
     from unittest.mock import MagicMock
 
     _register_mock_services(hass)
@@ -420,12 +420,12 @@ async def test_build_media_urls_sans_review_id_retourne_vide(hass: HomeAssistant
     event = _make_event(review_id="")
     await notifier.async_notify(event)
 
-    # Signer non appelé si pas de review_id
+    # Signer not called if no review_id
     signer.sign_url.assert_not_called()
 
 
 async def test_persistent_notification_avec_signer_liens_markdown(hass: HomeAssistant) -> None:
-    """Avec signer, persistent_notification insère les liens presignés dans le message."""
+    """With signer, persistent_notification inserts presigned links in the message."""
     from unittest.mock import MagicMock
 
     calls = _register_mock_services(hass)
@@ -442,12 +442,12 @@ async def test_persistent_notification_avec_signer_liens_markdown(hass: HomeAssi
 
 
 # ---------------------------------------------------------------------------
-# Tests notification critique (critical=True)
+# Critical notification tests (critical=True)
 # ---------------------------------------------------------------------------
 
 
 async def test_critical_true_ajoute_push_sound_et_channel(hass: HomeAssistant) -> None:
-    """critical=True → companion_data contient push.sound.critical=1 et channel."""
+    """critical=True → companion_data contains push.sound.critical=1 and channel."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event(), critical=True)
@@ -458,7 +458,7 @@ async def test_critical_true_ajoute_push_sound_et_channel(hass: HomeAssistant) -
 
 
 async def test_critical_false_pas_de_push_sound(hass: HomeAssistant) -> None:
-    """critical=False (défaut) → pas de push.sound ni channel dans companion_data."""
+    """critical=False (default) → no push.sound or channel in companion_data."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.mobile_app_iphone")
     await notifier.async_notify(_make_event(), critical=False)
@@ -469,18 +469,18 @@ async def test_critical_false_pas_de_push_sound(hass: HomeAssistant) -> None:
 
 
 async def test_critical_true_persistent_notification_pas_de_push(hass: HomeAssistant) -> None:
-    """critical=True avec persistent_notification → pas de push (non applicable)."""
+    """critical=True with persistent_notification → no push (not applicable)."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, PERSISTENT_NOTIFICATION)
     await notifier.async_notify(_make_event(), critical=True)
 
-    # persistent_notification.create ne reçoit pas de champ "push"
+    # persistent_notification.create does not receive a "push" field
     assert calls[0].domain == "persistent_notification"
     assert "push" not in calls[0].data
 
 
 # ---------------------------------------------------------------------------
-# Tests boutons d'action notification (T-532)
+# Notification action button tests (T-532)
 # ---------------------------------------------------------------------------
 
 
@@ -498,14 +498,14 @@ _EMPTY_URLS: dict = {k: "" for k in _MEDIA_URLS}
 
 
 async def test_action_btns_tous_none_retourne_none(hass: HomeAssistant) -> None:
-    """Par défaut (tous 'none'), _build_actions_from_btns retourne None → auto-génération."""
+    """By default (all 'none'), _build_actions_from_btns returns None → auto-generation."""
     notifier = _make_notifier(hass)
     result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
     assert result is None
 
 
 async def test_action_btns_clip_construit_action_uri(hass: HomeAssistant) -> None:
-    """btn1=clip → action URI avec l'URL clip."""
+    """btn1=clip → URI action with the clip URL."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("clip", "none", "none")
     result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
@@ -517,7 +517,7 @@ async def test_action_btns_clip_construit_action_uri(hass: HomeAssistant) -> Non
 
 
 async def test_action_btns_snapshot_construit_action_uri(hass: HomeAssistant) -> None:
-    """btn1=snapshot → action URI avec l'URL snapshot."""
+    """btn1=snapshot → URI action with the snapshot URL."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("snapshot", "none", "none")
     result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
@@ -526,7 +526,7 @@ async def test_action_btns_snapshot_construit_action_uri(hass: HomeAssistant) ->
 
 
 async def test_action_btns_preview_construit_action_uri(hass: HomeAssistant) -> None:
-    """btn1=preview → action URI avec l'URL preview."""
+    """btn1=preview → URI action with the preview URL."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("preview", "none", "none")
     result = notifier._build_actions_from_btns(_MEDIA_URLS, "jardin")
@@ -568,16 +568,16 @@ async def test_action_btns_dismiss_construit_action_dismiss(hass: HomeAssistant)
 
 
 async def test_action_btns_clip_sans_url_omis(hass: HomeAssistant) -> None:
-    """btn1=clip mais URL vide → le bouton est omis de la liste."""
+    """btn1=clip but empty URL → the button is omitted from the list."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("clip", "none", "none")
     result = notifier._build_actions_from_btns(_EMPTY_URLS, "jardin")
     assert result is not None
-    assert len(result) == 0  # clip sans URL → omis
+    assert len(result) == 0  # clip without URL → omitted
 
 
 async def test_action_btns_trois_boutons_differents(hass: HomeAssistant) -> None:
-    """3 boutons configurés → 3 actions construites."""
+    """3 configured buttons → 3 actions built."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("silent_30min", "dismiss", "silent_1h")
     result = notifier._build_actions_from_btns(_EMPTY_URLS, "entree")
@@ -589,12 +589,12 @@ async def test_action_btns_trois_boutons_differents(hass: HomeAssistant) -> None
 
 
 async def test_action_btns_configures_utilisees_dans_notification(hass: HomeAssistant) -> None:
-    """Avec _action_btns configurés, async_notify utilise les actions configurées."""
+    """With configured _action_btns, async_notify uses the configured actions."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.test_service")
     notifier.set_action_buttons("silent_30min", "dismiss", "none")
 
-    await notifier.async_notify(_make_event(review_id=""))  # pas d'URLs médias
+    await notifier.async_notify(_make_event(review_id=""))  # no media URLs
 
     data = calls[0].data["data"]
     assert "actions" in data
@@ -603,7 +603,7 @@ async def test_action_btns_configures_utilisees_dans_notification(hass: HomeAssi
 
 
 async def test_action_btns_tous_none_affiche_silence(hass: HomeAssistant) -> None:
-    """Avec tous les boutons à 'none', affiche uniquement le bouton silence."""
+    """With all buttons set to 'none', only the silence button is displayed."""
     calls = _register_mock_services(hass)
     notifier = HANotifier(hass, "notify.test_service", frigate_url="http://frigate:5000")
     await notifier.async_notify(_make_event(review_id="", camera="jardin"))
@@ -614,26 +614,26 @@ async def test_action_btns_tous_none_affiche_silence(hass: HomeAssistant) -> Non
 
 
 async def test_set_action_buttons_met_a_jour_action_btns(hass: HomeAssistant) -> None:
-    """set_action_buttons met à jour _action_btns."""
+    """set_action_buttons updates _action_btns."""
     notifier = _make_notifier(hass)
     notifier.set_action_buttons("clip", "silent_30min", "dismiss")
     assert notifier._action_btns == ["clip", "silent_30min", "dismiss"]
 
 
 # ---------------------------------------------------------------------------
-# Tests setters live (T-532c)
+# Live setters tests (T-532c)
 # ---------------------------------------------------------------------------
 
 
 def test_set_title_template_met_a_jour_template(hass: HomeAssistant) -> None:
-    """set_title_template met à jour _title_tpl."""
+    """set_title_template updates _title_tpl."""
     notifier = _make_notifier(hass)
     notifier.set_title_template("Nouvelle alerte {{ camera }}")
     assert notifier._title_tpl == "Nouvelle alerte {{ camera }}"
 
 
 def test_set_title_template_none_restaure_defaut(hass: HomeAssistant) -> None:
-    """set_title_template(None) restaure le template par défaut."""
+    """set_title_template(None) restores the default template."""
     from custom_components.frigate_event_manager.const import DEFAULT_NOTIF_TITLE
 
     notifier = _make_notifier(hass)
@@ -642,14 +642,14 @@ def test_set_title_template_none_restaure_defaut(hass: HomeAssistant) -> None:
 
 
 def test_set_message_template_met_a_jour_template(hass: HomeAssistant) -> None:
-    """set_message_template met à jour _message_tpl."""
+    """set_message_template updates _message_tpl."""
     notifier = _make_notifier(hass)
     notifier.set_message_template("Objet: {{ label }}")
     assert notifier._message_tpl == "Objet: {{ label }}"
 
 
 def test_set_message_template_none_restaure_defaut(hass: HomeAssistant) -> None:
-    """set_message_template(None) restaure le message par défaut."""
+    """set_message_template(None) restores the default message."""
     from custom_components.frigate_event_manager.const import DEFAULT_NOTIF_MESSAGE
 
     notifier = _make_notifier(hass)
@@ -658,14 +658,14 @@ def test_set_message_template_none_restaure_defaut(hass: HomeAssistant) -> None:
 
 
 def test_set_tap_action_met_a_jour_tap_action(hass: HomeAssistant) -> None:
-    """set_tap_action met à jour _tap_action."""
+    """set_tap_action updates _tap_action."""
     notifier = _make_notifier(hass)
     notifier.set_tap_action("snapshot")
     assert notifier._tap_action == "snapshot"
 
 
 def test_set_tap_action_clip(hass: HomeAssistant) -> None:
-    """set_tap_action('clip') est correctement stocké."""
+    """set_tap_action('clip') is correctly stored."""
     notifier = _make_notifier(hass)
     notifier.set_tap_action("clip")
     assert notifier._tap_action == "clip"

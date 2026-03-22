@@ -1,4 +1,4 @@
-"""Tests de __init__.py — async_migrate_entry, async_setup_entry, async_unload_entry."""
+"""Tests for __init__.py — async_migrate_entry, async_setup_entry, async_unload_entry."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def _make_entry(
     data: dict | None = None,
     subentries: dict | None = None,
 ) -> MagicMock:
-    """Crée un ConfigEntry mock."""
+    """Create a mock ConfigEntry."""
     entry = MagicMock()
     entry.version = version
     entry.minor_version = minor_version
@@ -41,7 +41,7 @@ def _make_entry(
 
 
 def _make_subentry(cam_name: str = "jardin") -> MagicMock:
-    """Crée une subentry mock pour une caméra."""
+    """Create a mock subentry for a camera."""
     subentry = MagicMock()
     subentry.subentry_id = f"sub_{cam_name}"
     subentry.subentry_type = SUBENTRY_TYPE_CAMERA
@@ -61,7 +61,7 @@ class TestAsyncMigrateEntry:
     async def test_migration_v2_supprime_notify_target(
         self, hass: HomeAssistant
     ) -> None:
-        """Migration v2→v3 supprime notify_target de entry.data."""
+        """Migration v2→v3 removes notify_target from entry.data."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(
@@ -69,7 +69,7 @@ class TestAsyncMigrateEntry:
             data={CONF_URL: VALID_URL, CONF_NOTIFY_TARGET: "notify.mobile"},
         )
 
-        # Patcher async_update_entry pour intercepter l'appel
+        # Patch async_update_entry to intercept the call
         with patch.object(hass.config_entries, "async_update_entry") as mock_update:
             result = await async_migrate_entry(hass, entry)
 
@@ -81,7 +81,7 @@ class TestAsyncMigrateEntry:
         assert call_kwargs.get("minor_version") == 1
 
     async def test_migration_v2_conserve_url(self, hass: HomeAssistant) -> None:
-        """Migration v2→v3 conserve les autres données (url, username...)."""
+        """Migration v2→v3 preserves other data (url, username...)."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(
@@ -102,7 +102,7 @@ class TestAsyncMigrateEntry:
         assert new_data.get("username") == "admin"
 
     async def test_migration_v3_migre_vers_v4(self, hass: HomeAssistant) -> None:
-        """Une entry en v3 migre vers v4 (entités de réglage) sans transformation de données."""
+        """A v3 entry migrates to v4 (tuning entities) without data transformation."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=3)
@@ -117,7 +117,7 @@ class TestAsyncMigrateEntry:
         assert call_kwargs.get("minor_version") == 1
 
     async def test_migration_v2_sans_notify_target(self, hass: HomeAssistant) -> None:
-        """Migration v2 sans notify_target existant — pas d'erreur."""
+        """Migration v2 without existing notify_target — no error."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=2, data={CONF_URL: VALID_URL})
@@ -128,7 +128,7 @@ class TestAsyncMigrateEntry:
         assert result is True
 
     async def test_migration_v4_migre_vers_v5(self, hass: HomeAssistant) -> None:
-        """Une entry en v4 migre vers v5 (config flow multi-écrans) sans transformation de données."""
+        """A v4 entry migrates to v5 (multi-screen config flow) without data transformation."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=4)
@@ -145,7 +145,7 @@ class TestAsyncMigrateEntry:
     async def test_migration_v5_retourne_true_sans_modification(
         self, hass: HomeAssistant
     ) -> None:
-        """Une entry déjà en v5 retourne True sans appeler async_update_entry."""
+        """A v5 entry returns True without calling async_update_entry."""
         from custom_components.frigate_event_manager import async_migrate_entry
 
         entry = _make_entry(version=5)
@@ -172,7 +172,7 @@ class TestAsyncSetupEntry:
     async def test_mqtt_non_disponible_leve_configentrynotready(
         self, hass: HomeAssistant
     ) -> None:
-        """Si MQTT non disponible, ConfigEntryNotReady est levée."""
+        """If MQTT is not available, ConfigEntryNotReady is raised."""
         from homeassistant.exceptions import ConfigEntryNotReady
         from custom_components.frigate_event_manager import async_setup_entry
 
@@ -185,11 +185,11 @@ class TestAsyncSetupEntry:
     async def test_setup_sans_subentries_cree_zero_coordinator(
         self, hass: HomeAssistant
     ) -> None:
-        """Sans subentries → aucun coordinator créé."""
+        """Without subentries → no coordinator created."""
         from custom_components.frigate_event_manager import async_setup_entry
 
         entry = _make_entry(subentries={})
-        # Pas de URL interne/externe → pas de signer
+        # No internal/external URL → no signer
         hass.config.external_url = None
         hass.config.internal_url = None
 
@@ -208,7 +208,7 @@ class TestAsyncSetupEntry:
     async def test_setup_avec_subentry_camera_cree_coordinator(
         self, hass: HomeAssistant
     ) -> None:
-        """Une subentry caméra → un coordinator créé et démarré."""
+        """A camera subentry → one coordinator created and started."""
         from custom_components.frigate_event_manager import async_setup_entry
 
         subentry = _make_subentry("jardin")
@@ -234,7 +234,7 @@ class TestAsyncSetupEntry:
         mock_coordinator.async_start.assert_called_once()
 
     async def test_setup_cree_proxy_client(self, hass: HomeAssistant) -> None:
-        """async_setup_entry enregistre un FrigateClient dans hass.data[PROXY_CLIENT_KEY]."""
+        """async_setup_entry registers a FrigateClient in hass.data[PROXY_CLIENT_KEY]."""
         from custom_components.frigate_event_manager import async_setup_entry
 
         entry = _make_entry(subentries={})
@@ -255,15 +255,15 @@ class TestAsyncSetupEntry:
     async def test_setup_cree_signer_si_url_externe(
         self, hass: HomeAssistant
     ) -> None:
-        """Si URL externe HA est configurée → signer créé dans hass.data."""
+        """If HA external URL is configured → signer created in hass.data."""
         from custom_components.frigate_event_manager import async_setup_entry
 
         entry = _make_entry(subentries={})
         hass.config.external_url = "https://mon-ha.duckdns.org"
         hass.config.internal_url = None
-        # Nettoyer le signer potentiellement déjà présent
+        # Clean up any signer already present
         hass.data.pop(SIGNER_DOMAIN_KEY, None)
-        # hass.http peut être None en tests — patch pour éviter register_view
+        # hass.http may be None in tests — patch to avoid register_view
         mock_http = MagicMock()
         hass.http = mock_http
 
@@ -282,7 +282,7 @@ class TestAsyncSetupEntry:
     async def test_setup_sans_url_externe_log_warning(
         self, hass: HomeAssistant
     ) -> None:
-        """Sans URL HA → warning loggé, signer absent."""
+        """Without HA URL → warning logged, signer absent."""
         from custom_components.frigate_event_manager import async_setup_entry
 
         entry = _make_entry(subentries={})
@@ -311,7 +311,7 @@ class TestAsyncUnloadEntry:
     async def test_unload_appelle_async_stop_sur_coordinators(
         self, hass: HomeAssistant
     ) -> None:
-        """async_unload_entry appelle async_stop sur chaque coordinator."""
+        """async_unload_entry calls async_stop on each coordinator."""
         from custom_components.frigate_event_manager import async_unload_entry
 
         coordinator1 = AsyncMock()
@@ -332,11 +332,11 @@ class TestAsyncUnloadEntry:
     async def test_unload_sans_runtime_data_ne_crash_pas(
         self, hass: HomeAssistant
     ) -> None:
-        """async_unload_entry sans runtime_data ne lève pas d'exception."""
+        """async_unload_entry without runtime_data does not raise an exception."""
         from custom_components.frigate_event_manager import async_unload_entry
 
         entry = _make_entry()
-        # Pas de runtime_data → getattr retourne {}
+        # No runtime_data → getattr returns {}
         del entry.runtime_data
 
         with patch(
