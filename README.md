@@ -1,10 +1,15 @@
 # Frigate Event Manager
 
+[![Release](https://img.shields.io/github/v/release/trowaflo/frigate-event-manager)](https://github.com/trowaflo/frigate-event-manager/releases)
+[![Build](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml/badge.svg)](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml)
+[![Coverage](https://codecov.io/gh/trowaflo/frigate-event-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/trowaflo/frigate-event-manager)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Home Assistant integration that listens to [Frigate NVR](https://frigate.video) events via MQTT,
 applies configurable filters, and sends rich notifications to the HA Companion app.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=trowaflo&repository=frigate-event-manager&category=integration)
 
 ## Features
 
@@ -26,7 +31,7 @@ applies configurable filters, and sends rich notifications to the HA Companion a
 
 ### Via HACS (recommended)
 
-1. Open HACS → Integrations → ⋮ → Custom repositories
+1. Click the button above, or open HACS → Integrations → ⋮ → Custom repositories
 2. Add `https://github.com/trowaflo/frigate-event-manager` — type **Integration**
 3. Install **Frigate Event Manager**
 4. Restart Home Assistant
@@ -95,16 +100,6 @@ Up to 3 action buttons can be configured per camera:
 | `dismiss` | Dismisses the notification |
 
 When all buttons are set to `none`, a default **Silence 30 min** button is added automatically.
-
-## Architecture
-
-Hexagonal architecture — domain logic has zero HA dependency.
-Diagrams and component details → [`docs/architecture.md`](docs/architecture.md)
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-Issues and pull requests welcome — please use the provided templates.
 
 ## License
 
