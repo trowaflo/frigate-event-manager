@@ -1,4 +1,5 @@
 {
   "name": "Frigate Event Manager",
-  "type": "integration"
+  "homeassistant": "2024.1.0",
+  "hacs": "2.0.0"
 }
