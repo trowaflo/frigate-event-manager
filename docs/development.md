@@ -2,20 +2,20 @@
 
 ## Config entry versioning
 
-### Quand bumper la version ?
+### When to bump the version
 
-La version (`VERSION` dans `config_flow.py`) doit être incrémentée uniquement quand la **structure des données stockées** change.
+The version (`VERSION` in `config_flow.py`) must be incremented only when the **stored data structure** changes.
 
-| Changement | Migration nécessaire |
+| Change | Migration required |
 | --- | --- |
-| Ajout d'un champ dans le config flow | ✅ Oui |
-| Suppression d'un champ | ✅ Oui |
-| Renommage d'un champ | ✅ Oui |
-| Modification de code (logique, entités, filtres) | ❌ Non |
+| Adding a field to the config flow | ✅ Yes |
+| Removing a field | ✅ Yes |
+| Renaming a field | ✅ Yes |
+| Code changes (logic, entities, filters) | ❌ No |
 
-### Comment écrire une migration
+### How to write a migration
 
-Dans `__init__.py`, ajouter un bloc dans `async_migrate_entry` :
+In `__init__.py`, add a block in `async_migrate_entry`:
 
 ```python
 if entry.version == N:
@@ -25,43 +25,43 @@ if entry.version == N:
     return True
 ```
 
-Ne pas oublier de bumper `VERSION = N+1` dans `FrigateEventManagerConfigFlow`.
+Also bump `VERSION = N+1` in `FrigateEventManagerConfigFlow`.
 
-### Éviter la migration avec `.get()`
+### Avoiding migration with `.get()`
 
-Pour un **ajout de champ optionnel**, utiliser `entry.data.get("field", DEFAULT)` au lieu de `entry.data["field"]` rend la migration facultative — les configs existantes reçoivent la valeur par défaut à la volée sans migration.
+For an **optional new field**, using `entry.data.get("field", DEFAULT)` instead of `entry.data["field"]` makes migration optional — existing configs receive the default value on the fly without a migration block.
 
-### Historique
+### History
 
-| Version | Changement |
+| Version | Change |
 | --- | --- |
-| v2 → v3 | Suppression `notify_target` global (déplacé dans subentry) |
-| v3 → v4 | Paramètres de tuning dans `subentry.data` |
-| v4 → v5 | Ajout templates de notification (`notif_title`, `notif_message`, `critical_template`) |
-| v5 → v6 | Suppression `silent_duration` (durée silence hardcodée à 30 min) |
-| v6 → v7 | Ajout `media_ttl` (expiration URLs signées, défaut 3600s) |
+| v2 → v3 | Removed global `notify_target` (moved to subentry) |
+| v3 → v4 | Tuning parameters moved to `subentry.data` |
+| v4 → v5 | Added notification templates (`notif_title`, `notif_message`, `critical_template`) |
+| v5 → v6 | Removed `silent_duration` (silence duration hardcoded to 30 min) |
+| v6 → v7 | Added `media_ttl` (signed URL expiry, default 3600s) |
 
 ---
 
 ## Presigned media URLs
 
-Les URLs de médias dans les notifications sont signées avec HMAC-SHA256 par HA lui-même (pas par Frigate).
+Media URLs in notifications are signed with HMAC-SHA256 by HA itself (not by Frigate).
 
-- Clé de signature : éphémère, 32 octets aléatoires, jamais persistée
-- Rotation automatique toutes les 24h (`DEFAULT_MEDIA_ROTATION`) sans redémarrage
-- TTL configurable dans le config flow (défaut 1h, min 5 min, max 24h)
-- Format URL : `?exp=<timestamp>&kid=<slot>&sig=<hmac>`
-- `kid` = identifiant du slot de clé (permet de vérifier avec la bonne clé après rotation)
-- Max 2 clés en mémoire : slot courant + slot précédent (fenêtre de transition)
+- Signing key: ephemeral, 32 random bytes, never persisted
+- Automatic rotation every 24h (`DEFAULT_MEDIA_ROTATION`) without restart
+- TTL configurable in the config flow (default 1h, min 5 min, max 24h)
+- URL format: `?exp=<timestamp>&kid=<slot>&sig=<hmac>`
+- `kid` = key slot ID (identifies which key to use for verification after rotation)
+- Max 2 keys in memory: current slot + previous slot (transition window)
 
-Script de démonstration interactif : `scripts/demo_signer.py`
+Interactive demo script: `scripts/demo_signer.py`
 
 ---
 
-## Déploiement local
+## Local deployment
 
 ```bash
-task deploy   # SSH → copie custom_components/ + restart HA
+task deploy   # SSH → copy custom_components/ + restart HA
 task test     # pytest + coverage ≥80%
 task lint     # ruff + markdownlint
 ```
