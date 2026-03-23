@@ -22,6 +22,8 @@ jobs:
     if: github.event_name == 'pull_request'
     uses: trowaflo/github-actions/.github/workflows/lint-markdown.yml@main
 
-  kics:
-    if: github.event_name == 'pull_request'
-    uses: trowaflo/github-actions/.github/workflows/kics.yml@main
+  # kics temporarily disabled — supply chain attack on checkmarx/kics-github-action (2026-03-23)
+  # Re-enable once Checkmarx confirms the action is safe and the SHA is verified
+  # kics:
+  #   if: github.event_name == 'pull_request'
+  #   uses: trowaflo/github-actions/.github/workflows/kics.yml@main

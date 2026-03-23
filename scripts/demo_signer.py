@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import time
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, ".")
 from custom_components.frigate_event_manager.domain.signer import MediaSigner
@@ -34,7 +35,6 @@ signer = MediaSigner("https://ha.example.com/api/frigate_em/media", ttl=ttl, _no
 path = "/api/events/abc123/snapshot.jpg"
 url = signer.sign_url(path)
 
-from urllib.parse import parse_qs, urlparse
 params = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
 
 print(f"\n  Generated URL:\n  {url}\n")
