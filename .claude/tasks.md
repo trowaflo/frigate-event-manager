@@ -68,6 +68,26 @@
     `docs/architecture.md`.
     Exception : `translations/fr.json` reste en français (traduction UI HA).
 
+### T-544 | Redirect HA sur URL signée expirée
+
+- Status: TODO
+- Owner: python-architect
+- Priority: P2
+- Scope: `media_proxy.py`, `tests/test_media_proxy.py`
+- Locks: —
+- Depends: —
+- Blocks: —
+- Notes: |
+    Actuellement le proxy retourne 401 pour toute vérification échouée (signature
+    invalide OU expiration). Distinguer les deux cas :
+  - Signature invalide / `kid` inconnu → 401 (sécurité, ne pas rediriger)
+  - URL expirée (`now > exp`, mais signature valide) → 302 redirect vers
+    `hass.config.external_url or hass.config.internal_url` (racine HA)
+    Logique dans `media_proxy.py` : vérifier l'expiration avant le HMAC,
+    ou ajouter une méthode `is_expired(exp_str)` sur le signer.
+    Aucune modification du config flow, aucun couplage à une vue spécifique.
+    Ajouter test : `test_proxy_url_expiree_retourne_302_redirect`.
+
 ---
 
 <!--
