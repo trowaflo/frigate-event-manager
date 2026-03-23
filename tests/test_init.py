@@ -8,8 +8,10 @@ import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.const import (
+    CONF_MEDIA_TTL,
     CONF_NOTIFY_TARGET,
     CONF_URL,
+    DEFAULT_MEDIA_TTL,
     PERSISTENT_NOTIFICATION,
     PROXY_CLIENT_KEY,
     SIGNER_DOMAIN_KEY,
@@ -160,6 +162,25 @@ class TestAsyncMigrateEntry:
         mock_update_entry.assert_called_once()
         call_kwargs = mock_update_entry.call_args
         assert call_kwargs.kwargs.get("version") == 6
+
+    async def test_migration_v6_vers_v7_ajoute_media_ttl(
+        self, hass: HomeAssistant
+    ) -> None:
+        """v6 → v7 migration adds media_ttl with the default value."""
+        from custom_components.frigate_event_manager import async_migrate_entry
+
+        entry = _make_entry(version=6)
+
+        with patch.object(
+            hass.config_entries, "async_update_entry"
+        ) as mock_update_entry:
+            result = await async_migrate_entry(hass, entry)
+
+        assert result is True
+        mock_update_entry.assert_called_once()
+        call_kwargs = mock_update_entry.call_args
+        assert call_kwargs.kwargs.get("version") == 7
+        assert call_kwargs.kwargs["data"][CONF_MEDIA_TTL] == DEFAULT_MEDIA_TTL
 
 
 # ---------------------------------------------------------------------------
@@ -351,3 +372,25 @@ class TestAsyncUnloadEntry:
             result = await async_unload_entry(hass, entry)
 
         assert result is True
+
+
+# ---------------------------------------------------------------------------
+# Tests _async_reload_entry
+# ---------------------------------------------------------------------------
+
+
+class TestAsyncReloadEntry:
+    async def test_reload_entry_appelle_async_reload(
+        self, hass: HomeAssistant
+    ) -> None:
+        """_async_reload_entry triggers async_reload on the entry."""
+        from custom_components.frigate_event_manager import _async_reload_entry
+
+        entry = _make_entry()
+
+        with patch.object(
+            hass.config_entries, "async_reload", new_callable=AsyncMock
+        ) as mock_reload:
+            await _async_reload_entry(hass, entry)
+
+        mock_reload.assert_called_once_with(entry.entry_id)
