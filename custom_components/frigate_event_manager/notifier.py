@@ -65,7 +65,6 @@ class HANotifier:
         title_tpl: str | None = None,
         message_tpl: str | None = None,
         signer: MediaSignerPort | None = None,
-        frigate_url: str | None = None,
         tap_action: str = DEFAULT_TAP_ACTION,
         critical_sound: str = DEFAULT_CRITICAL_SOUND,
         critical_volume: float = DEFAULT_CRITICAL_VOLUME,
@@ -76,7 +75,6 @@ class HANotifier:
         self._title_tpl = title_tpl or DEFAULT_NOTIF_TITLE
         self._message_tpl = message_tpl or DEFAULT_NOTIF_MESSAGE
         self._signer = signer
-        self._frigate_url = frigate_url.rstrip("/") if frigate_url else None
         self._tap_action = tap_action
         self._critical_sound = critical_sound
         self._critical_volume = critical_volume
@@ -138,14 +136,6 @@ class HANotifier:
                 snapshot_url = self._signer.sign_url(f"/api/events/{det_id}/snapshot.jpg")
                 clip_url = self._signer.sign_url(f"/api/events/{det_id}/clip.mp4")
                 thumbnail_url = self._signer.sign_url(f"/api/events/{det_id}/thumbnail.jpg")
-        elif self._frigate_url:
-            base = self._frigate_url
-            preview_url = f"{base}/api/review/{event.review_id}/preview"
-            if event.detections:
-                det_id = event.detections[0]
-                snapshot_url = f"{base}/api/events/{det_id}/snapshot.jpg"
-                clip_url = f"{base}/api/events/{det_id}/clip.mp4"
-                thumbnail_url = f"{base}/api/events/{det_id}/thumbnail.jpg"
 
         return {
             "preview_url": preview_url,

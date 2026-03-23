@@ -1,10 +1,18 @@
-# Frigate Event Manager
+<!-- markdownlint-disable first-line-heading MD033 -->
+
+<img src="https://raw.githubusercontent.com/trowaflo/frigate-event-manager/main/icon.png"
+     alt="Frigate Event Manager icon"
+     width="20%"
+     align="right"
+     style="float: right; margin: 10px 0px 20px 20px;" />
 
 [![Release](https://img.shields.io/github/v/release/trowaflo/frigate-event-manager)](https://github.com/trowaflo/frigate-event-manager/releases)
 [![Build](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml/badge.svg)](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml)
 [![Coverage](https://codecov.io/gh/trowaflo/frigate-event-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/trowaflo/frigate-event-manager)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/trowaflo/frigate-event-manager/blob/main/LICENSE)
+
+# Frigate Event Manager
 
 Home Assistant integration that listens to [Frigate NVR](https://frigate.video) events via MQTT,
 applies configurable filters, and sends rich notifications to the HA Companion app.
@@ -22,7 +30,7 @@ applies configurable filters, and sends rich notifications to the HA Companion a
 
 ## Prerequisites
 
-- Home Assistant 2024.1+
+- Home Assistant 2024.11+
 - [Frigate NVR](https://frigate.video) with MQTT enabled
 - MQTT broker integrated in Home Assistant (`Settings > Devices & Services > MQTT`)
 - [HA Companion app](https://companion.home-assistant.io/) for mobile notifications (optional — `persistent_notification` is also supported)
@@ -100,6 +108,38 @@ Up to 3 action buttons can be configured per camera:
 | `dismiss` | Dismisses the notification |
 
 When all buttons are set to `none`, a default **Silence 30 min** button is added automatically.
+
+## Media URLs (presigned proxy)
+
+Notification media links (snapshot, clip, preview) are served through **HA's own HTTP server**, not directly from Frigate.
+
+### How it works
+
+When the integration starts, HA generates an ephemeral HMAC-SHA256 signing key (32 random bytes, in memory only, never stored). The key **rotates automatically every 24 hours** — no restart needed. Each media URL contains a slot ID (`kid`) so the correct key is used for verification:
+
+```text
+https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timestamp>&kid=<slot>&sig=<hmac>
+```
+
+When the mobile app opens the link, HA verifies the signature and expiry, then proxies the request to Frigate internally. **Your mobile app never needs direct access to Frigate.**
+
+URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h).
+
+### Prerequisite
+
+HA's URL must be configured in **Settings → System → Network**. The integration uses the external URL first, then the internal URL as a fallback.
+
+- **External URL set** → works from anywhere
+- **Internal URL only** → works only on your home network
+- **Neither set** → presigned URLs are disabled entirely and no media links are included in notifications
+
+### Why not use Frigate's native proxy?
+
+The official Frigate HA integration links directly to Frigate URLs. This integration signs URLs through HA instead, so:
+
+- Only HA needs to be reachable from outside (standard setup for remote push notifications)
+- Frigate can stay fully isolated on your local network
+- No Frigate credentials are exposed in notification payloads
 
 ## License
 
