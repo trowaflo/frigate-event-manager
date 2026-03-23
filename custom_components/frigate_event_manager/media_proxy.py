@@ -33,10 +33,11 @@ class FrigateMediaProxyView(HomeAssistantView):
             return web.Response(status=503, text="service unavailable")
 
         exp_str = request.query.get("exp", "")
+        kid_str = request.query.get("kid", "")
         sig = request.query.get("sig", "")
         full_path = f"/{path}"
 
-        if not signer.verify(full_path, exp_str, sig):
+        if not signer.verify(full_path, exp_str, kid_str, sig):
             _LOGGER.warning("invalid or expired presigned URL — path=%s", full_path)
             return web.Response(status=401, text="unauthorized")
 

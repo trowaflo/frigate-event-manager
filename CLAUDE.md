@@ -243,7 +243,7 @@ MQTT Broker → FrigateEventManagerCoordinator → FilterChain → Throttler →
 
 ## Conventions
 
-- Code, commentaires, logs en **francais** (prevu anglais pour publication)
+- Code, commentaires, logs en **anglais**
 - Filtres : liste vide = tout accepter
 - Nouvelles cameras activees par defaut (plug & play)
 - Tests : pytest + `AsyncMock` — `MagicMock()` sans `spec=HomeAssistant`

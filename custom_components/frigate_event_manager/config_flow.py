@@ -30,6 +30,7 @@ from .const import (
     CONF_DEBOUNCE,
     CONF_DISABLED_HOURS,
     CONF_LABELS,
+    CONF_MEDIA_TTL,
     CONF_NOTIF_MESSAGE,
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
@@ -43,6 +44,7 @@ from .const import (
     DEFAULT_CRITICAL_SOUND,
     DEFAULT_CRITICAL_VOLUME,
     DEFAULT_DEBOUNCE,
+    DEFAULT_MEDIA_TTL,
     DEFAULT_SEVERITY,
     DEFAULT_TAP_ACTION,
     DEFAULT_THROTTLE_COOLDOWN,
@@ -355,7 +357,7 @@ def _critical_template_to_preset(tpl: str | None) -> str:
 class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config flow — 1 step: Frigate connection."""
 
-    VERSION = 6
+    VERSION = 7
     MINOR_VERSION = 1
 
     def __init__(self) -> None:
@@ -401,6 +403,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_URL: user_input[CONF_URL],
                         CONF_USERNAME: user_input.get(CONF_USERNAME) or None,
                         CONF_PASSWORD: user_input.get(CONF_PASSWORD) or None,
+                        CONF_MEDIA_TTL: int(user_input.get(CONF_MEDIA_TTL, DEFAULT_MEDIA_TTL)),
                     },
                 )
 
@@ -410,6 +413,15 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_URL, default=frigate.get("url", "")): str,
                 vol.Optional(CONF_USERNAME, default=frigate.get("username") or ""): str,
                 vol.Optional(CONF_PASSWORD, default=frigate.get("password") or ""): str,
+                vol.Optional(CONF_MEDIA_TTL, default=DEFAULT_MEDIA_TTL): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=300,
+                        max=86400,
+                        step=300,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
             }),
             errors=errors,
         )
@@ -440,6 +452,7 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_URL: user_input[CONF_URL],
                         CONF_USERNAME: user_input.get(CONF_USERNAME) or None,
                         CONF_PASSWORD: user_input.get(CONF_PASSWORD) or None,
+                        CONF_MEDIA_TTL: int(user_input.get(CONF_MEDIA_TTL, DEFAULT_MEDIA_TTL)),
                     },
                 )
 
@@ -453,6 +466,18 @@ class FrigateEventManagerConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_PASSWORD, default=entry.data.get(CONF_PASSWORD) or ""
                 ): str,
+                vol.Optional(
+                    CONF_MEDIA_TTL,
+                    default=entry.data.get(CONF_MEDIA_TTL, DEFAULT_MEDIA_TTL),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=300,
+                        max=86400,
+                        step=300,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
             }),
             errors=errors,
         )

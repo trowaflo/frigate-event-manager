@@ -7,7 +7,11 @@
         "data": {
           "url": "URL Frigate",
           "username": "Nom d'utilisateur (optionnel)",
-          "password": "Mot de passe (optionnel)"
+          "password": "Mot de passe (optionnel)",
+          "media_ttl": "Expiration des liens médias"
+        },
+        "data_description": {
+          "media_ttl": "Durée (secondes) avant qu'un lien média de notification expire. La clé de signature est renouvelée toutes les 24h indépendamment de cette valeur."
         }
       },
       "reconfigure": {
@@ -15,7 +19,11 @@
         "data": {
           "url": "URL Frigate",
           "username": "Nom d'utilisateur (optionnel)",
-          "password": "Mot de passe (optionnel)"
+          "password": "Mot de passe (optionnel)",
+          "media_ttl": "Expiration des liens médias"
+        },
+        "data_description": {
+          "media_ttl": "Durée (secondes) avant qu'un lien média de notification expire. La clé de signature est renouvelée toutes les 24h indépendamment de cette valeur."
         }
       }
     },
