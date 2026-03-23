@@ -1,10 +1,18 @@
-# Frigate Event Manager
+<!-- markdownlint-disable first-line-heading MD033 -->
+
+<img src="https://raw.githubusercontent.com/trowaflo/frigate-event-manager/main/icon.png"
+     alt="Frigate Event Manager icon"
+     width="20%"
+     align="right"
+     style="float: right; margin: 10px 0px 20px 20px;" />
 
 [![Release](https://img.shields.io/github/v/release/trowaflo/frigate-event-manager)](https://github.com/trowaflo/frigate-event-manager/releases)
 [![Build](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml/badge.svg)](https://github.com/trowaflo/frigate-event-manager/actions/workflows/validation.yml)
 [![Coverage](https://codecov.io/gh/trowaflo/frigate-event-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/trowaflo/frigate-event-manager)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/trowaflo/frigate-event-manager/blob/main/LICENSE)
+
+# Frigate Event Manager
 
 Home Assistant integration that listens to [Frigate NVR](https://frigate.video) events via MQTT,
 applies configurable filters, and sends rich notifications to the HA Companion app.
