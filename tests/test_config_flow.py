@@ -1104,10 +1104,10 @@ async def test_subentry_cree_camera_severity_defaut(hass: HomeAssistant) -> None
 
 
 async def test_subentry_critical_template_preset_nuit(hass: HomeAssistant) -> None:
-    """CONF_CRITICAL_TEMPLATE with night preset → stored in subentry.data."""
+    """CONF_CRITICAL_TEMPLATE with night preset → Jinja2 template stored in subentry.data."""
     entry_id = await _create_entry(hass)
 
-    night_preset = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
+    night_jinja = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
 
     with (
         patch(PATCH_CLIENT, return_value=_mock_client(CAMERAS_LIST)),
@@ -1123,10 +1123,10 @@ async def test_subentry_critical_template_preset_nuit(hass: HomeAssistant) -> No
             r["flow_id"],
             user_input={CONF_CAMERA: "entree"},
         )
-        r_final = await _complete_subentry_flow(hass, r2["flow_id"], critical_template=night_preset)
+        r_final = await _complete_subentry_flow(hass, r2["flow_id"], critical_template="night_only")
 
     assert r_final["type"] == FlowResultType.CREATE_ENTRY
-    assert r_final["data"][CONF_CRITICAL_TEMPLATE] == night_preset
+    assert r_final["data"][CONF_CRITICAL_TEMPLATE] == night_jinja
 
 
 async def test_subentry_critical_template_custom(hass: HomeAssistant) -> None:
@@ -1264,10 +1264,9 @@ async def test_subentry_reconfigure_critical_template_custom(hass: HomeAssistant
 
 
 async def test_subentry_reconfigure_critical_template_preset_nuit(hass: HomeAssistant) -> None:
-    """Reconfigure with night preset → night template stored (else branch)."""
+    """Reconfigure with night_only UI key → Jinja2 template stored."""
     entry_id = await _create_entry(hass)
     subentry_id = await _create_subentry(hass, entry_id)
-    night_preset = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
 
     with (
         patch(PATCH_NOTIFY, return_value=[PERSISTENT_NOTIFICATION]),
@@ -1282,7 +1281,7 @@ async def test_subentry_reconfigure_critical_template_preset_nuit(hass: HomeAssi
             },
         )
         r_final = await _complete_reconfigure_flow(
-            hass, r3["flow_id"], critical_template=night_preset
+            hass, r3["flow_id"], critical_template="night_only"
         )
 
     assert r_final["type"] == FlowResultType.ABORT
@@ -1290,11 +1289,11 @@ async def test_subentry_reconfigure_critical_template_preset_nuit(hass: HomeAssi
 
 
 async def test_critical_template_to_preset_retourne_tpl_si_preset_connu() -> None:
-    """_critical_template_to_preset returns the template itself if it is a known preset."""
+    """_critical_template_to_preset maps night Jinja2 template → 'night_only' UI key."""
     from custom_components.frigate_event_manager.config_flow import (
         _critical_template_to_preset,
     )
 
-    night_preset = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
-    assert _critical_template_to_preset(night_preset) == night_preset
+    night_jinja = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
+    assert _critical_template_to_preset(night_jinja) == "night_only"
     assert _critical_template_to_preset("true") == "true"

@@ -9,6 +9,14 @@
           "username": "Nom d'utilisateur (optionnel)",
           "password": "Mot de passe (optionnel)"
         }
+      },
+      "reconfigure": {
+        "title": "Modifier la connexion Frigate",
+        "data": {
+          "url": "URL Frigate",
+          "username": "Nom d'utilisateur (optionnel)",
+          "password": "Mot de passe (optionnel)"
+        }
       }
     },
     "error": {
@@ -171,28 +179,9 @@
       "options": {
         "false": "Jamais critique",
         "true": "Toujours critique",
-        "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Nuit uniquement (22h–8h)",
+        "night_only": "Nuit uniquement (22h–8h)",
         "custom": "Template personnalisé..."
       }
-    }
-  },
-  "reconfigure": {
-    "step": {
-      "reconfigure": {
-        "title": "Modifier la connexion Frigate",
-        "data": {
-          "url": "URL Frigate",
-          "username": "Nom d'utilisateur (optionnel)",
-          "password": "Mot de passe (optionnel)"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Impossible de se connecter à Frigate. Vérifiez l'URL.",
-      "invalid_auth": "Identifiants incorrects. Vérifiez le nom d'utilisateur et le mot de passe."
-    },
-    "abort": {
-      "reconfigure_successful": "Configuration mise à jour avec succès."
     }
   },
   "entity": {

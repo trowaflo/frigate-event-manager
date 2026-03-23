@@ -59,7 +59,8 @@ _HOUR_OPTIONS = [str(h) for h in range(24)]
 # Options for critical_template — predefined presets + custom
 _CRITICAL_TEMPLATE_NEVER = "false"
 _CRITICAL_TEMPLATE_ALWAYS = "true"
-_CRITICAL_TEMPLATE_NIGHT_ONLY = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
+_CRITICAL_TEMPLATE_NIGHT_ONLY = "night_only"
+_CRITICAL_TEMPLATE_NIGHT_ONLY_JINJA = "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}"
 _CRITICAL_TEMPLATE_CUSTOM = "custom"
 
 CRITICAL_TEMPLATE_PRESET_OPTIONS = [
@@ -68,6 +69,14 @@ CRITICAL_TEMPLATE_PRESET_OPTIONS = [
     _CRITICAL_TEMPLATE_NIGHT_ONLY,
     _CRITICAL_TEMPLATE_CUSTOM,
 ]
+
+# Mapping: stored Jinja2 value ↔ UI preset key
+_CRITICAL_TEMPLATE_VALUE_TO_PRESET: dict[str, str] = {
+    _CRITICAL_TEMPLATE_NIGHT_ONLY_JINJA: _CRITICAL_TEMPLATE_NIGHT_ONLY,
+}
+_CRITICAL_TEMPLATE_PRESET_TO_VALUE: dict[str, str] = {
+    _CRITICAL_TEMPLATE_NIGHT_ONLY: _CRITICAL_TEMPLATE_NIGHT_ONLY_JINJA,
+}
 
 
 def _parse_csv_str(value: str) -> list[str]:
@@ -296,7 +305,7 @@ def _resolve_critical_template(user_input: dict[str, Any]) -> str | None:
         return (user_input.get("critical_template_custom") or "").strip() or None
     if preset == _CRITICAL_TEMPLATE_NEVER:
         return None
-    return preset
+    return _CRITICAL_TEMPLATE_PRESET_TO_VALUE.get(preset, preset)
 
 
 def _detect_frigate_config(hass: object) -> dict[str, str | None]:
@@ -336,6 +345,8 @@ def _critical_template_to_preset(tpl: str | None) -> str:
     """Convert a stored template to a preset option (or 'custom')."""
     if not tpl:
         return _CRITICAL_TEMPLATE_NEVER
+    if tpl in _CRITICAL_TEMPLATE_VALUE_TO_PRESET:
+        return _CRITICAL_TEMPLATE_VALUE_TO_PRESET[tpl]
     if tpl in CRITICAL_TEMPLATE_PRESET_OPTIONS:
         return tpl
     return _CRITICAL_TEMPLATE_CUSTOM

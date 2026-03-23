@@ -9,6 +9,14 @@
           "username": "Username (optional)",
           "password": "Password (optional)"
         }
+      },
+      "reconfigure": {
+        "title": "Edit Frigate connection",
+        "data": {
+          "url": "Frigate URL",
+          "username": "Username (optional)",
+          "password": "Password (optional)"
+        }
       }
     },
     "error": {
@@ -171,28 +179,9 @@
       "options": {
         "false": "Never critical",
         "true": "Always critical",
-        "{{'false' if now().hour in [8,9,10,11,12,13,14,15,16,17,18] else 'true'}}": "Night only (10pm–8am)",
+        "night_only": "Night only (10pm–8am)",
         "custom": "Custom template..."
       }
-    }
-  },
-  "reconfigure": {
-    "step": {
-      "reconfigure": {
-        "title": "Edit Frigate connection",
-        "data": {
-          "url": "Frigate URL",
-          "username": "Username (optional)",
-          "password": "Password (optional)"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "Cannot connect to Frigate. Check the URL.",
-      "invalid_auth": "Invalid credentials. Check your username and password."
-    },
-    "abort": {
-      "reconfigure_successful": "Configuration updated successfully."
     }
   },
   "entity": {
