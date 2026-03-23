@@ -21,7 +21,7 @@ applies configurable filters, and sends rich notifications to the HA Companion a
 
 ## Prerequisites
 
-- Home Assistant 2024.1+
+- Home Assistant 2024.11+
 - [Frigate NVR](https://frigate.video) with MQTT enabled
 - MQTT broker integrated in Home Assistant (`Settings > Devices & Services > MQTT`)
 - [HA Companion app](https://companion.home-assistant.io/) for mobile notifications (optional — `persistent_notification` is also supported)
