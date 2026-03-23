@@ -224,7 +224,6 @@ async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) 
     notifier = HANotifier(
         hass,
         PERSISTENT_NOTIFICATION,
-        frigate_url="http://frigate.local",
     )
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
@@ -239,11 +238,14 @@ async def test_persistent_notification_pas_de_image_ni_url(hass: HomeAssistant) 
 
 async def test_persistent_notification_liens_markdown_dans_message(hass: HomeAssistant) -> None:
     """With signer, persistent_notification inserts markdown links in the message if URLs available."""
+    from unittest.mock import MagicMock
     calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://ha.local{path}")
     notifier = HANotifier(
         hass,
         PERSISTENT_NOTIFICATION,
-        frigate_url="http://frigate.local",
+        signer=signer,
     )
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
@@ -283,11 +285,14 @@ async def test_companion_pas_persistent_notification_contient_tag(hass: HomeAssi
 
 async def test_companion_image_si_snapshot_url_disponible(hass: HomeAssistant) -> None:
     """companion_data contains 'image' when snapshot_url is available."""
+    from unittest.mock import MagicMock
     calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://ha.local{path}")
     notifier = HANotifier(
         hass,
         "notify.mobile_app_iphone",
-        frigate_url="http://frigate.local",
+        signer=signer,
     )
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
@@ -299,11 +304,14 @@ async def test_companion_image_si_snapshot_url_disponible(hass: HomeAssistant) -
 
 async def test_companion_url_ios_et_clickaction_android(hass: HomeAssistant) -> None:
     """companion_data contains 'url' (iOS) and 'clickAction' (Android) if tap_url available."""
+    from unittest.mock import MagicMock
     calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://ha.local{path}")
     notifier = HANotifier(
         hass,
         "notify.mobile_app_iphone",
-        frigate_url="http://frigate.local",
+        signer=signer,
     )
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
@@ -319,7 +327,6 @@ async def test_companion_actions_boutons_uri(hass: HomeAssistant) -> None:
     notifier = HANotifier(
         hass,
         "notify.mobile_app_iphone",
-        frigate_url="http://frigate.local",
     )
     event = _make_event(review_id="rev1", detections=["det1"])
     await notifier.async_notify(event)
@@ -347,12 +354,15 @@ async def test_companion_pas_de_actions_sans_urls(hass: HomeAssistant) -> None:
 
 async def test_companion_tap_action_snapshot(hass: HomeAssistant) -> None:
     """With tap_action='snapshot', 'url' points to snapshot_url."""
+    from unittest.mock import MagicMock
     from custom_components.frigate_event_manager.const import TAP_ACTION_SNAPSHOT
     calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://ha.local{path}")
     notifier = HANotifier(
         hass,
         "notify.mobile_app_iphone",
-        frigate_url="http://frigate.local",
+        signer=signer,
         tap_action=TAP_ACTION_SNAPSHOT,
     )
     event = _make_event(review_id="rev1", detections=["det1"])
@@ -364,12 +374,15 @@ async def test_companion_tap_action_snapshot(hass: HomeAssistant) -> None:
 
 async def test_companion_tap_action_preview(hass: HomeAssistant) -> None:
     """With tap_action='preview', 'url' points to preview_url."""
+    from unittest.mock import MagicMock
     from custom_components.frigate_event_manager.const import TAP_ACTION_PREVIEW
     calls = _register_mock_services(hass)
+    signer = MagicMock()
+    signer.sign_url = MagicMock(side_effect=lambda path: f"https://ha.local{path}")
     notifier = HANotifier(
         hass,
         "notify.mobile_app_iphone",
-        frigate_url="http://frigate.local",
+        signer=signer,
         tap_action=TAP_ACTION_PREVIEW,
     )
     event = _make_event(review_id="rev1", detections=["det1"])
@@ -485,7 +498,7 @@ async def test_critical_true_persistent_notification_pas_de_push(hass: HomeAssis
 
 
 def _make_notifier(hass: HomeAssistant, target: str = "notify.test_service") -> HANotifier:
-    return HANotifier(hass, target, frigate_url="http://frigate:5000")
+    return HANotifier(hass, target)
 
 
 _MEDIA_URLS = {
@@ -605,7 +618,7 @@ async def test_action_btns_configures_utilisees_dans_notification(hass: HomeAssi
 async def test_action_btns_tous_none_affiche_silence(hass: HomeAssistant) -> None:
     """With all buttons set to 'none', only the silence button is displayed."""
     calls = _register_mock_services(hass)
-    notifier = HANotifier(hass, "notify.test_service", frigate_url="http://frigate:5000")
+    notifier = HANotifier(hass, "notify.test_service")
     await notifier.async_notify(_make_event(review_id="", camera="jardin"))
     data = calls[0].data["data"]
     assert len(data["actions"]) == 1
