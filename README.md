@@ -101,6 +101,37 @@ Up to 3 action buttons can be configured per camera:
 
 When all buttons are set to `none`, a default **Silence 30 min** button is added automatically.
 
+## Media URLs (presigned proxy)
+
+Notification media links (snapshot, clip, preview) are served through **HA's own HTTP server**, not directly from Frigate.
+
+### How it works
+
+When the integration starts, HA generates an ephemeral HMAC-SHA256 secret key (32 random bytes, in memory only, never stored, regenerated at every HA restart). Each media URL is signed with this key and points to HA:
+
+```text
+https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timestamp>&sig=<hmac>
+```
+
+When the mobile app opens the link, HA verifies the signature and expiry, then proxies the request to Frigate internally. **Your mobile app never needs direct access to Frigate.**
+
+Signed URLs expire after **1 hour**.
+
+### Prerequisite
+
+HA's external URL must be configured: **Settings → System → Network → Home Assistant URL (external)**.
+If not set, the integration falls back to direct Frigate URLs — which requires the mobile app to reach Frigate directly (e.g. on the same local network or via a VPN).
+
+> **Security note (fallback mode):** direct Frigate URLs are based on event IDs (UUIDs). They are not easily discoverable, but they are not cryptographically protected — anyone who intercepts a notification payload could reconstruct other event URLs by guessing adjacent IDs. Presigned URLs eliminate this risk: each URL includes an HMAC signature that cannot be forged or enumerated without the secret key.
+
+### Why not use Frigate's native proxy?
+
+The official Frigate HA integration links directly to Frigate URLs. This integration signs URLs through HA instead, so:
+
+- Only HA needs to be reachable from outside (standard setup for remote push notifications)
+- Frigate can stay fully isolated on your local network
+- No Frigate credentials are exposed in notification payloads
+
 ## License
 
 [MIT](LICENSE) — © 2026 trowaflo

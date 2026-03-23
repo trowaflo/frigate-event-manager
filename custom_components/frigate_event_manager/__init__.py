@@ -12,6 +12,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from .const import (
     CONF_CRITICAL_SOUND,
     CONF_CRITICAL_VOLUME,
+    CONF_MEDIA_TTL,
     CONF_NOTIF_MESSAGE,
     CONF_NOTIF_TITLE,
     CONF_NOTIFY_TARGET,
@@ -21,8 +22,9 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_CRITICAL_SOUND,
     DEFAULT_CRITICAL_VOLUME,
+    DEFAULT_MEDIA_ROTATION,
+    DEFAULT_MEDIA_TTL,
     DEFAULT_TAP_ACTION,
-    MEDIA_URL_TTL,
     PERSISTENT_NOTIFICATION,
     PROXY_CLIENT_KEY,
     PROXY_PATH_PREFIX,
@@ -84,6 +86,15 @@ async def async_migrate_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> boo
         _LOGGER.info("migration v5 -> v6 complete")
         return True
 
+    if entry.version == 6:
+        # v6 -> v7: add media_ttl to entry data with default value
+        new_data = {**entry.data, CONF_MEDIA_TTL: DEFAULT_MEDIA_TTL}
+        hass.config_entries.async_update_entry(
+            entry, data=new_data, version=7, minor_version=1
+        )
+        _LOGGER.info("migration v6 -> v7 complete")
+        return True
+
     # Unknown (higher) version — block loading to avoid incompatible data
     _LOGGER.error(
         "config entry version %d not supported — downgrade not handled",
@@ -99,16 +110,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
             "MQTT not available — configure the MQTT integration first."
         )
 
-    # HMAC signer — generated once, reused across integration reloads
-    if SIGNER_DOMAIN_KEY not in hass.data:
-        ha_url = hass.config.external_url or hass.config.internal_url or ""
-        if ha_url:
-            proxy_base = f"{ha_url.rstrip('/')}{PROXY_PATH_PREFIX}"
-            hass.data[SIGNER_DOMAIN_KEY] = MediaSigner(proxy_base, ttl=MEDIA_URL_TTL)
-        else:
-            _LOGGER.warning(
-                "HA external URL not configured — presigned media URLs disabled"
-            )
+    # HMAC signer — recreated on each setup to apply current TTL from entry data
+    ha_url = hass.config.external_url or hass.config.internal_url or ""
+    if ha_url:
+        proxy_base = f"{ha_url.rstrip('/')}{PROXY_PATH_PREFIX}"
+        ttl = entry.data.get(CONF_MEDIA_TTL, DEFAULT_MEDIA_TTL)
+        hass.data[SIGNER_DOMAIN_KEY] = MediaSigner(
+            proxy_base, ttl=ttl, rotation_period=DEFAULT_MEDIA_ROTATION
+        )
+    else:
+        hass.data.pop(SIGNER_DOMAIN_KEY, None)
+        _LOGGER.warning(
+            "HA URL not configured — presigned media URLs disabled"
+        )
 
     signer = hass.data.get(SIGNER_DOMAIN_KEY)
 
@@ -138,7 +152,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: FEMConfigEntry) -> bool:
                 title_tpl=subentry.data.get(CONF_NOTIF_TITLE) or None,
                 message_tpl=subentry.data.get(CONF_NOTIF_MESSAGE) or None,
                 signer=signer,
-                frigate_url=entry.data.get(CONF_URL),
                 tap_action=subentry.data.get(CONF_TAP_ACTION, DEFAULT_TAP_ACTION),
                 critical_sound=subentry.data.get(CONF_CRITICAL_SOUND, DEFAULT_CRITICAL_SOUND),
                 critical_volume=subentry.data.get(CONF_CRITICAL_VOLUME, DEFAULT_CRITICAL_VOLUME),

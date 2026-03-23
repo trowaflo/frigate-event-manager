@@ -72,4 +72,6 @@ PROXY_PATH_PREFIX = "/api/frigate_em/media"
 SIGNER_DOMAIN_KEY = "frigate_em_signer"
 PROXY_CLIENT_KEY = "frigate_em_proxy_client"
 PROXY_VIEW_KEY = "frigate_em_proxy_registered"
-MEDIA_URL_TTL = 3600  # seconds
+CONF_MEDIA_TTL = "media_ttl"
+DEFAULT_MEDIA_TTL = 3600       # seconds — default URL expiry (1 hour)
+DEFAULT_MEDIA_ROTATION = 86400  # seconds — signing key rotation period (24 hours)
