@@ -107,22 +107,23 @@ Notification media links (snapshot, clip, preview) are served through **HA's own
 
 ### How it works
 
-When the integration starts, HA generates an ephemeral HMAC-SHA256 secret key (32 random bytes, in memory only, never stored, regenerated at every HA restart). Each media URL is signed with this key and points to HA:
+When the integration starts, HA generates an ephemeral HMAC-SHA256 signing key (32 random bytes, in memory only, never stored). The key **rotates automatically every 24 hours** — no restart needed. Each media URL contains a slot ID (`kid`) so the correct key is used for verification:
 
 ```text
-https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timestamp>&sig=<hmac>
+https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timestamp>&kid=<slot>&sig=<hmac>
 ```
 
 When the mobile app opens the link, HA verifies the signature and expiry, then proxies the request to Frigate internally. **Your mobile app never needs direct access to Frigate.**
 
-Signed URLs expire after **1 hour**.
+URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h).
 
 ### Prerequisite
 
-HA's external URL must be configured: **Settings → System → Network → Home Assistant URL (external)**.
-If not set, the integration falls back to direct Frigate URLs — which requires the mobile app to reach Frigate directly (e.g. on the same local network or via a VPN).
+HA's URL must be configured in **Settings → System → Network**. The integration uses the external URL first, then the internal URL as a fallback.
 
-> **Security note (fallback mode):** direct Frigate URLs are based on event IDs (UUIDs). They are not easily discoverable, but they are not cryptographically protected — anyone who intercepts a notification payload could reconstruct other event URLs by guessing adjacent IDs. Presigned URLs eliminate this risk: each URL includes an HMAC signature that cannot be forged or enumerated without the secret key.
+- **External URL set** → works from anywhere
+- **Internal URL only** → works only on your home network
+- **Neither set** → presigned URLs are disabled entirely and no media links are included in notifications
 
 ### Why not use Frigate's native proxy?
 

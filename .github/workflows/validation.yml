@@ -19,7 +19,9 @@ jobs:
       component_name: frigate_event_manager
 
   markdown:
+    if: github.event_name == 'pull_request'
     uses: trowaflo/github-actions/.github/workflows/lint-markdown.yml@main
 
   kics:
+    if: github.event_name == 'pull_request'
     uses: trowaflo/github-actions/.github/workflows/kics.yml@main
