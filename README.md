@@ -123,7 +123,7 @@ https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timesta
 
 When the mobile app opens the link, HA verifies the signature and expiry, then proxies the request to Frigate internally. **Your mobile app never needs direct access to Frigate.**
 
-URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h).
+URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h). When a link expires, the app is redirected to the HA root page instead of receiving a generic error.
 
 ### Prerequisite
 
