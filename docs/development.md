@@ -54,17 +54,6 @@ Media URLs in notifications are signed with HMAC-SHA256 by HA itself (not by Fri
 - `kid` = key slot ID (identifies which key to use for verification after rotation)
 - Max 2 keys in memory: current slot + previous slot (transition window)
 
-### Proxy response codes
-
-| Case | HTTP response |
-| --- | --- |
-| Valid signature, not expired | 200 (media proxied from Frigate) |
-| URL expired (signature irrelevant) | 302 redirect to HA root (`external_url` or `internal_url`) |
-| URL expired, no HA URL configured | 401 |
-| Invalid signature / unknown `kid` | 401 |
-| Frigate unreachable | 502 |
-| Integration not loaded | 503 |
-
 Interactive demo script: `scripts/demo_signer.py`
 
 ---
