@@ -1,22 +1,27 @@
 # https://taskfile.dev
 version: "3"
 
+vars:
+  PYTHON: .venv/bin/python
+  PYTEST: .venv/bin/pytest
+  RUFF: .venv/bin/ruff
+
 tasks:
   test:
     desc: "Lance les tests Python avec couverture >=80%"
     cmds:
-      - pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v
+      - "{{.PYTEST}} --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v"
 
   test:html:
     desc: "Ouvre le rapport de couverture dans le navigateur"
     cmds:
-      - pytest --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q
+      - "{{.PYTEST}} --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q"
       - open htmlcov/index.html
 
   lint:
     desc: "Lint Python (ruff) + Markdown (markdownlint-cli2) — mirrors CI"
     cmds:
-      - ruff check .
+      - "{{.RUFF}} check ."
       - markdownlint-cli2 '**/*.md' '!.venv/**'
 
   ci:
