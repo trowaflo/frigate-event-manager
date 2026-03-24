@@ -1,0 +1,15 @@
+{
+  // MD013 — line-length : désactivé, pas de limite de longueur de ligne
+  "MD013": false,
+
+  // MD012 — no-multiple-blanks : max 2 sauts de ligne consécutifs
+  // (Release Please génère un double saut après les headers de version dans CHANGELOG.md)
+  "MD012": { "maximum": 2 },
+
+  // MD024 — no-duplicate-heading : autorise les titres dupliqués si sous des parents différents
+  // (ex: "### Features" apparaît sous chaque version dans CHANGELOG.md)
+  "MD024": { "siblings_only": true },
+
+  // MD050 — strong-style : imposer * au lieu de __ pour le gras
+  "MD050": { "style": "asterisk" }
+}
