@@ -40,7 +40,7 @@ class MediaSignerPort(Protocol):
     """Port — signing and verification of presigned media URLs."""
 
     def sign_url(self, path: str) -> str:
-        """Sign a path and return the full URL with ?exp=...&sig=..."""
+        """Sign a path and return the full URL with ?exp=...&kid=...&sig=..."""
         ...
 
     def is_expired(self, exp_str: str) -> bool:
