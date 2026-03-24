@@ -39,9 +39,7 @@ Si la solution est complexe pour rien : trouver plus simple. Si la solution est 
 
 Avant de declarer une tache terminee :
 
-- `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q` (tests passent)
-- `.venv/bin/ruff check custom_components/` (lint)
-- `markdownlint-cli2 '**/*.md' '!.venv/**'` (si markdown modifié)
+- `task ci` — miroir exact de la CI (pytest + ruff + markdownlint)
 - Montrer le resultat concret (log, output, diff)
 
 Ne jamais declarer "termine" sans preuve que ca fonctionne. Se challenger : est-ce qu'on aurait pu faire plus optimal, sans over-engineering ?
@@ -213,7 +211,7 @@ task lint   # ruff + markdownlint
 ```bash
 .venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-report=term-missing -q
 .venv/bin/pytest tests/test_coordinator.py -v   # un seul module
-.venv/bin/ruff check custom_components/
+.venv/bin/ruff check .
 markdownlint-cli2 '**/*.md' '!.venv/**'
 ```
 

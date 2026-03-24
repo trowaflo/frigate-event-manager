@@ -34,10 +34,13 @@ Ne jamais modifier `custom_components/`, `tests/`, `docs/` (sauf lock dans `.cla
 
 ### Taskfile.yml
 
-- Commandes existantes à préserver : `test`, `lint`
+- Commandes existantes à préserver : `test`, `lint`, `ci`
 - Pas de breaking change sur les commandes existantes
 - `task test` → `pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/`
-- `task lint` → `ruff check custom_components/` + `markdownlint-cli2 '**/*.md' '!.venv/**'`
+- `task lint` → `ruff check .` + `markdownlint-cli2 '**/*.md' '!.venv/**'`
+- `task ci`  → `task test` + `task lint` (miroir exact de la CI — à lancer avant tout push)
+- **Responsabilité sre-cloud** : `task ci` doit toujours reproduire exactement ce que la CI exécute.
+  Si un check CI change → mettre à jour `task lint` / `task test` en conséquence.
 - Nouvelles commandes documentées inline
 
 ### GitHub Actions (`.github/workflows/`)
@@ -46,8 +49,8 @@ Ne jamais modifier `custom_components/`, `tests/`, `docs/` (sauf lock dans `.cla
 
 - `pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/`
 - `ruff check .`
-- `markdownlint-cli2` sur tous les `.md`
-- Python 3.12, `pip cache`, dépendances : `pytest pytest-cov pytest-homeassistant-custom-component ruff`
+- `markdownlint-cli2 '**/*.md' '!.venv/**'`
+- Python 3.13, dépendances : `pytest pytest-cov pytest-homeassistant-custom-component ruff`
 
 #### Sécurité
 
@@ -63,8 +66,5 @@ Ne jamais modifier `custom_components/`, `tests/`, `docs/` (sauf lock dans `.cla
 ## Vérification avant DONE
 
 ```bash
-task test   # pytest vert, coverage ≥80%
-task lint   # ruff + markdownlint 0 erreur
+task ci   # test + lint — miroir exact de la CI, 0 erreur obligatoire
 ```
-
-Les deux verts obligatoires.

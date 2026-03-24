@@ -14,10 +14,16 @@ tasks:
       - open htmlcov/index.html
 
   lint:
-    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2)"
+    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2) — mirrors CI"
     cmds:
       - ruff check .
-      - markdownlint-cli2 '**/*.md'
+      - markdownlint-cli2 '**/*.md' '!.venv/**'
+
+  ci:
+    desc: "Reproduit l'ensemble des checks CI en local (test + lint)"
+    cmds:
+      - task: test
+      - task: lint
 
   dev:init:
     desc: "Stocke les credentials MQTT + Frigate (Keychain macOS ou dev/.env)"
