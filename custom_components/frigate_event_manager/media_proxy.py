@@ -37,8 +37,15 @@ class FrigateMediaProxyView(HomeAssistantView):
         sig = request.query.get("sig", "")
         full_path = f"/{path}"
 
+        if signer.is_expired(exp_str):
+            ha_url = hass.config.external_url or hass.config.internal_url
+            if ha_url:
+                _LOGGER.debug("expired presigned URL — redirecting to HA root, path=%s", full_path)
+                return web.HTTPFound(location=ha_url)
+            return web.Response(status=401, text="unauthorized")
+
         if not signer.verify(full_path, exp_str, kid_str, sig):
-            _LOGGER.warning("invalid or expired presigned URL — path=%s", full_path)
+            _LOGGER.warning("invalid presigned URL — path=%s", full_path)
             return web.Response(status=401, text="unauthorized")
 
         try:

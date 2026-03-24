@@ -43,6 +43,10 @@ class MediaSignerPort(Protocol):
         """Sign a path and return the full URL with ?exp=...&sig=..."""
         ...
 
+    def is_expired(self, exp_str: str) -> bool:
+        """Return True if the expiry timestamp has passed."""
+        ...
+
     def verify(self, path: str, exp_str: str, kid_str: str, sig: str) -> bool:
         """Verify that a presigned URL is valid and not expired."""
         ...

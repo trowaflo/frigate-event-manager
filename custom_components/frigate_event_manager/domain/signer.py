@@ -65,6 +65,13 @@ class MediaSigner:
         sig = self._compute_hmac(key, path, exp, kid)
         return f"{self._base_url}{path}?exp={exp}&kid={kid}&sig={sig}"
 
+    def is_expired(self, exp_str: str) -> bool:
+        """Return True if the expiry timestamp has passed."""
+        try:
+            return self._now() > int(exp_str)
+        except (ValueError, TypeError):
+            return False
+
     def verify(self, path: str, exp_str: str, kid_str: str, sig: str) -> bool:
         """Verify the signature, expiration and key slot of a presigned URL."""
         try:

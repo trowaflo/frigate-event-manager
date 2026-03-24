@@ -70,16 +70,35 @@ async def test_proxy_signature_invalide_retourne_401(hass: HomeAssistant) -> Non
     assert response.status == 401
 
 
-async def test_proxy_url_expiree_retourne_401(hass: HomeAssistant) -> None:
-    """An expired URL returns 401."""
+async def test_proxy_url_expiree_retourne_302_redirect(hass: HomeAssistant) -> None:
+    """An expired URL redirects to the HA root when external_url is set."""
     signer = _make_signer()
     hass.data[SIGNER_DOMAIN_KEY] = signer
     hass.data[PROXY_CLIENT_KEY] = _make_client()
+    hass.config.external_url = "https://ha.example.com"
 
-    exp_passé = str(int(time.time()) - 1)
+    exp_past = str(int(time.time()) - 1)
     view = FrigateMediaProxyView()
     response = await view.get(
-        _make_request(hass, f"exp={exp_passé}&sig=whatever"),
+        _make_request(hass, f"exp={exp_past}&sig=whatever"),
+        "api/events/abc/snapshot.jpg",
+    )
+    assert response.status == 302
+    assert response.headers["Location"] == "https://ha.example.com"
+
+
+async def test_proxy_url_expiree_sans_ha_url_retourne_401(hass: HomeAssistant) -> None:
+    """An expired URL returns 401 when no HA URL is configured."""
+    signer = _make_signer()
+    hass.data[SIGNER_DOMAIN_KEY] = signer
+    hass.data[PROXY_CLIENT_KEY] = _make_client()
+    hass.config.external_url = None
+    hass.config.internal_url = None
+
+    exp_past = str(int(time.time()) - 1)
+    view = FrigateMediaProxyView()
+    response = await view.get(
+        _make_request(hass, f"exp={exp_past}&sig=whatever"),
         "api/events/abc/snapshot.jpg",
     )
     assert response.status == 401
