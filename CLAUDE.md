@@ -197,8 +197,11 @@ Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT nat
     VIOLATION → git log illisible, bisect impossible
 
 [RULE] no_auto_push:
-    NEVER:  git push sans demande explicite de l'utilisateur
-    ALWAYS: s'arreter apres le commit
+    NEVER:     git push apres chaque commit individuel
+    ALWAYS:    committer a chaque etape logique (inchange)
+    PUSH_WHEN: task ci passe au vert ET feature/fix complete — OU demande explicite
+    NEVER:     pusher pour "voir si la CI passe" — task ci doit passer en local d'abord
+    VIOLATION: CI triggee inutilement sur chaque commit intermediaire
 ```
 
 ## Commands
