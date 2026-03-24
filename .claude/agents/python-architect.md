@@ -87,7 +87,7 @@ Pour ajouter `button`, `select`, etc. :
 
 ## Conventions
 
-- Code et commentaires en **français**
+- Code et commentaires en **anglais**
 - Type hints partout (`str | None`, `list[dict]`, etc.)
 - `from __future__ import annotations` en tête de fichier
 - Filtres : liste vide = tout accepter
@@ -96,7 +96,7 @@ Pour ajouter `button`, `select`, etc. :
 ## Vérification obligatoire avant DONE
 
 ```bash
-.venv/bin/ruff check custom_components/
+.venv/bin/ruff check .
 .venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q
 ```
 
