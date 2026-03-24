@@ -17,7 +17,8 @@ jobs:
     uses: trowaflo/github-actions/.github/workflows/ha-integration.yml@70a08a732791ce4af219f4edf4cabb92f96900e9 # main
     with:
       component_name: frigate_event_manager
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   markdown:
     if: github.event_name == 'pull_request'

@@ -2,9 +2,12 @@
 version: "3"
 
 vars:
-  PYTHON: .venv/bin/python
-  PYTEST: .venv/bin/pytest
-  RUFF: .venv/bin/ruff
+  PYTHON:
+    sh: 'if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python; fi'
+  PYTEST:
+    sh: 'if [ -x .venv/bin/pytest ]; then echo .venv/bin/pytest; else echo pytest; fi'
+  RUFF:
+    sh: 'if [ -x .venv/bin/ruff ]; then echo .venv/bin/ruff; else echo ruff; fi'
 
 tasks:
   test:

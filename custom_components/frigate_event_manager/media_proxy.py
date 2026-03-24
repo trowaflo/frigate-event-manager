@@ -37,6 +37,10 @@ class FrigateMediaProxyView(HomeAssistantView):
         sig = request.query.get("sig", "")
         full_path = f"/{path}"
 
+        # Expiry is checked before signature: any URL past its exp is redirected
+        # to HA root regardless of signature validity. This maximises UX (the user
+        # can re-authenticate) without weakening security — an attacker with a
+        # forged but expired URL is harmlessly sent to the HA login page.
         if signer.is_expired(exp_str):
             ha_url = hass.config.external_url or hass.config.internal_url
             if ha_url:

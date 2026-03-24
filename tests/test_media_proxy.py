@@ -104,6 +104,22 @@ async def test_proxy_url_expiree_sans_ha_url_retourne_401(hass: HomeAssistant) -
     assert response.status == 401
 
 
+async def test_proxy_url_expiree_signature_invalide_retourne_302(hass: HomeAssistant) -> None:
+    """Expired URL with invalid signature still redirects — exp is checked before HMAC."""
+    signer = _make_signer()
+    hass.data[SIGNER_DOMAIN_KEY] = signer
+    hass.data[PROXY_CLIENT_KEY] = _make_client()
+    hass.config.external_url = "https://ha.example.com"
+
+    exp_past = str(int(time.time()) - 1)
+    view = FrigateMediaProxyView()
+    response = await view.get(
+        _make_request(hass, f"exp={exp_past}&kid=9999&sig=forged"),
+        "api/events/abc/snapshot.jpg",
+    )
+    assert response.status == 302
+
+
 async def test_proxy_frigate_erreur_retourne_502(hass: HomeAssistant) -> None:
     """A Frigate error returns 502."""
     signer = _make_signer()
