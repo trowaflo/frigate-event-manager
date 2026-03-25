@@ -70,7 +70,7 @@ class FrigateMediaProxyView(HomeAssistantView):
             )
             pn_create(
                 hass,
-                message=f"Invalid presigned URL from {escape(remote)}: {escape(safe_path)}",
+                message=f"Suspicious request from {escape(remote)} — see HA logs for details.",
                 title="Frigate EM — suspicious request",
                 notification_id=SECURITY_NOTIF_ID,
             )
