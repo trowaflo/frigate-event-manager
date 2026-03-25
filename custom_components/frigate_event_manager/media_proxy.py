@@ -9,12 +9,9 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.components.persistent_notification import async_create as pn_create
 
-from .const import PROXY_CLIENT_KEY, SIGNER_DOMAIN_KEY
+from .const import PROXY_CLIENT_KEY, SECURITY_EVENT, SECURITY_NOTIF_ID, SIGNER_DOMAIN_KEY
 
 _LOGGER = logging.getLogger(__name__)
-
-_SECURITY_EVENT = "frigate_em_security_event"
-_SECURITY_NOTIF_ID = "fem_invalid_signature"
 
 _ALLOWED_CONTENT_TYPE_PREFIXES = ("image/", "video/", "application/octet-stream")
 _FALLBACK_CONTENT_TYPE = "application/octet-stream"
@@ -68,14 +65,14 @@ class FrigateMediaProxyView(HomeAssistantView):
                 remote,
             )
             hass.bus.async_fire(
-                _SECURITY_EVENT,
+                SECURITY_EVENT,
                 {"reason": "invalid_signature", "path": safe_path, "ip": remote},
             )
             pn_create(
                 hass,
-                message=f"Invalid presigned URL from **{escape(remote)}**: `{escape(safe_path)}`",
+                message=f"Invalid presigned URL from {escape(remote)}: {escape(safe_path)}",
                 title="Frigate EM — suspicious request",
-                notification_id=_SECURITY_NOTIF_ID,
+                notification_id=SECURITY_NOTIF_ID,
             )
 
         return web.Response(status=404, text="not found")

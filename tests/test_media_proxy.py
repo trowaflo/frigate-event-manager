@@ -9,13 +9,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-from custom_components.frigate_event_manager.const import PROXY_CLIENT_KEY, SIGNER_DOMAIN_KEY
-from custom_components.frigate_event_manager.domain.signer import MediaSigner
-from custom_components.frigate_event_manager.media_proxy import (
-    FrigateMediaProxyView,
-    _SECURITY_EVENT,
-    _SECURITY_NOTIF_ID,
+from custom_components.frigate_event_manager.const import (
+    PROXY_CLIENT_KEY,
+    SECURITY_EVENT,
+    SECURITY_NOTIF_ID,
+    SIGNER_DOMAIN_KEY,
 )
+from custom_components.frigate_event_manager.domain.signer import MediaSigner
+from custom_components.frigate_event_manager.media_proxy import FrigateMediaProxyView
 
 
 def _make_signer(ttl: int = 3600) -> MediaSigner:
@@ -80,7 +81,7 @@ async def test_proxy_signature_invalide_retourne_404(hass: HomeAssistant) -> Non
     async def _collect(event):  # noqa: ANN001
         events.append(event)
 
-    hass.bus.async_listen(_SECURITY_EVENT, _collect)
+    hass.bus.async_listen(SECURITY_EVENT, _collect)
 
     exp = str(int(time.time()) + 3600)
     view = FrigateMediaProxyView()
@@ -101,7 +102,7 @@ async def test_proxy_signature_invalide_retourne_404(hass: HomeAssistant) -> Non
     }
     mock_pn.assert_called_once()
     _, kwargs = mock_pn.call_args
-    assert kwargs["notification_id"] == _SECURITY_NOTIF_ID
+    assert kwargs["notification_id"] == SECURITY_NOTIF_ID
     assert "10.0.0.1" in kwargs["message"]
 
 
@@ -116,7 +117,7 @@ async def test_proxy_signature_invalide_sans_ip_retourne_404(hass: HomeAssistant
     async def _collect(event):  # noqa: ANN001
         events.append(event)
 
-    hass.bus.async_listen(_SECURITY_EVENT, _collect)
+    hass.bus.async_listen(SECURITY_EVENT, _collect)
 
     exp = str(int(time.time()) + 3600)
     view = FrigateMediaProxyView()
@@ -158,7 +159,7 @@ async def test_proxy_url_expiree_retourne_404(hass: HomeAssistant) -> None:
     async def _collect(event):  # noqa: ANN001
         events.append(event)
 
-    hass.bus.async_listen(_SECURITY_EVENT, _collect)
+    hass.bus.async_listen(SECURITY_EVENT, _collect)
 
     view = FrigateMediaProxyView()
 
@@ -184,7 +185,7 @@ async def test_proxy_url_expiree_et_forgee_retourne_404_avec_event(
     async def _collect(event):  # noqa: ANN001
         events.append(event)
 
-    hass.bus.async_listen(_SECURITY_EVENT, _collect)
+    hass.bus.async_listen(SECURITY_EVENT, _collect)
 
     exp_past = str(int(time.time()) - 1)
     view = FrigateMediaProxyView()

@@ -216,6 +216,53 @@
     ajouté dans `test_proxy_url_expiree_et_forgee_retourne_404_avec_event`.
     ruff OK, 7/7 tests passent.
 
+### T-549 | Review Copilot — Markdown injection, docstrings, constantes publiques
+
+- Status: IN_PROGRESS
+- Owner: python-architect
+- Scope: `custom_components/frigate_event_manager/media_proxy.py`, `custom_components/frigate_event_manager/domain/signer.py`, `custom_components/frigate_event_manager/domain/ports.py`, `custom_components/frigate_event_manager/const.py`
+- Locks: —
+- Depends: T-548
+- Blocks: T-549b, T-549d
+- Notes: |
+    C1 (MAJOR) : `media_proxy.py:79` — supprimer `**` et backticks du message de notification.
+    `html.escape()` ne protège pas contre Markdown injection. Passer en plaintext pur.
+    C2 (INFO) : `domain/signer.py:73` — `is_expired()` retourne `False` sur `exp_str` invalide.
+    Documenter ce comportement dans la docstring.
+    C3 (INFO) : `domain/ports.py:47` — même incohérence sur `MediaSignerPort.is_expired()`.
+    C4 (MINOR) : `media_proxy.py:20` — déplacer `_SECURITY_EVENT` et `_SECURITY_NOTIF_ID` dans
+    `const.py` et supprimer le `_` (contrat public documenté dans README).
+
+### T-549b | Review — T-549
+
+- Status: TODO
+- Owner: reviewer
+- Scope: `custom_components/frigate_event_manager/media_proxy.py`, `custom_components/frigate_event_manager/domain/signer.py`, `custom_components/frigate_event_manager/domain/ports.py`, `custom_components/frigate_event_manager/const.py`
+- Locks: —
+- Depends: T-549
+- Blocks: T-549c
+- Notes: —
+
+### T-549d | Tests — T-549
+
+- Status: TODO
+- Owner: quality-guard
+- Scope: `tests/test_media_proxy.py`
+- Locks: —
+- Depends: T-549
+- Blocks: T-549c
+- Notes: Vérifier que les constantes publiques sont importables depuis `const.py` dans les tests.
+
+### T-549c | Simplification — batch fixes T-549b
+
+- Status: TODO
+- Owner: code-simplifier
+- Scope: `custom_components/frigate_event_manager/media_proxy.py`, `custom_components/frigate_event_manager/const.py`
+- Locks: —
+- Depends: T-549b, T-549d
+- Blocks: —
+- Notes: Appliquer tous les PENDING_FIXUP identifiés par T-549b.
+
 ---
 
 <!--

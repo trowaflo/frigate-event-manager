@@ -44,7 +44,7 @@ class MediaSignerPort(Protocol):
         ...
 
     def is_expired(self, exp_str: str) -> bool:
-        """Return True if the expiry timestamp has passed."""
+        """Return True if the expiry timestamp has passed; False if not yet expired or if exp_str is not a valid integer."""
         ...
 
     def verify(self, path: str, exp_str: str, kid_str: str, sig: str) -> bool:

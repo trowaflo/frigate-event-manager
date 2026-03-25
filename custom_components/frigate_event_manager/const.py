@@ -67,6 +67,10 @@ ACTION_BTN_OPTIONS = ["none", "clip", "snapshot", "preview", "silent_30min", "si
 # HA mobile app event — notification action
 EVENT_MOBILE_APP_NOTIFICATION_ACTION = "mobile_app_notification_action"
 
+# Security events (public contract — referenced in README automations)
+SECURITY_EVENT = "frigate_em_security_event"
+SECURITY_NOTIF_ID = "fem_invalid_signature"
+
 # Presigned media proxy
 PROXY_PATH_PREFIX = "/api/frigate_em/media"
 SIGNER_DOMAIN_KEY = "frigate_em_signer"

@@ -66,7 +66,7 @@ class MediaSigner:
         return f"{self._base_url}{path}?exp={exp}&kid={kid}&sig={sig}"
 
     def is_expired(self, exp_str: str) -> bool:
-        """Return True if the expiry timestamp has passed."""
+        """Return True if the expiry timestamp has passed; False if not yet expired or if exp_str is not a valid integer."""
         try:
             return self._now() > int(exp_str)
         except (ValueError, TypeError):
