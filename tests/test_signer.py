@@ -206,3 +206,10 @@ def test_rotation_cle_trop_ancienne_rejetee() -> None:
     assert signer.verify(
         "/api/events/abc/snapshot.jpg", params["exp"], params["kid"], params["sig"]
     ) is False
+
+
+def test_is_expired_exp_invalide_retourne_false() -> None:
+    """is_expired returns False when exp_str cannot be parsed as an integer."""
+    signer = _make_signer()
+    assert signer.is_expired("not_a_number") is False
+    assert signer.is_expired("") is False

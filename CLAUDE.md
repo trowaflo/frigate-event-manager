@@ -39,9 +39,7 @@ Si la solution est complexe pour rien : trouver plus simple. Si la solution est 
 
 Avant de declarer une tache terminee :
 
-- `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager -q` (tests passent)
-- `.venv/bin/ruff check custom_components/` (lint)
-- `markdownlint-cli2 '**/*.md' '!.venv/**'` (si markdown modifié)
+- `task ci` — miroir exact de la CI (pytest + ruff + markdownlint)
 - Montrer le resultat concret (log, output, diff)
 
 Ne jamais declarer "termine" sans preuve que ca fonctionne. Se challenger : est-ce qu'on aurait pu faire plus optimal, sans over-engineering ?
@@ -128,6 +126,18 @@ Agents avec scopes stricts pour les taches multi-composants :
     VIOLATION → cycles inutiles detectes (ex: T-521 fixup sur 1 ligne strings.json)
 ```
 
+```text
+[RULE] conversational_feature_trigger:
+    TRIGGER:  > 2 commits sur des fichiers de code metier dans la session courante
+              OU choix d'architecture (securite, event bus, reponse HTTP, ports...)
+    THEN:     creer T-XXX dans .claude/tasks.md AVANT le prochain commit
+              lancer le pipeline complet (implement → review + quality-guard → simplify)
+    NEVER:    traiter chaque message comme un fix isole si l'ensemble forme une feature
+    WHY:      T-547 implemente sans pipeline → MAJOR securite (path non borne)
+              detecte uniquement par le reviewer — pipeline rattrapé en urgence
+    VIOLATION → issues securite non detectees, reviewer non lance
+```
+
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `.claude/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
 - **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`
@@ -199,8 +209,11 @@ Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT nat
     VIOLATION → git log illisible, bisect impossible
 
 [RULE] no_auto_push:
-    NEVER:  git push sans demande explicite de l'utilisateur
-    ALWAYS: s'arreter apres le commit
+    NEVER:     git push apres chaque commit individuel
+    ALWAYS:    committer a chaque etape logique (inchange)
+    PUSH_WHEN: task ci passe au vert ET feature/fix complete — OU demande explicite
+    NEVER:     pusher pour "voir si la CI passe" — task ci doit passer en local d'abord
+    VIOLATION: CI triggee inutilement sur chaque commit intermediaire
 ```
 
 ## Commands
@@ -213,7 +226,7 @@ task lint   # ruff + markdownlint
 ```bash
 .venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-report=term-missing -q
 .venv/bin/pytest tests/test_coordinator.py -v   # un seul module
-.venv/bin/ruff check custom_components/
+.venv/bin/ruff check .
 markdownlint-cli2 '**/*.md' '!.venv/**'
 ```
 

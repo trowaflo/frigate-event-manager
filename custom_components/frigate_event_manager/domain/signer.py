@@ -65,6 +65,13 @@ class MediaSigner:
         sig = self._compute_hmac(key, path, exp, kid)
         return f"{self._base_url}{path}?exp={exp}&kid={kid}&sig={sig}"
 
+    def is_expired(self, exp_str: str) -> bool:
+        """Return True if the expiry timestamp has passed; False if not yet expired or if exp_str is not a valid integer."""
+        try:
+            return self._now() > int(exp_str)
+        except (ValueError, TypeError):
+            return False
+
     def verify(self, path: str, exp_str: str, kid_str: str, sig: str) -> bool:
         """Verify the signature, expiration and key slot of a presigned URL."""
         try:
@@ -74,6 +81,28 @@ class MediaSigner:
             return False
 
         if self._now() > exp:
+            return False
+
+        key = self._get_key(kid)
+        if key is None:
+            return False
+
+        expected = self._compute_hmac(key, path, exp, kid)
+        return hmac.compare_digest(sig, expected)
+
+    def has_valid_signature(
+        self, path: str, exp_str: str, kid_str: str, sig: str
+    ) -> bool:
+        """Check HMAC only — no expiry check.
+
+        Returns True if the signature is cryptographically valid regardless of
+        whether the URL has expired.  Use this to distinguish an expired-but-
+        legitimate URL (DEBUG only) from a forged one (security event).
+        """
+        try:
+            exp = int(exp_str)
+            kid = int(kid_str)
+        except (ValueError, TypeError):
             return False
 
         key = self._get_key(kid)

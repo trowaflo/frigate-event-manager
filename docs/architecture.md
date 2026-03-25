@@ -18,13 +18,15 @@ graph TB
             MODEL["model.py\nFrigateEvent, CameraState\n_parse_event()"]
             FILTER_D["filter.py\nZoneFilter, LabelFilter\nTimeFilter, FilterChain"]
             THROTTLE_D["throttle.py\nThrottler (injectable clock)"]
-            PORTS["ports.py\nNotifierPort\nEventSourcePort\nFrigatePort"]
+            SIGNER_D["signer.py\nMediaSigner\nHMAC-SHA256 + key rotation"]
+            PORTS["ports.py\nNotifierPort, EventSourcePort\nFrigatePort, MediaSignerPort"]
         end
 
         COORD["coordinator.py\nFrigateEventManagerCoordinator\n(DataUpdateCoordinator — push MQTT)"]
         HAMQTT["ha_mqtt.py\nHaMqttAdapter\n(EventSourcePort)"]
         NOTIFIER["notifier.py\nHANotifier\n(NotifierPort)"]
         CLIENT["frigate_client.py\nFrigateClient\n(FrigatePort)"]
+        PROXY["media_proxy.py\nFrigateMediaProxyView\n(HMAC validation + proxy)"]
 
         subgraph Entities["HA Entities (per camera, via subentry)"]
             SWITCH["switch.py\n1 switch — notifications on/off"]
@@ -43,6 +45,9 @@ graph TB
     COORD -->|async_set_updated_data| Entities
     SWITCH -->|"set_camera_enabled()"| COORD
     CLIENT -->|"FrigatePort"| FRIGATE
+    SIGNER_D -->|"MediaSignerPort"| PROXY
+    PROXY -->|"GET /api/frigate_em/media/..."| FRIGATE
+    HA_NOTIFY -->|"tap → presigned URL"| PROXY
 
     style External fill:#1a0a0a,stroke:#f85149
     style Integration fill:#0a1a2a,stroke:#58a6ff
@@ -56,16 +61,17 @@ The project follows the Ports & Adapters pattern. The domain layer (`domain/`) h
 
 | Layer | Files | Dependencies |
 | --- | --- | --- |
-| **Domain** (core) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/ports.py` | stdlib only |
+| **Domain** (core) | `domain/model.py`, `domain/filter.py`, `domain/throttle.py`, `domain/signer.py`, `domain/ports.py` | stdlib only |
 | **Application** | `coordinator.py` | domain + ports |
 | **Outbound adapters** | `notifier.py`, `ha_mqtt.py`, `frigate_client.py` | HA + aiohttp |
-| **Inbound adapters** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py`, `select.py` | HA |
+| **Inbound adapters** | `config_flow.py`, `__init__.py`, `switch.py`, `binary_sensor.py`, `button.py`, `sensor.py`, `select.py`, `media_proxy.py` | HA |
 
 | Port | Direction | Implementation |
 | --- | --- | --- |
 | `NotifierPort` | Outbound | `notifier.HANotifier` |
 | `EventSourcePort` | Inbound | `ha_mqtt.HaMqttAdapter` |
 | `FrigatePort` | Outbound | `frigate_client.FrigateClient` |
+| `MediaSignerPort` | Internal | `domain/signer.MediaSigner` |
 
 ## Event data flow
 
@@ -170,6 +176,62 @@ Each camera subentry defines optional filters. Empty list = accept all.
 | `FilterChain` | `filters: list[Filter]` | `all()` with short-circuit on first rejection |
 
 Zones and labels are populated from the Frigate API (`GET /api/config`); CSV free-text is used as fallback if Frigate is unreachable during setup.
+
+## Media proxy flow
+
+`FrigateMediaProxyView` (`media_proxy.py`) is registered as an HA HTTP view at `/api/frigate_em/media/{path}`.
+It requires no HA authentication (`requires_auth = False`) — security is enforced entirely by the HMAC signature.
+
+```mermaid
+sequenceDiagram
+    participant App as Mobile App
+    participant Proxy as FrigateMediaProxyView
+    participant Signer as MediaSigner
+    participant Frigate as Frigate NVR
+    participant Bus as HA Event Bus
+
+    App->>Proxy: GET /api/frigate_em/media/{path}?exp=&kid=&sig=
+    Proxy->>Signer: verify(path, exp, kid, sig)
+
+    alt Signature valid and not expired
+        Signer-->>Proxy: True
+        Proxy->>Frigate: GET {path} (internal)
+        Frigate-->>Proxy: content + content_type
+        Proxy-->>App: 200 media content
+    else verify() False — distinguish reason
+        Signer-->>Proxy: False
+        Proxy->>Signer: has_valid_signature(path, exp, kid, sig)
+        alt has_valid_signature = True (expired, valid HMAC)
+            Signer-->>Proxy: True
+            Proxy-->>App: 404 (expired — debug log only)
+        else has_valid_signature = False (forged / unknown key)
+            Signer-->>Proxy: False
+            Proxy->>Bus: async_fire("frigate_em_security_event", {ip, path})
+            Proxy->>Proxy: pn_create() — HA persistent notification
+            Proxy-->>App: 404 (suspicious — warning log)
+        end
+    end
+```
+
+### Key rotation
+
+`MediaSigner` generates a new 32-byte random key once per rotation slot (default: 86400 s).
+The slot ID (`kid`) is embedded in every URL so the correct key is used at verification time.
+At most 2 keys are kept in memory (current + previous) to handle URLs signed just before a boundary.
+
+### Security events
+
+When an invalid signature is detected, the integration fires a `frigate_em_security_event` on the HA event bus
+with the following payload:
+
+| Field | Description |
+| --- | --- |
+| `reason` | `"invalid_signature"` |
+| `path` | Requested Frigate path |
+| `ip` | Client IP address (`"unknown"` if not available) |
+
+A persistent notification is also created in the HA frontend (notification ID: `fem_invalid_signature`).
+Repeated rejections update the same notification rather than creating duplicates.
 
 ## Notification templates
 

@@ -37,7 +37,7 @@ Pour `docs/architecture.md` : déclarer un lock avant écriture.
 - Type hints présents (`str | None`, `list[dict]`, etc.)
 - `from __future__ import annotations` en tête de fichier
 - Tout I/O async : `aiohttp` uniquement, jamais `requests`
-- Code et commentaires en français
+- Code et commentaires en anglais
 
 #### Patterns HA
 
@@ -81,10 +81,14 @@ Pour `docs/architecture.md` : déclarer un lock avant écriture.
 
 ### 3. Sync Documentation
 
-Après chaque review :
+**Obligatoire et bloquant** — `Doc: SYNCED` requis avant de valider la livraison.
 
-1. **`docs/architecture.md`** — nouveaux composants décrits ? Diagrammes Mermaid à jour ?
-2. **`CLAUDE.md`** — conventions respectées dans le nouveau code ? Nouvelle règle à ajouter ?
+1. **`README.md`** — comportement utilisateur modifié ? Section concernée à mettre à jour
+2. **`docs/development.md`** — nouveaux codes HTTP, nouveaux paramètres, nouvelles règles de migration ?
+3. **`docs/architecture.md`** — nouveaux composants décrits ? Diagrammes Mermaid à jour ?
+4. **`CLAUDE.md`** — conventions respectées dans le nouveau code ? Nouvelle règle à ajouter ?
+
+Si doc manquante → **REVIEW_NEEDED** avec `Doc: UPDATE_NEEDED`, ne pas valider.
 
 ## Verdict dans `.claude/tasks.md`
 

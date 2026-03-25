@@ -1,23 +1,37 @@
 # https://taskfile.dev
 version: "3"
 
+vars:
+  PYTHON:
+    sh: 'if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python; fi'
+  PYTEST:
+    sh: 'if [ -x .venv/bin/pytest ]; then echo .venv/bin/pytest; else echo pytest; fi'
+  RUFF:
+    sh: 'if [ -x .venv/bin/ruff ]; then echo .venv/bin/ruff; else echo ruff; fi'
+
 tasks:
   test:
     desc: "Lance les tests Python avec couverture >=80%"
     cmds:
-      - pytest --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v
+      - "{{.PYTEST}} --cov=custom_components/frigate_event_manager --cov-fail-under=80 tests/ -v"
 
   test:html:
     desc: "Ouvre le rapport de couverture dans le navigateur"
     cmds:
-      - pytest --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q
+      - "{{.PYTEST}} --cov=custom_components/frigate_event_manager --cov-report=html tests/ -q"
       - open htmlcov/index.html
 
   lint:
-    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2)"
+    desc: "Lint Python (ruff) + Markdown (markdownlint-cli2) — mirrors CI"
     cmds:
-      - ruff check .
-      - markdownlint-cli2 '**/*.md'
+      - "{{.RUFF}} check ."
+      - markdownlint-cli2 '**/*.md' '!.venv/**'
+
+  ci:
+    desc: "Reproduit l'ensemble des checks CI en local (test + lint)"
+    cmds:
+      - task: test
+      - task: lint
 
   dev:init:
     desc: "Stocke les credentials MQTT + Frigate (Keychain macOS ou dev/.env)"
