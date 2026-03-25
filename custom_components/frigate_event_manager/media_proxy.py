@@ -16,6 +16,9 @@ _LOGGER = logging.getLogger(__name__)
 _SECURITY_EVENT = "frigate_em_security_event"
 _SECURITY_NOTIF_ID = "fem_invalid_signature"
 
+_ALLOWED_CONTENT_TYPE_PREFIXES = ("image/", "video/", "application/octet-stream")
+_FALLBACK_CONTENT_TYPE = "application/octet-stream"
+
 
 class FrigateMediaProxyView(HomeAssistantView):
     """HA view that validates an HMAC presigned URL and proxies to Frigate.
@@ -35,7 +38,7 @@ class FrigateMediaProxyView(HomeAssistantView):
         client = hass.data.get(PROXY_CLIENT_KEY)
 
         if signer is None or client is None:
-            return web.Response(status=503, text="service unavailable")
+            return web.Response(status=503)
 
         exp_str = request.query.get("exp", "")
         kid_str = request.query.get("kid", "")
@@ -48,6 +51,8 @@ class FrigateMediaProxyView(HomeAssistantView):
             except Exception:
                 _LOGGER.exception("Frigate proxy error — path=%s", full_path)
                 return web.Response(status=502, text="bad gateway")
+            if not any(content_type.startswith(p) for p in _ALLOWED_CONTENT_TYPE_PREFIXES):
+                content_type = _FALLBACK_CONTENT_TYPE
             return web.Response(body=content, content_type=content_type)
 
         # verify() failed — distinguish expired (expected) from forged (suspicious)
@@ -55,18 +60,19 @@ class FrigateMediaProxyView(HomeAssistantView):
             _LOGGER.debug("presigned URL expired — path=%s", full_path)
         else:
             remote = request.remote or "unknown"
+            safe_path = full_path[:512]
             _LOGGER.warning(
                 "presigned URL rejected — invalid signature, path=%s ip=%s",
-                full_path,
+                safe_path,
                 remote,
             )
             hass.bus.async_fire(
                 _SECURITY_EVENT,
-                {"reason": "invalid_signature", "path": full_path, "ip": remote},
+                {"reason": "invalid_signature", "path": safe_path, "ip": remote},
             )
             pn_create(
                 hass,
-                message=f"Invalid presigned URL from **{escape(remote)}**: `{escape(full_path)}`",
+                message=f"Invalid presigned URL from **{escape(remote)}**: `{escape(safe_path)}`",
                 title="Frigate EM — suspicious request",
                 notification_id=_SECURITY_NOTIF_ID,
             )

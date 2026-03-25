@@ -63,6 +63,59 @@
     Docstring `MediaSignerPort.sign_url` corrigée : `?exp=...&kid=...&sig=...`.
     PR #22 (`feat/t544-expired-url-redirect`) — CI verte, prête à merger.
 
+### T-547 | Proxy sécurisé — 404 uniforme + event sécurité
+
+- Status: DONE
+- Owner: orchestrator
+- Priority: P2
+- Scope: `media_proxy.py`, `tests/test_media_proxy.py`, `README.md`, `docs/architecture.md`
+- Locks: —
+- Depends: T-544
+- Blocks: —
+- Notes: |
+    Implémentation terminée (commits sur `feat/t544-expired-url-redirect`).
+    404 uniforme pour toute URL rejetée (plus de 302/401).
+    `verify()` → 404 ; `is_expired()` pour sélectionner le niveau de log.
+    Signature invalide → WARNING + `frigate_em_security_event` + persistent notification.
+    URL expirée → DEBUG uniquement, aucun event.
+    Pipeline rattrapé : reviewer + quality-guard → simplify.
+
+### T-547b | Review qualité + sécurité
+
+- Status: DONE
+- Owner: reviewer
+- Priority: P2
+- Scope: `media_proxy.py`, `tests/test_media_proxy.py`
+- Locks: T-547c, T-547d
+- Depends: T-547
+- Blocks: T-547c
+- Notes: |
+    M-01 (MAJOR) corrigé : `full_path[:512]` avant event bus + notification.
+    PENDING_FIXUP appliqués par simplifier : PF-01 (503 sans text), PF-02 (whitelist content-type),
+    PF-03 (async callbacks), PF-04 (TYPE_CHECKING import).
+
+### T-547d | Tests + couverture
+
+- Status: DONE
+- Owner: quality-guard
+- Priority: P2
+- Scope: `tests/test_media_proxy.py`
+- Locks: T-547c
+- Depends: T-547b
+- Blocks: T-547c
+- Notes: 100% couverture `media_proxy.py`, 6/6 tests passent.
+
+### T-547c | Simplification
+
+- Status: DONE
+- Owner: code-simplifier
+- Priority: P2
+- Scope: `media_proxy.py`, `tests/test_media_proxy.py`
+- Locks: —
+- Depends: T-547b, T-547d
+- Blocks: —
+- Notes: Appliquer PF-01 à PF-04 depuis T-547b.
+
 ### T-545 | Codecov PR check manquant
 
 - Status: TODO

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from homeassistant.core import HomeAssistant
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
 
 from custom_components.frigate_event_manager.const import PROXY_CLIENT_KEY, SIGNER_DOMAIN_KEY
 from custom_components.frigate_event_manager.domain.signer import MediaSigner
@@ -74,7 +76,11 @@ async def test_proxy_signature_invalide_retourne_404(hass: HomeAssistant) -> Non
     hass.data[PROXY_CLIENT_KEY] = _make_client()
 
     events: list = []
-    hass.bus.async_listen(_SECURITY_EVENT, lambda e: events.append(e))
+
+    async def _collect(event):  # noqa: ANN001
+        events.append(event)
+
+    hass.bus.async_listen(_SECURITY_EVENT, _collect)
 
     exp = str(int(time.time()) + 3600)
     view = FrigateMediaProxyView()
@@ -106,7 +112,11 @@ async def test_proxy_signature_invalide_sans_ip_retourne_404(hass: HomeAssistant
     hass.data[PROXY_CLIENT_KEY] = _make_client()
 
     events: list = []
-    hass.bus.async_listen(_SECURITY_EVENT, lambda e: events.append(e))
+
+    async def _collect(event):  # noqa: ANN001
+        events.append(event)
+
+    hass.bus.async_listen(_SECURITY_EVENT, _collect)
 
     exp = str(int(time.time()) + 3600)
     view = FrigateMediaProxyView()
@@ -133,7 +143,11 @@ async def test_proxy_url_expiree_retourne_404(hass: HomeAssistant) -> None:
     hass.data[PROXY_CLIENT_KEY] = _make_client()
 
     events: list = []
-    hass.bus.async_listen(_SECURITY_EVENT, lambda e: events.append(e))
+
+    async def _collect(event):  # noqa: ANN001
+        events.append(event)
+
+    hass.bus.async_listen(_SECURITY_EVENT, _collect)
 
     exp_past = str(int(time.time()) - 1)
     view = FrigateMediaProxyView()
