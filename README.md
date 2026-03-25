@@ -123,7 +123,27 @@ https://<your-ha>/api/frigate_em/media/api/events/<id>/snapshot.jpg?exp=<timesta
 
 When the mobile app opens the link, HA verifies the signature and expiry, then proxies the request to Frigate internally. **Your mobile app never needs direct access to Frigate.**
 
-URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h). When a link expires, the app is redirected to the HA root page instead of receiving a generic error.
+URLs expire after a configurable TTL (default **1 hour**, adjustable in the connection step: 5 min → 24 h). All invalid or expired URLs return a generic `404` — no information about why the request failed is exposed to the caller.
+
+When a URL with an **invalid or forged signature** is rejected, the integration automatically:
+
+- Logs a `WARNING` in the HA logs (path + client IP)
+- Fires a `frigate_em_security_event` event on the HA event bus
+- Creates a **persistent notification** in the HA frontend
+
+You can build an automation on this event to alert on suspicious activity:
+
+```yaml
+automation:
+  trigger:
+    platform: event
+    event_type: frigate_em_security_event
+  action:
+    service: notify.mobile_app_your_phone
+    data:
+      title: "Frigate EM — suspicious request"
+      message: "Invalid URL from {{ trigger.event.data.ip }}"
+```
 
 ### Prerequisite
 
