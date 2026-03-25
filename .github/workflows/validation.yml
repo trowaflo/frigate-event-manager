@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   python:
-    uses: trowaflo/github-actions/.github/workflows/ha-integration.yml@70a08a732791ce4af219f4edf4cabb92f96900e9 # main
+    uses: trowaflo/github-actions/.github/workflows/ha-integration.yml@55022b1ab648443f4f2b501aefe2f3244174ceea # main
     with:
       component_name: frigate_event_manager
     secrets:
@@ -22,7 +22,7 @@ jobs:
 
   markdown:
     if: github.event_name == 'pull_request'
-    uses: trowaflo/github-actions/.github/workflows/lint-markdown.yml@70a08a732791ce4af219f4edf4cabb92f96900e9 # main
+    uses: trowaflo/github-actions/.github/workflows/lint-markdown.yml@55022b1ab648443f4f2b501aefe2f3244174ceea # main
 
   # kics temporarily disabled — supply chain attack on checkmarx/kics-github-action (2026-03-23)
   # Re-enable once Checkmarx confirms the action is safe and the SHA is verified
