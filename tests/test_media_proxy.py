@@ -137,7 +137,44 @@ async def test_proxy_signature_invalide_sans_ip_retourne_404(hass: HomeAssistant
 
 
 async def test_proxy_url_expiree_retourne_404(hass: HomeAssistant) -> None:
-    """An expired URL returns 404 without firing a security event."""
+    """An expired URL with a valid signature returns 404 without firing a security event."""
+    # Build a signer with a mutable time reference so we can sign in the past.
+    t = [time.time()]
+    signer = MediaSigner(
+        "https://ha.local/api/frigate_em/media", ttl=3600, _now=lambda: t[0]
+    )
+    hass.data[SIGNER_DOMAIN_KEY] = signer
+    hass.data[PROXY_CLIENT_KEY] = _make_client()
+
+    # Sign a URL 2 h ago → exp = t[0] - 3600, already expired at current time.
+    path = "/api/events/abc/snapshot.jpg"
+    t[0] -= 7200
+    url = signer.sign_url(path)
+    qs = url.split("?")[1]
+    t[0] += 7200  # restore to "now"
+
+    events: list = []
+
+    async def _collect(event):  # noqa: ANN001
+        events.append(event)
+
+    hass.bus.async_listen(_SECURITY_EVENT, _collect)
+
+    view = FrigateMediaProxyView()
+
+    with patch("custom_components.frigate_event_manager.media_proxy.pn_create") as mock_pn:
+        response = await view.get(_make_request(hass, qs), "api/events/abc/snapshot.jpg")
+    await hass.async_block_till_done()
+
+    assert response.status == 404
+    assert events == []
+    mock_pn.assert_not_called()
+
+
+async def test_proxy_url_expiree_et_forgee_retourne_404_avec_event(
+    hass: HomeAssistant,
+) -> None:
+    """An expired URL with an *invalid* signature fires a security event (forged request)."""
     signer = _make_signer()
     hass.data[SIGNER_DOMAIN_KEY] = signer
     hass.data[PROXY_CLIENT_KEY] = _make_client()
@@ -154,14 +191,17 @@ async def test_proxy_url_expiree_retourne_404(hass: HomeAssistant) -> None:
 
     with patch("custom_components.frigate_event_manager.media_proxy.pn_create") as mock_pn:
         response = await view.get(
-            _make_request(hass, f"exp={exp_past}&kid=0&sig=whatever"),
+            _make_request(hass, f"exp={exp_past}&kid=0&sig=forgedsig", remote="10.0.0.2"),
             "api/events/abc/snapshot.jpg",
         )
     await hass.async_block_till_done()
 
     assert response.status == 404
-    assert events == []
-    mock_pn.assert_not_called()
+    assert len(events) == 1
+    assert events[0].data["reason"] == "invalid_signature"
+    assert events[0].data["ip"] == "10.0.0.2"
+    assert events[0].data["path"] == "/api/events/abc/snapshot.jpg"
+    mock_pn.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

@@ -200,9 +200,12 @@ sequenceDiagram
         Proxy-->>App: 200 media content
     else verify() False — distinguish reason
         Signer-->>Proxy: False
-        alt is_expired(exp) = True
-            Proxy-->>App: 404 (expired — normal, debug log only)
-        else Invalid / forged signature
+        Proxy->>Signer: has_valid_signature(path, exp, kid, sig)
+        alt has_valid_signature = True (expired, valid HMAC)
+            Signer-->>Proxy: True
+            Proxy-->>App: 404 (expired — debug log only)
+        else has_valid_signature = False (forged / unknown key)
+            Signer-->>Proxy: False
             Proxy->>Bus: async_fire("frigate_em_security_event", {ip, path})
             Proxy->>Proxy: pn_create() — HA persistent notification
             Proxy-->>App: 404 (suspicious — warning log)

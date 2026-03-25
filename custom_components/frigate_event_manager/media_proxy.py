@@ -55,8 +55,9 @@ class FrigateMediaProxyView(HomeAssistantView):
                 content_type = _FALLBACK_CONTENT_TYPE
             return web.Response(body=content, content_type=content_type)
 
-        # verify() failed — distinguish expired (expected) from forged (suspicious)
-        if signer.is_expired(exp_str):
+        # verify() failed — distinguish expired-but-legitimate from forged
+        if signer.has_valid_signature(full_path, exp_str, kid_str, sig):
+            # Valid HMAC but past expiry — expected, no alert
             _LOGGER.debug("presigned URL expired — path=%s", full_path)
         else:
             remote = request.remote or "unknown"

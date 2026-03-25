@@ -150,6 +150,72 @@
     Dé-commenter le job `kics` dans `validation.yml`.
     Vérifier le SHA du reusable workflow `kics.yml` dans `trowaflo/github-actions`.
 
+### T-548 | Proxy sécurisé — distinction expired vs forged via `has_valid_signature()`
+
+- Status: DONE
+- Owner: python-architect
+- Scope: `custom_components/frigate_event_manager/domain/signer.py`, `custom_components/frigate_event_manager/domain/ports.py`, `custom_components/frigate_event_manager/media_proxy.py`, `tests/test_media_proxy.py`, `docs/architecture.md`
+- Locks: —
+- Depends: —
+- Blocks: T-548b, T-548d
+- Notes: |
+    Ajouter `has_valid_signature(path, exp_str, kid_str, sig) -> bool` sur `MediaSigner`
+    et `MediaSignerPort` : vérifie HMAC uniquement, sans short-circuit sur expiry.
+    Mettre à jour `media_proxy.py` : après `verify()` échoue, appeler `has_valid_signature()`.
+    Si forged (sig invalide), déclencher le security event même si l'URL est expirée.
+    Si expired avec sig valide : DEBUG uniquement (comportement inchangé).
+    Corriger `test_proxy_url_expiree_retourne_404` : utiliser une vraie sig expirée (pas `sig=whatever`).
+    Ajouter cas de test : forged+expired → security event déclenché.
+    Corriger `docs/architecture.md` : diagram aligné sur "404 uniforme", supprimer implication
+    de distinction "expired-but-valid-sig" dans le diagram actuel.
+
+### T-548b | Review qualité + sécurité — `has_valid_signature()`
+
+- Status: DONE
+- Owner: reviewer
+- Scope: `custom_components/frigate_event_manager/domain/signer.py`, `custom_components/frigate_event_manager/domain/ports.py`, `custom_components/frigate_event_manager/media_proxy.py`, `tests/test_media_proxy.py`, `docs/architecture.md`
+- Locks: —
+- Depends: T-548
+- Blocks: T-548c
+- Notes: |
+    Status: APPROVED
+    Security: SECURITY_OK
+    Doc: NO_CHANGE_NEEDED
+    PENDING_FIXUP:
+      PF-01 (INFO) — `tests/test_media_proxy.py`:201 : `test_proxy_url_expiree_et_forgee_retourne_404_avec_event`
+        ne vérifie pas `events[0].data["path"]`.
+        Ajouter `assert events[0].data["path"] == "/api/events/abc/snapshot.jpg"`
+        pour cohérence avec `test_proxy_signature_invalide_retourne_404`.
+
+### T-548d | Tests + couverture — `has_valid_signature()`
+
+- Status: DONE
+- Owner: quality-guard
+- Scope: `tests/test_media_proxy.py`
+- Locks: —
+- Depends: T-548
+- Blocks: T-548c
+- Notes: |
+    Coverage: `media_proxy.py` 98%, `domain/signer.py` 97%, TOTAL 99%.
+    7/7 tests passent, 419 passent globalement.
+    Tous les cas obligatoires couverts : forged+expired → security event (T+T),
+    expired+valid-sig → debug only (T+F), `has_valid_signature()` kid inconnu/sig invalide/sig valide.
+    Seule ligne non couverte : `except (ValueError, TypeError)` dans `has_valid_signature()`
+    pour paramètres non-numériques — cas défensif, non requis par T-548d.
+
+### T-548c | Simplification — batch fixes T-548b
+
+- Status: DONE
+- Owner: code-simplifier
+- Scope: `custom_components/frigate_event_manager/domain/signer.py`, `custom_components/frigate_event_manager/domain/ports.py`, `custom_components/frigate_event_manager/media_proxy.py`, `tests/test_media_proxy.py`
+- Locks: —
+- Depends: T-548b, T-548d
+- Blocks: —
+- Notes: |
+    PF-01 appliqué : `assert events[0].data["path"] == "/api/events/abc/snapshot.jpg"`
+    ajouté dans `test_proxy_url_expiree_et_forgee_retourne_404_avec_event`.
+    ruff OK, 7/7 tests passent.
+
 ---
 
 <!--

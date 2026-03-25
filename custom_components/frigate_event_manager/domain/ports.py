@@ -50,3 +50,13 @@ class MediaSignerPort(Protocol):
     def verify(self, path: str, exp_str: str, kid_str: str, sig: str) -> bool:
         """Verify that a presigned URL is valid and not expired."""
         ...
+
+    def has_valid_signature(
+        self, path: str, exp_str: str, kid_str: str, sig: str
+    ) -> bool:
+        """Check HMAC only — no expiry check.
+
+        Returns True if the signature is cryptographically valid regardless of
+        whether the URL has expired.
+        """
+        ...

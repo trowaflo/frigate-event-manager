@@ -90,6 +90,28 @@ class MediaSigner:
         expected = self._compute_hmac(key, path, exp, kid)
         return hmac.compare_digest(sig, expected)
 
+    def has_valid_signature(
+        self, path: str, exp_str: str, kid_str: str, sig: str
+    ) -> bool:
+        """Check HMAC only — no expiry check.
+
+        Returns True if the signature is cryptographically valid regardless of
+        whether the URL has expired.  Use this to distinguish an expired-but-
+        legitimate URL (DEBUG only) from a forged one (security event).
+        """
+        try:
+            exp = int(exp_str)
+            kid = int(kid_str)
+        except (ValueError, TypeError):
+            return False
+
+        key = self._get_key(kid)
+        if key is None:
+            return False
+
+        expected = self._compute_hmac(key, path, exp, kid)
+        return hmac.compare_digest(sig, expected)
+
     @staticmethod
     def _compute_hmac(key: bytes, path: str, exp: int, kid: int) -> str:
         payload = f"{path}\n{exp}\n{kid}".encode()
