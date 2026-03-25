@@ -126,6 +126,18 @@ Agents avec scopes stricts pour les taches multi-composants :
     VIOLATION → cycles inutiles detectes (ex: T-521 fixup sur 1 ligne strings.json)
 ```
 
+```text
+[RULE] conversational_feature_trigger:
+    TRIGGER:  > 2 commits sur des fichiers de code metier dans la session courante
+              OU choix d'architecture (securite, event bus, reponse HTTP, ports...)
+    THEN:     creer T-XXX dans .claude/tasks.md AVANT le prochain commit
+              lancer le pipeline complet (implement → review + quality-guard → simplify)
+    NEVER:    traiter chaque message comme un fix isole si l'ensemble forme une feature
+    WHY:      T-547 implemente sans pipeline → MAJOR securite (path non borne)
+              detecte uniquement par le reviewer — pipeline rattrapé en urgence
+    VIOLATION → issues securite non detectees, reviewer non lance
+```
+
 - **Lancer** : "Utilise l'agent orchestrator pour [tache]"
 - **Blackboard** : `.claude/tasks.md` (section Blackboard Actif) — memoire partagee entre agents
 - **Agent Teams** : actives via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` dans `.claude/settings.json`

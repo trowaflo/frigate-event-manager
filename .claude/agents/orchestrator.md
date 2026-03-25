@@ -58,7 +58,7 @@ Les agents `.claude/agents/` sont des identités invocables via le tool `Agent` 
 7. **Arbitrer** conflits de lock (règle FIFO : premier timestamp gagne)
 8. **Vérifier** avant PR :
    - `.venv/bin/pytest tests/ --cov=custom_components/frigate_event_manager --cov-fail-under=80 -q`
-   - `.venv/bin/ruff check custom_components/`
+   - `.venv/bin/ruff check .`
    - `markdownlint-cli2 '**/*.md' '!.venv/**'`
 9. **Créer PR** via `gh` — jamais merger main sans validation humaine
 
@@ -74,6 +74,18 @@ T-XXX+3 | [Feature] — simplification   → code-simplifier  (dépend T-XXX+1, 
 ```
 
 **La PR ne peut être créée qu'une fois T-XXX+3 DONE.**
+
+### Détection feature en mode conversationnel
+
+```text
+TRIGGER:  > 2 commits sur des fichiers de code métier dans la session courante
+          OU choix d'architecture (sécurité, event bus, réponse HTTP, ports...)
+THEN:     créer T-XXX dans .claude/tasks.md AVANT le prochain commit
+          lancer le pipeline complet (implement → review + quality-guard → simplify)
+NEVER:    traiter chaque message comme un fix isolé si l'ensemble forme une feature
+WHY:      T-547 implémenté sans pipeline → MAJOR sécurité (path non borné)
+          détecté uniquement par le reviewer — pipeline rattrapé en urgence
+```
 
 - T-XXX+1 et T-XXX+2 peuvent démarrer en parallèle dès T-XXX DONE
 - T-XXX+3 attend les deux
