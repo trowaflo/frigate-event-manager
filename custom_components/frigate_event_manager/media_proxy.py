@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import logging
+from html import escape
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.persistent_notification import async_create as pn_create
 
 from .const import PROXY_CLIENT_KEY, SIGNER_DOMAIN_KEY
 
 _LOGGER = logging.getLogger(__name__)
+
+_SECURITY_EVENT = "frigate_em_security_event"
+_SECURITY_NOTIF_ID = "fem_invalid_signature"
 
 
 class FrigateMediaProxyView(HomeAssistantView):
@@ -37,25 +42,33 @@ class FrigateMediaProxyView(HomeAssistantView):
         sig = request.query.get("sig", "")
         full_path = f"/{path}"
 
-        # Expiry is checked before signature: any URL past its exp is redirected
-        # to HA root regardless of signature validity. This maximises UX (the user
-        # can re-authenticate) without weakening security — an attacker with a
-        # forged but expired URL is harmlessly sent to the HA login page.
+        if signer.verify(full_path, exp_str, kid_str, sig):
+            try:
+                content, content_type = await client.get_media(full_path)
+            except Exception:
+                _LOGGER.exception("Frigate proxy error — path=%s", full_path)
+                return web.Response(status=502, text="bad gateway")
+            return web.Response(body=content, content_type=content_type)
+
+        # verify() failed — distinguish expired (expected) from forged (suspicious)
         if signer.is_expired(exp_str):
-            ha_url = hass.config.external_url or hass.config.internal_url
-            if ha_url:
-                _LOGGER.debug("expired presigned URL — redirecting to HA root, path=%s", full_path)
-                return web.HTTPFound(location=ha_url)
-            return web.Response(status=401, text="unauthorized")
+            _LOGGER.debug("presigned URL expired — path=%s", full_path)
+        else:
+            remote = request.remote or "unknown"
+            _LOGGER.warning(
+                "presigned URL rejected — invalid signature, path=%s ip=%s",
+                full_path,
+                remote,
+            )
+            hass.bus.async_fire(
+                _SECURITY_EVENT,
+                {"reason": "invalid_signature", "path": full_path, "ip": remote},
+            )
+            pn_create(
+                hass,
+                message=f"Invalid presigned URL from **{escape(remote)}**: `{escape(full_path)}`",
+                title="Frigate EM — suspicious request",
+                notification_id=_SECURITY_NOTIF_ID,
+            )
 
-        if not signer.verify(full_path, exp_str, kid_str, sig):
-            _LOGGER.warning("invalid presigned URL — path=%s", full_path)
-            return web.Response(status=401, text="unauthorized")
-
-        try:
-            content, content_type = await client.get_media(full_path)
-        except Exception:
-            _LOGGER.exception("Frigate proxy error — path=%s", full_path)
-            return web.Response(status=502, text="bad gateway")
-
-        return web.Response(body=content, content_type=content_type)
+        return web.Response(status=404, text="not found")
