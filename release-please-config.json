@@ -3,6 +3,13 @@
   "packages": {
     ".": {
       "release-type": "simple",
+      "exclude-paths": [
+        ".github",
+        ".pre-commit-config.yaml",
+        "renovate.json",
+        "release-please-config.json",
+        ".release-please-manifest.json"
+      ],
       "extra-files": [
         {
           "type": "json",
