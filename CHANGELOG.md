@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/trowaflo/frigate-event-manager/compare/v0.11.0...v0.12.0) (2026-03-26)
+
+
+### Features
+
+* media proxy avec 404 uniforme, event bus et notification sécurité ([#22](https://github.com/trowaflo/frigate-event-manager/issues/22)) ([0ce1586](https://github.com/trowaflo/frigate-event-manager/commit/0ce1586b9f4d9add007653e0f4e9a57db0e2b360))
+
 ## [0.11.0](https://github.com/trowaflo/frigate-event-manager/compare/v0.10.0...v0.11.0) (2026-03-23)
 
 
