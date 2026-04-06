@@ -1,0 +1,15 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    uses: trowaflo/github-actions/.github/workflows/release.yml@fd881256daff836dd9595efd90f646c26a6deae4 # v2.0.0
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      enable_release_please: true
+      harden_runner_egress_policy: audit
