@@ -10,22 +10,21 @@ on:
 permissions: read-all
 
 jobs:
-  quality:
-    uses: trowaflo/github-actions/.github/workflows/quality.yml@fd881256daff836dd9595efd90f646c26a6deae4 # v2.0.0
+  lint:
+    uses: trowaflo/github-actions/.github/workflows/lint.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
     permissions:
       contents: read
-      pull-requests: write
       security-events: write
-      actions: read
     with:
       enable_markdown_lint: true
       harden_runner_egress_policy: audit
 
   python:
-    uses: trowaflo/github-actions/.github/workflows/python.yml@fd881256daff836dd9595efd90f646c26a6deae4 # v2.0.0
+    uses: trowaflo/github-actions/.github/workflows/ci-python.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
     permissions:
       contents: read
     with:
+      enable_lint: true
       enable_test: true
       coverage_path: custom_components/frigate_event_manager
       extra_packages: pytest-homeassistant-custom-component
@@ -35,7 +34,7 @@ jobs:
 
   ha:
     if: github.event_name == 'pull_request'
-    uses: trowaflo/github-actions/.github/workflows/ha.yml@fd881256daff836dd9595efd90f646c26a6deae4 # v2.0.0
+    uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
     permissions:
       contents: read
     with:

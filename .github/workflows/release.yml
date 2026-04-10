@@ -6,7 +6,7 @@ on:
 
 jobs:
   release:
-    uses: trowaflo/github-actions/.github/workflows/release.yml@fd881256daff836dd9595efd90f646c26a6deae4 # v2.0.0
+    uses: trowaflo/github-actions/.github/workflows/release.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
     permissions:
       contents: write
       pull-requests: write
