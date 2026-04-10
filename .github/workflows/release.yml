@@ -12,4 +12,3 @@ jobs:
       pull-requests: write
     with:
       enable_release_please: true
-      harden_runner_egress_policy: audit

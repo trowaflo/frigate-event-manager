@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -10,6 +8,17 @@ on:
 permissions: read-all
 
 jobs:
+  security:
+    uses: trowaflo/github-actions/.github/workflows/security.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+    with:
+      enable_dependency_review: true
+      enable_checkov: true
+      enable_trivy: true
+
   lint:
     uses: trowaflo/github-actions/.github/workflows/lint.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
     permissions:
@@ -17,7 +26,14 @@ jobs:
       security-events: write
     with:
       enable_markdown_lint: true
+      enable_json_lint: true
       harden_runner_egress_policy: audit
+
+  ha:
+    uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    with:
+      enable_hacs: true
+      enable_hassfest: true
 
   python:
     uses: trowaflo/github-actions/.github/workflows/ci-python.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
@@ -28,7 +44,6 @@ jobs:
       enable_test: true
       coverage_path: custom_components/frigate_event_manager
       extra_packages: pytest-homeassistant-custom-component
-      harden_runner_egress_policy: audit
     secrets:
       codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
