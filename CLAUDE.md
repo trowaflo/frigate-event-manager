@@ -196,6 +196,14 @@ Agents avec scopes stricts pour les taches multi-composants :
 
 Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT natif HA, filtre, throttle, et envoie des notifications HA Companion. Publiee via HACS custom repository.
 
+## Branches
+
+```text
+[NL] Convention : <type>/<description-courte>
+     Types : feat | fix | chore | docs | refactor | test
+     Exemples : feat/camera-zone-filter, fix/throttle-race, chore/update-ci-digest
+```
+
 ## Commits
 
 ```text
@@ -214,6 +222,30 @@ Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT nat
     PUSH_WHEN: task ci passe au vert ET feature/fix complete — OU demande explicite
     NEVER:     pusher pour "voir si la CI passe" — task ci doit passer en local d'abord
     VIOLATION: CI triggee inutilement sur chaque commit intermediaire
+
+[RULE] branch_before_commit:
+    ALWAYS: git checkout -b <type>/<description> AVANT le premier commit
+    NEVER:  committer directement sur main
+    VIOLATION → commit atterrit sur main, rebase necessaire pour corriger
+```
+
+## Versioning
+
+Gere automatiquement par **release-please** (CI `release.yml`).
+
+- Ne **jamais** bumper `version` manuellement dans `manifest.json`
+- Le PR de release est cree/mis a jour automatiquement a chaque push sur `main`
+- Merger ce PR declenche la creation du tag + release GitHub
+
+## CI GitHub Actions
+
+Les workflows utilisent des reusable workflows de `trowaflo/github-actions` (digest SHA fixe).
+Pour mettre a jour le digest :
+
+```bash
+# Dernier digest de la branche main
+gh api repos/trowaflo/github-actions/git/refs/heads/main --jq '.object.sha'
+# Puis remplacer le SHA dans .github/workflows/*.yml
 ```
 
 ## Commands
@@ -221,6 +253,14 @@ Integration Home Assistant HACS (Python). Ecoute les events Frigate via MQTT nat
 ```bash
 task test   # pytest + coverage ≥80%
 task lint   # ruff + markdownlint
+task ci     # test + lint (miroir CI)
+
+# Skills disponibles
+/archi      # expliquer l'architecture ou un composant
+/lint       # ruff + markdownlint avec auto-fix
+/test       # pytest avec analyse des résultats
+/dev-replay # envoyer un event MQTT de test
+/deploy     # déployer vers HA OS via SSH
 ```
 
 ```bash
@@ -247,11 +287,15 @@ MQTT Broker → FrigateEventManagerCoordinator → FilterChain → Throttler →
 
 ### Composants cles
 
+- **`domain/`** : cœur métier pur (sans dépendance HA)
+  - `model.py` : `FrigateEvent`, `CameraState`
+  - `filter.py` : `ZoneFilter`, `LabelFilter`, `TimeFilter`, `FilterChain`
+  - `throttle.py` : anti-spam cooldown, clock injectable
+  - `ports.py` : interfaces abstraites (ports hexagonaux)
+  - `signer.py` : HMAC signing pour media proxy
 - **`coordinator.py`** : souscrit MQTT, parse payload Frigate → `FrigateEvent`, maintient `CameraState` par caméra
-- **`filter.py`** : `ZoneFilter`, `LabelFilter`, `TimeFilter`, `FilterChain` — liste vide = tout accepter
 - **`registry.py`** : persistence état caméras dans `hass.config.path("frigate_em_state.json")`
 - **`event_store.py`** : ring buffer 200 events, stats 24h
-- **`throttle.py`** : anti-spam cooldown par caméra, clock injectable
 - **`notifier.py`** : notifications HA Companion via `hass.services.async_call`
 
 ## Conventions
