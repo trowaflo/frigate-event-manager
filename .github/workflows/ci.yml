@@ -31,6 +31,8 @@ jobs:
 
   ha:
     uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    permissions:
+      contents: read
     with:
       enable_hacs: true
       enable_hassfest: true
@@ -46,13 +48,3 @@ jobs:
       extra_packages: pytest-homeassistant-custom-component
     secrets:
       codecov_token: ${{ secrets.CODECOV_TOKEN }}
-
-  ha:
-    if: github.event_name == 'pull_request'
-    uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
-    permissions:
-      contents: read
-    with:
-      enable_hacs: true
-      enable_hassfest: true
-      harden_runner_egress_policy: audit
