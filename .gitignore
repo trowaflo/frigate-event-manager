@@ -26,3 +26,13 @@ dist/
 *.pem
 *.p12
 *.pfx
+
+# graphify knowledge graph
+# Version only the semantic cache (LLM token investment) + the human report.
+# Everything else (AST cache, graph.json/html, dotfiles, dated snapshots) is
+# regenerable for free with `/graphify --update` — no LLM tokens spent.
+graphify-out/*
+!graphify-out/GRAPH_REPORT.md
+!graphify-out/cache/
+graphify-out/cache/*
+!graphify-out/cache/semantic/
