@@ -9,7 +9,7 @@ permissions: read-all
 
 jobs:
   security:
-    uses: trowaflo/github-actions/.github/workflows/security.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    uses: trowaflo/github-actions/.github/workflows/security.yml@c62d1b93d63953495704ff3c980b0ec8414e54f9 # v4.0.1
     permissions:
       contents: read
       pull-requests: write
@@ -20,7 +20,7 @@ jobs:
       enable_trivy: true
 
   lint:
-    uses: trowaflo/github-actions/.github/workflows/lint.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    uses: trowaflo/github-actions/.github/workflows/lint.yml@c62d1b93d63953495704ff3c980b0ec8414e54f9 # v4.0.1
     permissions:
       contents: read
       security-events: write
@@ -30,7 +30,7 @@ jobs:
       harden_runner_egress_policy: audit
 
   ha:
-    uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    uses: trowaflo/github-actions/.github/workflows/ci-ha.yml@c62d1b93d63953495704ff3c980b0ec8414e54f9 # v4.0.1
     permissions:
       contents: read
     with:
@@ -38,7 +38,7 @@ jobs:
       enable_hassfest: true
 
   python:
-    uses: trowaflo/github-actions/.github/workflows/ci-python.yml@d51fc48891c455f85a902e3d23f8ac7a52ef273e # v1.1.0
+    uses: trowaflo/github-actions/.github/workflows/ci-python.yml@c62d1b93d63953495704ff3c980b0ec8414e54f9 # v4.0.1
     permissions:
       contents: read
     with:
