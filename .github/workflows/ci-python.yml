@@ -1,0 +1,93 @@
+name: Python CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  _HARDEN_DEFAULTS: >-
+    agent.api.stepsecurity.io:443
+    github.com:443
+    api.github.com:443
+    pypi.org:443
+    files.pythonhosted.org:443
+    codecov.io:443
+    cli.codecov.io:443
+    ingest.codecov.io:443
+    keybase.io:443
+    storage.googleapis.com:443
+
+jobs:
+  test:
+    name: Test Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write   # OIDC codecov, remplace CODECOV_TOKEN
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env._HARDEN_DEFAULTS }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ] || [ -f setup.py ]; then pip install .; fi
+          pip install pytest-homeassistant-custom-component
+      - name: Run pytest
+        run: |
+          pytest \
+            --cov=custom_components/frigate_event_manager \
+            --cov-report=xml \
+            --cov-fail-under=80 \
+            tests/ -v
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          use_oidc: true
+          fail_ci_if_error: true
+
+  lint:
+    name: Lint Python (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: block
+          allowed-endpoints: ${{ env._HARDEN_DEFAULTS }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      # Roue épinglée par hash, wheels seules : même règle que le job yamllint de lint.yml.
+      - name: Run ruff
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ruff-requirements.txt" <<'REQ'
+          # renovate: datasource=pypi depName=ruff
+          ruff==0.15.9 \
+              --hash=sha256:2b0c7c341f68adb01c488c3b7d4b49aa8ea97409eae6462d860a79cf55f431b6
+          REQ
+          pip install --require-hashes --only-binary=:all: -r "$RUNNER_TEMP/ruff-requirements.txt"
+          ruff check .
