@@ -9,7 +9,7 @@ permissions: read-all
 
 jobs:
   security:
-    uses: trowaflo/github-actions/.github/workflows/security.yml@9c55705cbbca2481656de92c10402a7d27ef61ab # v5.0.0
+    uses: trowaflo/github-actions/.github/workflows/security.yml@3f2cc0504b841ef8f0b1dfcc4edd273309eebd27 # v5.1.1
     permissions:
       contents: read
       pull-requests: write
@@ -20,7 +20,7 @@ jobs:
       enable_trivy: true
 
   lint:
-    uses: trowaflo/github-actions/.github/workflows/lint.yml@9c55705cbbca2481656de92c10402a7d27ef61ab # v5.0.0
+    uses: trowaflo/github-actions/.github/workflows/lint.yml@3f2cc0504b841ef8f0b1dfcc4edd273309eebd27 # v5.1.1
     permissions:
       contents: read
       security-events: write
